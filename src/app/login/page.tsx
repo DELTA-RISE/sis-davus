@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Lock, User, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { getProfile, saveAuditLog } from "@/lib/db";
+import { getProfile, saveAuditLog, saveUser } from "@/lib/db";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -68,6 +68,12 @@ export default function LoginPage() {
             entity_id: profile.id,
             user_name: profile.name,
             details: `O usuário ${profile.name} realizou login no sistema.`,
+          });
+
+          // Atualizar último acesso
+          await saveUser({
+            id: profile.id,
+            last_login: new Date().toISOString()
           });
         }
       }
