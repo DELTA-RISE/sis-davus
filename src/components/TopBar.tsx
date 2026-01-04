@@ -188,6 +188,7 @@ export function TopBar() {
 
           <div className="flex items-center gap-1">
             <Button
+              id="mobile-search-btn"
               variant="ghost"
               size="icon"
               className="h-9 w-9"
@@ -197,6 +198,7 @@ export function TopBar() {
             </Button>
 
             <Button
+              id="mobile-qr-btn"
               variant="ghost"
               size="icon"
               className="h-9 w-9"
@@ -208,6 +210,7 @@ export function TopBar() {
             <Popover>
               <PopoverTrigger asChild>
                 <Button
+                  id="mobile-notif-btn"
                   variant="ghost"
                   size="icon"
                   className="h-9 w-9 relative"

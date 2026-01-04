@@ -42,7 +42,8 @@ export function MagneticButton({ children, className, ...props }: MagneticButton
                 {...props}
             >
                 <motion.span
-                    style={{ position: "relative", display: "inline-block" }}
+                    style={{ position: "relative" }}
+                    className="flex items-center justify-center gap-2 whitespace-nowrap"
                     animate={{ x: textPosition.x, y: textPosition.y }}
                     transition={{ type: "spring", stiffness: 300, damping: 20, mass: 0.1 }}
                 >

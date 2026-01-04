@@ -1,51 +1,124 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useMemo } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { Float, MeshTransmissionMaterial, Text } from "@react-three/drei";
+import { Float, MeshTransmissionMaterial, Text, Trail } from "@react-three/drei";
 import * as THREE from "three";
+import { useScrollStore } from "@/lib/landing-store";
 
 export function Scene() {
     const { viewport } = useThree();
     const isMobile = viewport.width < 5;
 
-    // Refs for animation
-    const coreRef = useRef<THREE.Group>(null);
+    // Global Scroll State from Zustand
+    const scrollProgress = useScrollStore((state) => state.scrollProgress);
+
+    // Refs
+    const groupRef = useRef<THREE.Group>(null);
+    const coreRef = useRef<THREE.Mesh>(null);
+    const globeRef = useRef<THREE.Group>(null);
+    const shieldRef = useRef<THREE.Mesh>(null);
     const ring1Ref = useRef<THREE.Mesh>(null);
     const ring2Ref = useRef<THREE.Mesh>(null);
     const ring3Ref = useRef<THREE.Mesh>(null);
+
+    // Particles Data
+    const particleCount = 40;
+    const particles = useMemo(() => {
+        const temp = [];
+        for (let i = 0; i < particleCount; i++) {
+            const t = Math.random() * 100;
+            const factor = 20 + Math.random() * 100;
+            const speed = 0.01 + Math.random() / 200;
+            const xFactor = -50 + Math.random() * 100;
+            const yFactor = -50 + Math.random() * 100;
+            const zFactor = -50 + Math.random() * 100;
+            temp.push({ t, factor, speed, xFactor, yFactor, zFactor, mx: 0, my: 0 });
+        }
+        return temp;
+    }, []);
 
     useFrame((state) => {
         const t = state.clock.getElapsedTime();
         const { x, y } = state.mouse;
 
-        // Animate Rings (Gyroscope effect)
+        // --- PHASE LOGIC ---
+        // 0.0 - 0.3: DATA (Octahedron + Chaos)
+        // 0.3 - 0.6: NETWORK (Sphere + Connectivity)
+        // 0.6 - 1.0: SECURITY (Icosahedron/Shield + Stability)
+
+        // Helper for smooth opacity/scale transitions
+        const getPhaseIntensity = (start: number, end: number) => {
+            // 0.1 buffer for transition
+            if (scrollProgress < start) return 0;
+            if (scrollProgress > end) return 0;
+            // Fade in
+            if (scrollProgress < start + 0.1) return (scrollProgress - start) * 10;
+            // Fade out
+            if (scrollProgress > end - 0.1) return (end - scrollProgress) * 10;
+            return 1;
+        };
+
+        // Phase 1: Data Core (Default) - Fades out as we scroll deep
+        const phase1 = 1 - THREE.MathUtils.smoothstep(scrollProgress, 0.1, 0.3);
+
+        // Phase 2: Globe Network
+        const phase2 = THREE.MathUtils.smoothstep(scrollProgress, 0.2, 0.4) * (1 - THREE.MathUtils.smoothstep(scrollProgress, 0.6, 0.8));
+
+        // Phase 3: Shield Vault
+        const phase3 = THREE.MathUtils.smoothstep(scrollProgress, 0.7, 0.9);
+
+
+        // --- ANIMATIONS ---
+
+        // Rings (Always present but change behavior)
         if (ring1Ref.current) {
-            ring1Ref.current.rotation.x = t * 0.2;
+            ring1Ref.current.rotation.x = t * 0.2 + scrollProgress * 2;
             ring1Ref.current.rotation.y = t * 0.1;
-            ring1Ref.current.rotation.z += 0.005;
+            // Expand rings based on scroll
+            const ringScale = 1 + scrollProgress * 0.5;
+            ring1Ref.current.scale.setScalar(ringScale);
         }
         if (ring2Ref.current) {
             ring2Ref.current.rotation.x = t * -0.15;
-            ring2Ref.current.rotation.y = t * 0.2;
-        }
-        if (ring3Ref.current) {
-            ring3Ref.current.rotation.x = Math.sin(t * 0.5) * 0.5;
-            ring3Ref.current.rotation.y = t * 0.3;
+            ring2Ref.current.rotation.y = t * 0.2 + scrollProgress * 2;
+            const ringScale = 1 + scrollProgress * 0.6;
+            ring2Ref.current.scale.setScalar(ringScale);
         }
 
-        // Animate Core Float
+        // 1. CORE (Octahedron)
         if (coreRef.current) {
-            // Mouse parallax for the whole group
-            // Reduce parallax intensity on mobile to prevent disorientation
-            const parallaxIntensity = isMobile ? 0.1 : 0.5;
-            coreRef.current.position.x = THREE.MathUtils.lerp(coreRef.current.position.x, x * parallaxIntensity, 0.1);
-            coreRef.current.position.y = THREE.MathUtils.lerp(coreRef.current.position.y, y * parallaxIntensity, 0.1);
-            coreRef.current.rotation.y = t * 0.1;
+            coreRef.current.scale.setScalar(phase1);
+            coreRef.current.rotation.y += 0.01;
+            coreRef.current.rotation.z += 0.005;
         }
+
+        // 2. GLOBE (Points/Sphere)
+        if (globeRef.current) {
+            globeRef.current.scale.setScalar(phase2 * 1.5); // Make it slightly larger
+            globeRef.current.rotation.y = t * 0.2;
+        }
+
+        // 3. SHIELD (Icosahedron)
+        if (shieldRef.current) {
+            shieldRef.current.scale.setScalar(phase3 * 1.2);
+            shieldRef.current.rotation.x = t * 0.1;
+            shieldRef.current.rotation.y = t * 0.1;
+        }
+
+
+        // Group Parallax
+        if (groupRef.current) {
+            const parallaxIntensity = isMobile ? 0.05 : 0.2;
+            groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, x * parallaxIntensity, 0.1);
+            groupRef.current.position.y = THREE.MathUtils.lerp(groupRef.current.position.y, y * parallaxIntensity, 0.1);
+            // Gentle bobbing
+            groupRef.current.position.y += Math.sin(t) * 0.002;
+        }
+
     });
 
-    // Material Props for the "Crystal" look
+    // Material Props
     const crystalMaterial = {
         thickness: 0.2,
         roughness: 0,
@@ -55,60 +128,67 @@ export function Scene() {
         backside: true,
     };
 
-    // Responsive scale calculation
     const scale = isMobile ? 0.65 : 1;
 
     return (
-        <group ref={coreRef} scale={[scale, scale, scale]}>
-            <Float speed={2} rotationIntensity={isMobile ? 0.2 : 0.5} floatIntensity={isMobile ? 0.2 : 0.5}>
+        <group ref={groupRef} scale={[scale, scale, scale]}>
+            <Float speed={2} rotationIntensity={isMobile ? 0.2 : 0.5} floatIntensity={0.2}>
 
-                {/* CENTER CORE: The "Data" */}
-                <mesh>
+                {/* --- STATE 1: CORE (DATA) --- */}
+                <mesh ref={coreRef}>
                     <octahedronGeometry args={[1, 0]} />
                     <MeshTransmissionMaterial {...crystalMaterial} color="#ffffff" toneMapped={false} />
                 </mesh>
 
-                {/* Inner Glow */}
-                <pointLight distance={3} intensity={4} color="#ff5d38" />
+                {/* --- STATE 2: GLOBE (NETWORK) --- */}
+                <group ref={globeRef} scale={0}>
+                    <mesh>
+                        <sphereGeometry args={[1, 16, 16]} />
+                        <meshBasicMaterial wireframe color="#3b82f6" transparent opacity={0.3} />
+                    </mesh>
+                    {/* Nodes */}
+                    {[...Array(8)].map((_, i) => (
+                        <mesh key={i} position={[
+                            Math.sin(i) * 1,
+                            Math.cos(i) * 1,
+                            Math.sin(i * 2) * 1
+                        ]}>
+                            <sphereGeometry args={[0.05]} />
+                            <meshBasicMaterial color="#60a5fa" />
+                        </mesh>
+                    ))}
+                </group>
 
-                {/* RING 1: High Tech (Orange) */}
+                {/* --- STATE 3: SHIELD (SECURITY) --- */}
+                <mesh ref={shieldRef} scale={0}>
+                    <icosahedronGeometry args={[1.2, 0]} />
+                    <MeshTransmissionMaterial
+                        {...crystalMaterial}
+                        color="#10b981"
+                        distortion={0.5}
+                        distortionScale={0.5}
+                        temporalDistortion={0.2}
+                    />
+                </mesh>
+
+
+                {/* PIVOTING RINGS (Always visible context) */}
                 <mesh ref={ring1Ref}>
-                    <torusGeometry args={[2.5, 0.05, 16, 100]} />
+                    <torusGeometry args={[2.5, 0.02, 16, 100]} />
                     <meshStandardMaterial color="#ff5d38" emissive="#ff5d38" emissiveIntensity={2} toneMapped={false} />
                 </mesh>
 
-                {/* RING 2: Stability (White/Metal) */}
                 <mesh ref={ring2Ref} rotation={[Math.PI / 2, 0, 0]}>
-                    <torusGeometry args={[3.2, 0.03, 16, 100]} />
+                    <torusGeometry args={[3.2, 0.01, 16, 100]} />
                     <meshStandardMaterial color="#ffffff" metalness={1} roughness={0.1} />
                 </mesh>
 
-                {/* RING 3: Network (Blue) */}
-                <mesh ref={ring3Ref} rotation={[0, Math.PI / 2, 0]}>
-                    <torusGeometry args={[3.8, 0.02, 16, 100]} />
-                    <meshStandardMaterial color="#3b82f6" emissive="#3b82f6" emissiveIntensity={1.5} toneMapped={false} />
-                </mesh>
-
-                {/* Floating Particles/Data Points */}
-                {[...Array(20)].map((_, i) => {
-                    const angle = (i / 20) * Math.PI * 2;
-                    const radius = 4 + Math.random() * 2;
-                    return (
-                        <group key={i} rotation={[Math.random() * Math.PI, Math.random() * Math.PI, 0]}>
-                            <mesh position={[Math.sin(angle) * radius, Math.cos(angle) * radius, 0]}>
-                                <boxGeometry args={[0.1, 0.1, 0.1]} />
-                                <meshStandardMaterial color={i % 2 === 0 ? "#ff5d38" : "#ffffff"} emissiveIntensity={2} />
-                            </mesh>
-                        </group>
-                    )
-                })}
+                {/* Ambient Environment */}
+                <pointLight position={[0, 0, 0]} intensity={2} color="#ffffff" distance={5} />
+                <ambientLight intensity={0.5} />
+                <spotLight position={[10, 10, 10]} intensity={2} angle={0.5} penumbra={1} color="#ffffff" />
 
             </Float>
-
-            {/* Ambient Environment */}
-            <ambientLight intensity={0.2} />
-            <spotLight position={[10, 10, 10]} intensity={2} angle={0.5} penumbra={1} color="#ffffff" />
-            <pointLight position={[-10, -5, -5]} intensity={5} color="#3b82f6" distance={10} />
         </group>
     );
 }

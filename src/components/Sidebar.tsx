@@ -93,6 +93,7 @@ export function Sidebar() {
                 <Link
                   key={item.href}
                   href={item.href}
+                  id={item.href === "/admin/usuarios" ? "sidebar-users" : undefined}
                   className={cn(
                     "flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-200",
                     isActive
@@ -122,6 +123,7 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              id={item.href === "/patrimonio" ? "sidebar-assets" : item.href === "/estoque" ? "sidebar-stock" : undefined}
               className={cn(
                 "flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-200",
                 isActive

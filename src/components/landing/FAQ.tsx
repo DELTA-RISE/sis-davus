@@ -3,71 +3,86 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Minus } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const faqs = [
     {
-        question: "O sistema funciona sem internet?",
-        answer: "Sim! O SIS DAVUS é um PWA (Progressive Web App) com suporte completo a offline-first. Você pode realizar movimentações e consultas sem conexão, e o sistema sincroniza automaticamente quando a rede retornar."
+        question: "O sistema funciona em áreas sem internet?",
+        answer: "Sim. O SIS DAVUS utiliza tecnologia PWA (Progressive Web App) com arquitetura Offline-First. Seus operadores podem realizar movimentações de estoque, manutenções e checkouts sem conexão. Assim que o dispositivo detectar rede, tudo é sincronizado automaticamente com a base central, garantindo integridade de dados sem conflitos."
     },
     {
-        question: "Posso gerenciar múltiplas unidades/filiais?",
-        answer: "Perfeitamente. A arquitetura foi desenhada para multi-tenancy e gestão de filiais, permitindo visão consolidada ou segregada por unidade de negócio."
+        question: "Como funciona a migração de dados legados?",
+        answer: "Nossa equipe fornece ferramentas de importação em massa (CSV/Excel) e API aberta para integração direta. Durante o setup, auxiliamos no saneamento e estruturação dos dados para garantir que seu inventário comece organizado e padronizado nas categorias corretas."
     },
     {
-        question: "Como funciona a leitura de QR Code?",
-        answer: "Utilizamos a câmera do próprio dispositivo (celular ou tablet). Cada ativo recebe uma etiqueta única gerada pelo sistema, permitindo identificação instantânea e acesso ao histórico."
+        question: "É possível criar perfis de acesso customizados?",
+        answer: "Absolutamente. O sistema possui controle de acesso baseado em cargos (RBAC). Você pode definir exatamente o que cada usuário pode ver ou editar, desde 'Apenas Visualização' até 'Administrador Global', passando por perfis específicos como 'Gestor de Manutenção' ou 'Operador de Almoxarifado'."
     },
     {
-        question: "Existe limite de usuários?",
-        answer: "Não. Nosso modelo de licenciamento Enterprise permite usuários ilimitados, com controle granular de permissões (RBAC) para garantir a segurança dos dados."
+        question: "O sistema suporta múltiplos centros de custo?",
+        answer: "Sim. A arquitetura foi desenhada para operações complexas. Você pode segregar estoques, ativos e despesas por Filial, Departamento ou Centro de Custo, permitindo relatórios financeiros detalhados e alocação precisa de recursos."
     }
 ];
 
-export function FAQSection() {
-    const [openIndex, setOpenIndex] = useState<number | null>(0);
-
+export function FAQ() {
     return (
-        <section className="py-32 px-4 bg-muted/30">
-            <div className="max-w-4xl mx-auto">
-                <div className="text-center mb-20">
-                    <h3 className="text-4xl md:text-5xl font-black mb-6 tracking-tight">Dúvidas Frequentes</h3>
-                    <p className="text-muted-foreground text-lg">Tudo o que você precisa saber sobre a implementação.</p>
+        <section className="py-32 px-4 relative z-10">
+            <div className="max-w-3xl mx-auto space-y-16">
+                <div className="text-center space-y-4">
+                    <h2 className="text-4xl md:text-5xl font-bold text-white">Dúvidas Frequentes</h2>
+                    <p className="text-white/60 text-xl">
+                        Detalhes técnicos para decisores.
+                    </p>
                 </div>
 
                 <div className="space-y-4">
                     {faqs.map((faq, i) => (
-                        <div
-                            key={i}
-                            className="border border-border/50 bg-card rounded-2xl overflow-hidden hover:border-primary/30 transition-colors"
-                        >
-                            <button
-                                onClick={() => setOpenIndex(openIndex === i ? null : i)}
-                                className="w-full flex items-center justify-between p-6 md:p-8 text-left"
-                            >
-                                <span className="text-xl font-bold tracking-tight">{faq.question}</span>
-                                <div className={`p-2 rounded-full transition-colors ${openIndex === i ? 'bg-primary text-white' : 'bg-muted'}`}>
-                                    {openIndex === i ? <Minus className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                                </div>
-                            </button>
-
-                            <AnimatePresence>
-                                {openIndex === i && (
-                                    <motion.div
-                                        initial={{ height: 0, opacity: 0 }}
-                                        animate={{ height: "auto", opacity: 1 }}
-                                        exit={{ height: 0, opacity: 0 }}
-                                        transition={{ duration: 0.3, ease: "easeInOut" }}
-                                    >
-                                        <div className="px-6 md:px-8 pb-8 pt-0 text-muted-foreground leading-relaxed text-lg">
-                                            {faq.answer}
-                                        </div>
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
-                        </div>
+                        <AccordionItem key={i} faq={faq} index={i} />
                     ))}
                 </div>
             </div>
         </section>
+    );
+}
+
+function AccordionItem({ faq, index }: { faq: any, index: number }) {
+    const [isOpen, setIsOpen] = useState(false);
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.1 }}
+            className={cn(
+                "rounded-2xl border transition-all duration-300 overflow-hidden",
+                isOpen ? "bg-white/10 border-white/20" : "bg-black/40 border-white/5 hover:border-white/10"
+            )}
+        >
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="w-full flex items-center justify-between p-6 text-left"
+            >
+                <span className={cn("text-lg font-medium transition-colors", isOpen ? "text-white" : "text-white/80")}>
+                    {faq.question}
+                </span>
+                <div className={cn("p-2 rounded-full transition-colors", isOpen ? "bg-white/20 text-white" : "bg-white/5 text-white/40")}>
+                    {isOpen ? <Minus className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+                </div>
+            </button>
+            <AnimatePresence>
+                {isOpen && (
+                    <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.3, ease: "easeInOut" }}
+                    >
+                        <div className="px-6 pb-6 text-white/60 leading-relaxed border-t border-white/5 pt-4">
+                            {faq.answer}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </motion.div>
     );
 }

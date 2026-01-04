@@ -121,7 +121,7 @@ export default function DashboardPage() {
           </div>
 
           <SlideUp>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div id="dashboard-kpi" className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               <Card className="border-border/50 bg-card/50">
                 <CardContent className="p-4 flex items-center justify-between">
                   <div>

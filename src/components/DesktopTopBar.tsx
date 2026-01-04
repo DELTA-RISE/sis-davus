@@ -29,16 +29,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  getReadNotifications,
-  saveReadNotifications,
-  getDismissedNotifications
-} from "@/lib/localStorage";
+import { getReadNotifications, saveReadNotifications, getDismissedNotifications } from "@/lib/localStorage";
 import { getProducts, getAssets } from "@/lib/db";
-import { Product, Asset } from "@/lib/store";
+import { Product, Asset, mockProducts, mockAssets } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { DialogTitle } from "@/components/ui/dialog";
+import { useOnboarding } from "@/lib/onboarding-context";
 
 interface Notification {
   id: string;
@@ -53,10 +50,12 @@ interface SearchResult {
   name: string;
   type: "product" | "asset";
   subtext: string;
+
 }
 
 export function DesktopTopBar() {
   const { userName, email, currentRole, gravatarUrl } = useAuth();
+  const { isDemoMode } = useOnboarding();
   const router = useRouter();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -73,12 +72,17 @@ export function DesktopTopBar() {
 
   useEffect(() => {
     const fetchData = async () => {
-      const [p, a] = await Promise.all([getProducts(), getAssets()]);
-      setProducts(p);
-      setAssets(a);
+      if (isDemoMode) {
+        setProducts(mockProducts);
+        setAssets(mockAssets);
+      } else {
+        const [p, a] = await Promise.all([getProducts(), getAssets()]);
+        setProducts(p);
+        setAssets(a);
+      }
     };
     fetchData();
-  }, []);
+  }, [isDemoMode]);
 
   useEffect(() => {
     const readIds = getReadNotifications();
@@ -251,6 +255,7 @@ export function DesktopTopBar() {
               <Button
                 variant="ghost"
                 size="icon"
+                id="header-notifications"
                 className="h-10 w-10 relative rounded-xl hover:bg-primary/10 hover:text-primary transition-all"
               >
                 <Bell className={cn("h-5 w-5", isBellAnimating && "animate-bell-ring text-primary")} />

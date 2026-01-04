@@ -140,6 +140,7 @@ export function BottomNav() {
           </Link>
 
           <button
+            id="mobile-nav-tools"
             onClick={() => handleNavClick("ferramentas")}
             className={cn(
               "flex flex-col items-center justify-center gap-1 flex-1 py-2 rounded-xl transition-all",

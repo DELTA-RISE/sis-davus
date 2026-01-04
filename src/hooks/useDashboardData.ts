@@ -1,9 +1,11 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { toast } from "sonner";
-import { Product, Asset, StockMovement, Checkout } from "@/lib/store";
+import { Product, Asset, StockMovement, Checkout, mockProducts, mockAssets, mockStockMovements, mockCheckouts } from "@/lib/store";
 import { getProducts, getAssets, getMovements, getCheckouts } from "@/lib/db";
+import { useOnboarding } from "@/lib/onboarding-context";
 
 export function useDashboardData() {
+    const { isDemoMode } = useOnboarding();
     const [products, setProducts] = useState<Product[]>([]);
     const [assets, setAssets] = useState<Asset[]>([]);
     const [movements, setMovements] = useState<StockMovement[]>([]);
@@ -13,23 +15,32 @@ export function useDashboardData() {
     const loadData = useCallback(async (silent = false) => {
         if (!silent) setIsLoading(true);
         try {
-            const [p, a, m, c] = await Promise.all([
-                getProducts(),
-                getAssets(),
-                getMovements(),
-                getCheckouts(),
-            ]);
-            setProducts(p);
-            setAssets(a);
-            setMovements(m);
-            setCheckouts(c);
+            if (isDemoMode) {
+                // Simulate delay for realism
+                await new Promise(resolve => setTimeout(resolve, 800));
+                setProducts(mockProducts);
+                setAssets(mockAssets);
+                setMovements(mockStockMovements);
+                setCheckouts(mockCheckouts);
+            } else {
+                const [p, a, m, c] = await Promise.all([
+                    getProducts(),
+                    getAssets(),
+                    getMovements(),
+                    getCheckouts(),
+                ]);
+                setProducts(p);
+                setAssets(a);
+                setMovements(m);
+                setCheckouts(c);
+            }
         } catch (error) {
             console.error("Failed to load dashboard data", error);
             toast.error("Erro ao carregar dados do dashboard");
         } finally {
             if (!silent) setIsLoading(false);
         }
-    }, []);
+    }, [isDemoMode]);
 
     useEffect(() => {
         loadData();

@@ -13,6 +13,8 @@ import { Button } from "./ui/button";
 
 import { ScrollProgress } from "@/components/ScrollProgress";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
+import { OnboardingProvider } from "@/lib/onboarding-context";
+import { OnboardingOverlay } from "@/components/OnboardingOverlay";
 
 function LayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -76,7 +78,12 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
       <SidebarProvider>
-        <LayoutContent>{children}</LayoutContent>
+        <OnboardingProvider>
+          <LayoutContent>
+            {children}
+            <OnboardingOverlay />
+          </LayoutContent>
+        </OnboardingProvider>
       </SidebarProvider>
     </AuthProvider>
   );

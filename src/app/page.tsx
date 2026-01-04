@@ -9,6 +9,10 @@ import { LandingHeader } from "@/components/landing/LandingHeader";
 import { MagneticButton } from "@/components/ui/magnetic-button";
 import { useAuth } from "@/lib/auth-context";
 import { SpotlightCard } from "@/components/landing/SpotlightCard";
+import { StickyScrollGuide } from "@/components/landing/StickyScrollGuide";
+import { Footer } from "@/components/landing/Footer";
+import { ImpactMetrics } from "@/components/landing/ImpactMetrics";
+import { FAQ } from "@/components/landing/FAQ";
 
 export default function LandingPage() {
   const { user } = useAuth();
@@ -199,59 +203,14 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* SECTION 3: IMMERSIVE TERMINAL */}
-        <section className="min-h-screen flex items-center justify-center py-20 px-4">
-          <div className="max-w-5xl w-full mx-auto">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-              <div className="space-y-8">
-                <div className="inline-flex items-center gap-2 text-primary font-mono text-sm uppercase tracking-widest">
-                  <Terminal className="h-4 w-4" />
-                  <span>Command Line Interface</span>
-                </div>
-                <h2 className="text-4xl md:text-6xl font-bold text-white leading-tight">
-                  O Poder na<br />Sua Mão.
-                </h2>
-                <p className="text-white/60 text-lg leading-relaxed">
-                  Não apenas visualize dados. Interaja com a infraestrutura da sua empresa como se fosse código. Rápido, preciso e sem fricção.
-                </p>
-                <div className="flex gap-4">
-                  <div className="px-6 py-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
-                    <p className="text-2xl font-bold text-white">0.05s</p>
-                    <p className="text-xs text-white/40 uppercase tracking-wider">Latência Média</p>
-                  </div>
-                  <div className="px-6 py-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
-                    <p className="text-2xl font-bold text-white">99.9%</p>
-                    <p className="text-xs text-white/40 uppercase tracking-wider">Uptime</p>
-                  </div>
-                </div>
-              </div>
+        {/* SECTION 2.5: STICKY SCROLL MORPH */}
+        {/* SECTION 2.5: STICKY SCROLL MORPH */}
+        <div className="relative z-10">
+          <StickyScrollGuide />
+        </div>
 
-              {/* Terminal Visual */}
-              <div className="bg-black/80 rounded-xl border border-white/10 p-4 font-mono text-sm shadow-2xl backdrop-blur-xl">
-                <div className="flex gap-2 mb-4">
-                  <div className="w-3 h-3 rounded-full bg-red-500" />
-                  <div className="w-3 h-3 rounded-full bg-yellow-500" />
-                  <div className="w-3 h-3 rounded-full bg-green-500" />
-                </div>
-                <div className="space-y-2 text-white/80">
-                  <p><span className="text-green-500">➜</span> <span className="text-blue-400">~</span> initialize --system</p>
-                  <p className="text-gray-500">Loading modules...</p>
-                  <p className="text-gray-500">Connecting to secure database...</p>
-                  <p className="text-green-400">✔ Connection established (42ms)</p>
-                  <br />
-                  <p><span className="text-green-500">➜</span> <span className="text-blue-400">~</span> check --inventory --status=critical</p>
-                  <div className="pl-4 border-l-2 border-white/10 my-2">
-                    <p>Scanning 1,402 items...</p>
-                    <p className="text-red-400">⚠ ATTENTION REQUIRED:</p>
-                    <p> - MacBook Pro M3 (Stock: 2 | Min: 5)</p>
-                    <p> - Monitor Dell 27" (Stock: 1 | Min: 3)</p>
-                  </div>
-                  <p><span className="text-green-500">➜</span> <span className="text-blue-400">~</span> <span className="animate-pulse">_</span></p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
+        {/* SECTION 3: IMPACT METRICS */}
+        <ImpactMetrics />
 
         {/* SECTION: INDUSTRIES (Before CTA) */}
         <section className="py-24 px-4 bg-white/5 border-y border-white/5">
@@ -297,6 +256,9 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* SECTION: FAQ */}
+        <FAQ />
+
         {/* SECTION 4: CTA */}
         <section className="min-h-[50vh] flex items-center justify-center py-20 bg-gradient-to-t from-black via-black to-transparent">
           <div className="text-center space-y-8 max-w-3xl mx-auto px-4">
@@ -310,7 +272,8 @@ export default function LandingPage() {
           </div>
         </section>
 
+        <Footer />
       </div>
-    </div>
+    </div >
   );
 }

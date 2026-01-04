@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Product } from "@/lib/store";
+import { Product, mockProducts } from "@/lib/store";
+import { useOnboarding } from "@/lib/onboarding-context";
 import { getProducts, saveProduct, deleteProduct } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { productSchema } from "@/lib/validations";
@@ -99,13 +100,26 @@ export default function EstoquePage() {
     category: "Escritório",
   });
   const { addHistoryEntry } = useItemHistory();
+  const { isDemoMode } = useOnboarding();
+  // Ensure isLoading is present if it was lost, but looking at file line 89 it exists in the OUTER function.
+  // The issue is the INNER function was added.
+  // We just need to delete the lines that started the inner function and the misplaced imports.
+  // And ensure useOnboarding is called in the main function.
+
 
   const loadData = useCallback(async (silent = false) => {
     if (!silent) setIsLoading(true);
-    const data = await getProducts();
-    setProducts(data);
+
+    if (isDemoMode) {
+      await new Promise(resolve => setTimeout(resolve, 500)); // Fake delay
+      setProducts(mockProducts);
+    } else {
+      const data = await getProducts();
+      setProducts(data);
+    }
+
     if (!silent) setIsLoading(false);
-  }, []);
+  }, [isDemoMode]);
 
   useEffect(() => {
     loadData();
@@ -266,10 +280,10 @@ export default function EstoquePage() {
       <div className="min-h-screen">
         <PullToRefresh isRefreshing={isRefreshing} pullDistance={pullDistance} threshold={threshold} />
 
-        <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b border-border">
+        <header id="stock-header" className="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b border-border">
           <div className="px-4 py-4 md:px-6 lg:px-8">
             <div className="flex items-center justify-between max-w-7xl mx-auto">
-              <div className="flex items-center gap-3">
+              <div id="stock-stats" className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
                   <Package className="h-5 w-5 text-primary" />
                 </div>
@@ -294,7 +308,7 @@ export default function EstoquePage() {
                   }
                 }}>
                   <DialogTrigger asChild>
-                    <Button size="sm" className="h-9 gap-1">
+                    <Button id="stock-new-btn" size="sm" className="h-9 gap-1">
                       <Plus className="h-4 w-4" />
                       <span className="hidden sm:inline">Novo</span>
                     </Button>

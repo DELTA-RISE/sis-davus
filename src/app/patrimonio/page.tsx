@@ -98,10 +98,17 @@ const filterConfigs: FilterConfig[] = [
   },
 ];
 
+import { useOnboarding } from "@/lib/onboarding-context";
+import { mockAssets } from "@/lib/store"; // Removed Asset (duplicate)
+
+// ... imports
+
 export default function PatrimonioPage() {
   const { userName, user } = useAuth();
+  const { isDemoMode } = useOnboarding();
   const [assets, setAssets] = useState<Asset[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true); // Restored
+
   const [searchTerm, setSearchTerm] = useState("");
   const debouncedSearch = useDebounce(searchTerm, 300);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -231,10 +238,17 @@ export default function PatrimonioPage() {
 
   const loadData = useCallback(async (silent = false) => {
     if (!silent) setIsLoading(true);
-    const data = await getAssets();
-    setAssets(data);
+
+    if (isDemoMode) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      setAssets(mockAssets);
+    } else {
+      const data = await getAssets();
+      setAssets(data);
+    }
+
     if (!silent) setIsLoading(false);
-  }, []);
+  }, [isDemoMode]);
 
   useEffect(() => {
     loadData();
@@ -350,10 +364,10 @@ export default function PatrimonioPage() {
       <div className="min-h-screen">
         <PullToRefresh isRefreshing={isRefreshing} pullDistance={pullDistance} threshold={threshold} />
 
-        <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b border-border">
+        <header id="assets-header" className="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b border-border">
           <div className="px-4 py-4 md:px-6 lg:px-8">
             <div className="flex items-center justify-between max-w-7xl mx-auto">
-              <div className="flex items-center gap-3">
+              <div id="assets-stats" className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-chart-5/20 flex items-center justify-center">
                   <Building2 className="h-5 w-5 text-chart-5" />
                 </div>
@@ -396,7 +410,7 @@ export default function PatrimonioPage() {
                     setNewAsset({ category: "Informática", condition: "Bom" });
                   }
                 }}>
-                  <Button size="sm" className="h-9 gap-1" onClick={handleOpenNew}>
+                  <Button id="assets-new-btn" size="sm" className="h-9 gap-1" onClick={handleOpenNew}>
                     <Plus className="h-4 w-4" />
                     <span className="hidden sm:inline">Novo</span>
                   </Button>
