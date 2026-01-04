@@ -34,7 +34,7 @@ export function LandingHeader() {
             }}
             animate={hidden ? "hidden" : "visible"}
             transition={{ duration: 0.35, ease: "easeInOut" }}
-            className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-md"
+            className="sticky top-0 z-50 w-full border-b border-white/5 bg-black/20 backdrop-blur-md supports-[backdrop-filter]:bg-black/20"
         >
             <nav className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between relative">
                 <motion.div

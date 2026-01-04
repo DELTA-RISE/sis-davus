@@ -1,484 +1,316 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useRef, useEffect } from "react";
 import Link from "next/link";
-import Image from "next/image";
-import { motion, AnimatePresence } from "framer-motion";
-import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { useGSAP } from "@gsap/react";
-import { Button } from "@/components/ui/button";
-import dynamic from "next/dynamic";
-import "@/lib/fix-r3f-data-props"; // Apply Three.js patches for R3F compatibility
-
-if (typeof window !== "undefined") {
-  gsap.registerPlugin(ScrollTrigger, useGSAP);
-}
-import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
-import { useAuth } from "@/lib/auth-context";
-import { DashboardDemo } from "@/components/DashboardDemo";
+import { motion, useScroll, useTransform } from "framer-motion";
+import { ArrowRight, Box, Shield, Zap, Globe, BarChart3, ChevronDown, Terminal } from "lucide-react";
+import { Experience } from "@/components/landing/cinematic/Experience";
 import { LandingHeader } from "@/components/landing/LandingHeader";
-import { NoiseOverlay } from "@/components/landing/NoiseOverlay";
-import { ParallaxShapes } from "@/components/landing/ParallaxShapes";
-// Dynamic imports handled above
 import { MagneticButton } from "@/components/ui/magnetic-button";
-import {
-  Package,
-  Building2,
-  ArrowLeftRight,
-  QrCode,
-  Shield,
-  Smartphone,
-  ChevronRight,
-  BarChart3,
-  Users,
-  Zap,
-  LayoutDashboard,
-  CheckCircle2,
-  Globe,
-  Database,
-} from "lucide-react";
-
-const features = [
-  {
-    icon: Package,
-    title: "Controle de Estoque",
-    description: "Gerencie produtos, quantidades e alertas de estoque baixo em tempo real.",
-    color: "from-orange-500 to-red-500",
-  },
-  {
-    icon: Building2,
-    title: "Gestão de Patrimônio",
-    description: "Cadastre e monitore todos os bens da empresa com rastreamento completo.",
-    color: "from-blue-500 to-cyan-500",
-  },
-  {
-    icon: ArrowLeftRight,
-    title: "Movimentações",
-    description: "Registre entradas, saídas e transferências com histórico detalhado.",
-    color: "from-green-500 to-emerald-500",
-  },
-  {
-    icon: QrCode,
-    title: "QR Code Integrado",
-    description: "Identificação rápida de patrimônios através de leitura de QR Code via câmera.",
-    color: "from-purple-500 to-pink-500",
-  },
-  {
-    icon: BarChart3,
-    title: "Relatórios Avançados",
-    description: "Dashboards e relatórios para tomada de decisão estratégica.",
-    color: "from-amber-500 to-orange-500",
-  },
-  {
-    icon: Users,
-    title: "Multi-usuários",
-    description: "Controle de acesso com níveis de permissão personalizados.",
-    color: "from-indigo-500 to-blue-500",
-  },
-];
-
-const steps = [
-  {
-    title: "Cadastre seus Itens",
-    description: "Adicione produtos ou ativos fixos com fotos, códigos e categorias.",
-    icon: Database,
-  },
-  {
-    title: "Gerencie em Tempo Real",
-    description: "Realize movimentações, checkouts e inventários de qualquer lugar.",
-    icon: ArrowLeftRight,
-  },
-  {
-    title: "Analise Resultados",
-    description: "Acompanhe métricas, custos e tendências em dashboards inteligentes.",
-    icon: BarChart3,
-  },
-];
-
-const stats = [
-  { value: "100%", label: "Segurança de Dados" },
-  { value: "Offline", label: "Suporte PWA" },
-  { value: "Realtime", label: "Sincronização" },
-  { value: "24/7", label: "Operação Contínua" },
-];
-
-const Hero3D = dynamic(() => import("@/components/landing/Hero3D").then(mod => mod.Hero3D), {
-  ssr: false,
-  loading: () => <div className="hidden ml-auto w-[600px] h-[600px] rounded-full bg-primary/5 animate-pulse lg:block" />
-});
-const BeforeAfterSlider = dynamic(() => import("@/components/landing/BeforeAfterSlider").then(mod => mod.BeforeAfterSlider), { ssr: false });
-const InteractiveGlobe = dynamic(() => import("@/components/landing/InteractiveGlobe").then(mod => mod.InteractiveGlobe), { ssr: false });
-const TypingTerminal = dynamic(() => import("@/components/landing/TypingTerminal").then(mod => mod.TypingTerminal), { ssr: false });
-
-// Lazy load below-the-fold components
-const StickyScrollGuide = dynamic(() => import("@/components/landing/StickyScrollGuide").then(mod => mod.StickyScrollGuide));
-const MegaFooter = dynamic(() => import("@/components/landing/MegaFooter").then(mod => mod.MegaFooter));
-const FAQSection = dynamic(() => import("@/components/landing/FAQ").then(mod => mod.FAQSection));
-const RoiSimulator = dynamic(() => import("@/components/landing/RoiSimulator").then(mod => mod.RoiSimulator));
-const TrustSection = dynamic(() => import("@/components/landing/TrustSection").then(mod => mod.TrustSection));
-const InteractiveStat = dynamic(() => import("@/components/landing/InteractiveStat").then(mod => mod.InteractiveStat));
+import { useAuth } from "@/lib/auth-context";
+import { SpotlightCard } from "@/components/landing/SpotlightCard";
 
 export default function LandingPage() {
-  const [mounted, setMounted] = useState(false);
   const { user } = useAuth();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: containerRef,
+    offset: ["start start", "end end"],
+  });
 
-  // ... (rest of component code until return)
+  const opacityHero = useTransform(scrollYProgress, [0, 0.1], [1, 0]);
+  const yHero = useTransform(scrollYProgress, [0, 0.1], [0, 100]);
 
   return (
-    <div className="min-h-screen bg-background selection:bg-primary/30">
-      <PWAInstallPrompt />
+    <div ref={containerRef} className="relative min-h-[400vh] bg-black selection:bg-primary/30">
 
-      {/* Dynamic Background */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-0 left-1/4 w-3/4 h-3/4 bg-gradient-to-br from-primary/20 via-blue-600/10 to-transparent blur-[120px] rounded-full mix-blend-screen animate-pulse-slow" />
-        <div className="absolute bottom-0 right-1/4 w-3/4 h-3/4 bg-gradient-to-b from-chart-5/10 via-purple-500/10 to-transparent blur-[100px] rounded-full mix-blend-screen" />
-      </div>
-      <NoiseOverlay />
-      <ParallaxShapes />
-      <Hero3D />
+      {/* 3D Background Layer */}
+      <Experience />
 
-      <LandingHeader />
+      {/* Content Layer */}
+      <div className="relative z-10">
+        <LandingHeader />
 
-      <main>
-        {/* Hero Section */}
-        <section className="relative pt-20 pb-32 px-4 overflow-hidden">
-          <div className="max-w-7xl mx-auto text-center">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-            >
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 backdrop-blur-md mb-8">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
-                </span>
-                <span className="text-xs font-medium text-primary tracking-wide">SYSTEM V4.0</span>
-              </div>
-            </motion.div>
-
-            <motion.h2
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-              className="text-6xl md:text-8xl font-black mb-8 tracking-tighter leading-[0.9] hero-title uppercase"
-            >
-              <span className="block text-foreground">Gestão de</span>
-              <span className="block text-transparent bg-clip-text bg-gradient-to-r from-primary via-blue-500 to-purple-600 animate-gradient-x bg-300%">
-                Patrimônio
+        {/* SECTION 1: HERO */}
+        <section className="h-screen w-full flex flex-col items-center justify-center relative px-4 text-center">
+          <motion.div style={{ opacity: opacityHero, y: yHero }} className="space-y-8 max-w-4xl mx-auto backdrop-blur-sm p-8 rounded-3xl border border-white/5 bg-black/20">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 mb-4">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
               </span>
-            </motion.h2>
+              <span className="text-xs font-medium text-white/70 tracking-widest uppercase">System V4.0</span>
+            </div>
 
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="text-lg md:text-xl text-muted-foreground mb-12 max-w-xl mx-auto leading-relaxed font-light tracking-wide"
-            >
-              Controle absoluto sobre ativos e estoque. A infraestrutura digital da <strong>Delta Rise</strong>.
-            </motion.p>
+            <h1 className="text-6xl md:text-8xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-white via-white/80 to-white/40 leading-tight">
+              ASSET<br />
+              <span className="text-stroke-white text-transparent">MASTERY</span>
+            </h1>
 
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.3 }}
-              className="flex flex-col sm:flex-row gap-4 justify-center items-center"
-            >
+            <p className="text-xl md:text-2xl text-white/60 font-light max-w-2xl mx-auto leading-relaxed">
+              O controle absoluto sobre o físico e o digital.
+              <br />
+              <span className="text-white/40">Inventário. Rastreamento. Inteligência.</span>
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-8">
               <Link href={user ? "/dashboard" : "/login"}>
-                <MagneticButton size="xl" className="h-14 px-10 text-lg rounded-full gap-3 shadow-xl shadow-primary/30 transition-all hover:scale-105 active:scale-95">
-                  {user ? "Acessar Dashboard" : "Acessar Sistema"}
-                  <ChevronRight className="h-5 w-5" />
+                <MagneticButton size="xl" className="h-16 px-12 text-lg rounded-full gap-3 bg-white text-black hover:bg-gray-200 transition-all border-none">
+                  {user ? "Acessar Sistema" : "Começar Agora"}
+                  <ArrowRight className="h-5 w-5" />
                 </MagneticButton>
               </Link>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground px-4 py-2">
-                <Shield className="h-4 w-4 text-primary" />
-                Acesso restrito a colaboradores
-              </div>
-            </motion.div>
-
-            {/* Mock UI Preview */}
-            <motion.div
-              initial={{ opacity: 0, y: 40, rotateX: 10, perspective: 1000 }}
-              animate={{
-                opacity: 1,
-                y: [0, -10, 0],
-                rotateX: [10, 5, 10],
-              }}
-              transition={{
-                duration: 5,
-                repeat: Infinity,
-                ease: "easeInOut",
-                opacity: { duration: 1, delay: 0.4 },
-                y: { duration: 4, repeat: Infinity, ease: "easeInOut" }
-              }}
-              whileHover={{ rotateX: 0, scale: 1.02, transition: { duration: 0.5 } }}
-              className="mt-20 relative max-w-5xl mx-auto cursor-default"
-              style={{ transformStyle: "preserve-3d" }}
-            >
-              <div className="rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm shadow-[0_20px_50px_rgba(0,0,0,0.3)] p-2 overflow-hidden transition-all duration-500 hover:shadow-primary/20">
-                <div className="rounded-xl overflow-hidden aspect-video bg-muted/5 flex items-center justify-center">
-                  <DashboardDemo />
-                </div>
-              </div>
-              <motion.div
-                animate={{ y: [0, 15, 0] }}
-                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-                className="absolute -bottom-6 -left-6 hidden md:block"
-              >
-                <div className="bg-card p-4 rounded-xl shadow-xl border border-border/50 flex items-center gap-4">
-                  <div className="p-2 bg-green-500/10 rounded-lg">
-                    <BarChart3 className="h-6 w-6 text-green-500" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground uppercase font-bold tracking-tighter">Eficiência</p>
-                    <p className="text-lg font-bold">+45%</p>
-                  </div>
-                </div>
-              </motion.div>
-              <motion.div
-                animate={{ y: [0, -15, 0] }}
-                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute -top-6 -right-6 hidden md:block"
-              >
-                <div className="bg-card p-4 rounded-xl shadow-xl border border-border/50 flex items-center gap-4">
-                  <div className="p-2 bg-blue-500/10 rounded-lg">
-                    <Smartphone className="h-6 w-6 text-blue-500" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground uppercase font-bold tracking-tighter">Mobilidade</p>
-                    <p className="text-lg font-bold">PWA</p>
-                  </div>
-                </div>
-              </motion.div>
-            </motion.div>
-          </div>
-        </section>
-
-        {/* Stats Section */}
-        <section className="py-24 border-y border-border/40 bg-muted/30 overflow-hidden">
-          <div className="max-w-7xl mx-auto px-4">
-            <motion.div
-              initial="hidden"
-              whileInView="show"
-              viewport={{ once: true, margin: "-100px" }}
-              variants={{
-                hidden: { opacity: 0 },
-                show: {
-                  opacity: 1,
-                  transition: { staggerChildren: 0.1 }
-                }
-              }}
-              className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12"
-            >
-              {stats.map((stat, i) => (
-                <InteractiveStat key={i} value={stat.value} label={stat.label} />
-              ))}
-            </motion.div>
-          </div>
-        </section>
-
-        {/* Sticky Guide */}
-        <StickyScrollGuide />
-
-        {/* Before/After Slider Section */}
-        <section className="py-24 bg-muted/10 border-y border-border/40">
-          <BeforeAfterSlider />
-        </section>
-
-        {/* Marquee Section */}
-        <div className="py-10 bg-background border-y border-border/40 overflow-hidden relative">
-          <div className="flex gap-12 whitespace-nowrap animate-marquee">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="flex gap-12 text-6xl md:text-8xl font-black text-foreground/5 uppercase tracking-tighter select-none">
-                <span>Controle Total</span>
-                <span>•</span>
-                <span>Alta Performance</span>
-                <span>•</span>
-                <span>Segurança</span>
-                <span>•</span>
-              </div>
-            ))}
-          </div>
-          <div className="absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-background to-transparent z-10" />
-          <div className="absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-background to-transparent z-10" />
-        </div>
-
-        {/* Features Bento Grid */}
-        <section id="features" className="py-32 px-4 relative overflow-hidden">
-          <div className="max-w-7xl mx-auto">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              className="text-center mb-20"
-            >
-              <h3 className="text-3xl md:text-4xl font-bold mb-4">Ferramentas de Gestão</h3>
-              <p className="text-muted-foreground text-lg max-w-xl mx-auto">
-                Infraestrutura robusta para suporte às operações de campo e administrativas.
-              </p>
-            </motion.div>
-
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 auto-rows-[minmax(250px,auto)]">
-              {features.map((feature, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.1 }}
-                  whileHover={{ scale: 0.98 }}
-                  className={`relative group p-8 rounded-3xl bg-card border border-border/50 hover:border-primary/50 transition-all duration-300 shadow-sm overflow-hidden flex flex-col justify-between
-                    ${i === 0 || i === 3 ? 'md:col-span-2' : 'md:col-span-1'}
-                    ${i === 0 ? 'bg-gradient-to-br from-card to-primary/5' : ''}
-                  `}
-                >
-                  <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity group-hover:scale-150 duration-500">
-                    <feature.icon className="w-32 h-32 text-primary" />
-                  </div>
-
-                  <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${feature.color} flex items-center justify-center mb-6 shadow-lg shadow-black/10 text-white relative z-10`}>
-                    <feature.icon className="h-7 w-7" />
-                  </div>
-
-                  <div className="relative z-10">
-                    <h4 className="font-bold text-xl mb-3">{feature.title}</h4>
-                    <p className="text-muted-foreground text-sm leading-relaxed">{feature.description}</p>
-                  </div>
-                </motion.div>
-              ))}
             </div>
-          </div>
-        </section>
+          </motion.div>
 
-        {/* PWA Section */}
-        <section className="py-32 px-4">
-          <div className="max-w-5xl mx-auto">
-            <motion.div
-              initial={{ opacity: 0, y: 50 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              whileHover={{ rotateX: 2, rotateY: -2 }}
-              viewport={{ once: true }}
-              className="relative rounded-[2.5rem] overflow-hidden bg-slate-900 text-white p-12 md:p-20 shadow-2xl border border-primary/20 transform-gpu transition-transform duration-500"
-              style={{ perspective: 1000 }}
-            >
-              <motion.div
-                animate={{
-                  rotate: [12, 15, 12],
-                  y: [0, -10, 0]
-                }}
-                transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute top-0 right-0 p-8 opacity-10"
-              >
-                <Smartphone className="w-64 h-64 text-primary" />
-              </motion.div>
-
-              <div className="relative z-10 max-w-2xl">
-                <motion.h3
-                  initial={{ opacity: 0, x: -20 }}
-                  whileInView={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.2 }}
-                  className="text-4xl md:text-5xl font-bold mb-6 tracking-tight"
-                >
-                  Acesso em Campo
-                </motion.h3>
-                <motion.p
-                  initial={{ opacity: 0, x: -20 }}
-                  whileInView={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.3 }}
-                  className="text-lg text-slate-300 mb-10 leading-relaxed"
-                >
-                  O SIS DAVUS é um Progressive Web App (PWA). Instale no seu dispositivo móvel para realizar inventários e movimentações diretamente do depósito ou campo, com suporte total ao modo offline.
-                </motion.p>
-
-                <div className="flex flex-wrap gap-8">
-                  {[
-                    { icon: Globe, label: "Multi-plataforma" },
-                    { icon: Smartphone, label: "Modo Offline" }
-                  ].map((item, i) => (
-                    <motion.div
-                      key={i}
-                      initial={{ opacity: 0, y: 10 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.4 + (i * 0.1) }}
-                      className="flex items-center gap-3"
-                    >
-                      <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center border border-primary/30">
-                        <item.icon className="h-5 w-5 text-primary" />
-                      </div>
-                      <span className="font-medium">{item.label}</span>
-                    </motion.div>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        </section>
-
-        {/* Infra Structure Section with Globe and Terminal */}
-        <section className="py-24 px-4 border-t border-border/40 bg-black/20">
-          <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <div>
-              <h3 className="text-3xl md:text-4xl font-bold mb-6">Operação Global & Segura</h3>
-              <div className="h-[300px] w-full rounded-2xl overflow-hidden border border-white/10 bg-white/5 relative mb-8">
-                <InteractiveGlobe />
-                <div className="absolute bottom-4 left-4 bg-black/50 backdrop-blur px-3 py-1 rounded text-xs border border-white/10">
-                  Infraestrutura Global
-                </div>
-              </div>
-              <ul className="space-y-4">
-                <li className="flex items-center gap-3">
-                  <div className="h-2 w-2 rounded-full bg-green-500" />
-                  <span>Criptografia Ponta-a-Ponta (AES-256)</span>
-                </li>
-                <li className="flex items-center gap-3">
-                  <div className="h-2 w-2 rounded-full bg-green-500" />
-                  <span>Backup Redundante em 3 Regiões</span>
-                </li>
-                <li className="flex items-center gap-3">
-                  <div className="h-2 w-2 rounded-full bg-green-500" />
-                  <span>Monitoramento 24/7 SOC</span>
-                </li>
-              </ul>
-            </div>
-            <div className="flex flex-col gap-6">
-              <p className="text-lg text-muted-foreground">
-                Nossos sistemas operam em uma malha de dados distribuída, garantindo integridade e disponibilidade total, onde quer que sua operação esteja.
-              </p>
-              <TypingTerminal />
-            </div>
-          </div>
-        </section>
-
-        {/* ROI Simulator */}
-        <RoiSimulator />
-
-        {/* FAQ Section */}
-        <FAQSection />
-
-        {/* CTA Section */}
-        <section className="py-32 px-4 text-center">
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="max-w-3xl mx-auto"
+            style={{ opacity: opacityHero }}
+            className="absolute bottom-12 left-1/2 -translate-x-1/2 text-white/30 animate-bounce"
           >
-            <h3 className="text-4xl md:text-5xl font-bold mb-8">Pronto para otimizar nossa operação?</h3>
-            <p className="text-xl text-muted-foreground mb-12">
-              Padronizando a excelência operacional na Delta Rise. Simplicidade, controle e segurança.
-            </p>
-            <Link href={user ? "/dashboard" : "/login"}>
-              <MagneticButton size="xl" className="h-16 px-12 text-xl rounded-full gap-3 shadow-2xl shadow-primary/40 transition-all hover:scale-105">
-                {user ? "Acessar Painel" : "Acessar Sistema"}
-                <ArrowLeftRight className="h-6 w-6" />
-              </MagneticButton>
-            </Link>
+            <ChevronDown className="h-8 w-8" />
           </motion.div>
         </section>
-      </main>
 
-      <TrustSection />
-      <MegaFooter />
+        {/* SECTION 1.5: THE ECOSYSTEM (CONNECTIVITY) */}
+        <section className="min-h-[80vh] flex flex-col items-center justify-center py-20 px-4 relative z-20">
+          <div className="max-w-6xl w-full mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+            <div className="order-2 md:order-1">
+              <div className="relative w-full h-[500px] border border-white/10 rounded-3xl bg-white/5 backdrop-blur-sm overflow-hidden p-8 flex items-center justify-center">
+                {/* Mock Connectivity Visualization */}
+                <div className="absolute inset-0 bg-grid-white/[0.05]" />
+                <div className="relative z-10 flex items-center gap-4 md:gap-16 transform scale-90 md:scale-100">
+                  {/* Phone */}
+                  <div className="w-16 h-32 md:w-24 md:h-48 rounded-[1.5rem] md:rounded-[2rem] border-2 md:border-4 border-white/20 bg-black flex flex-col items-center justify-center relative shadow-2xl shadow-blue-500/20 shrink-0">
+                    <div className="w-6 h-0.5 md:w-8 md:h-1 bg-white/20 rounded-full mb-2" />
+                    <div className="space-y-1 md:space-y-2 w-full px-1.5 md:px-2">
+                      <div className="h-1.5 md:h-2 w-full bg-white/10 rounded" />
+                      <div className="h-1.5 md:h-2 w-2/3 bg-white/10 rounded" />
+                      <div className="h-6 md:h-8 w-full bg-blue-500/20 rounded mt-2 md:mt-4 flex items-center justify-center">
+                        <div className="w-2 h-2 md:w-3 md:h-3 rounded-full bg-blue-500 animate-pulse" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Connection Line */}
+                  <div className="h-0.5 md:h-1 flex-1 bg-gradient-to-r from-blue-500/50 to-orange-500/50 relative min-w-[2rem]">
+                    <div className="absolute top-1/2 left-0 -translate-y-1/2 w-full h-full">
+                      <div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-white absolute top-1/2 -mt-[3px] md:-mt-1 animate-marquee" />
+                    </div>
+                  </div>
+
+                  {/* Desktop */}
+                  <div className="w-40 h-24 md:w-64 md:h-40 rounded-lg md:rounded-xl border-2 md:border-4 border-white/20 bg-black flex items-center justify-center relative shadow-2xl shadow-orange-500/20 shrink-0">
+                    <div className="space-y-1 md:space-y-2 w-full px-2 md:px-4">
+                      <div className="h-8 md:h-12 w-full bg-orange-500/10 rounded flex items-center px-2 gap-2">
+                        <div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-orange-500" />
+                        <div className="h-0.5 md:h-1 w-1/2 bg-white/10 rounded" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="order-1 md:order-2 space-y-6">
+              <div className="inline-flex items-center gap-2 text-blue-400 font-mono text-sm uppercase tracking-widest">
+                <Globe className="h-4 w-4" />
+                <span>Global Sync</span>
+              </div>
+              <h2 className="text-4xl md:text-5xl font-bold text-white leading-tight">
+                O Campo e a Base.<br />
+                Sincronizados.
+              </h2>
+              <p className="text-white/60 text-lg leading-relaxed">
+                O que acontece no front de operação reflete instantaneamente no painel de gestão. Sem delays, sem planilhas intermediárias.
+              </p>
+              <ul className="space-y-4 pt-4">
+                {[
+                  "Sincronização Bidirecional em < 100ms",
+                  "Modo Offline Inteligente para áreas remotas",
+                  "Notificações Push para alertas críticos"
+                ].map(item => (
+                  <li key={item} className="flex items-center gap-3 text-white/70">
+                    <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        {/* SECTION 2: VISIONARY FEATURES (BENTO) */}
+        <section className="min-h-screen py-32 px-4 relative">
+          <div className="max-w-7xl mx-auto space-y-24">
+            <div className="text-center space-y-4">
+              <h2 className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/50">
+                Arquitetura de Controle
+              </h2>
+              <p className="text-white/60 text-xl max-w-2xl mx-auto">
+                Uma suíte completa de ferramentas projetada para operações de alta complexidade.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-auto md:h-[600px]">
+              {/* Feature 1 - Big Left */}
+              <SpotlightCard className="md:col-span-2 md:row-span-2 rounded-[2rem] border-white/10 bg-black/40 backdrop-blur-xl p-10 flex flex-col justify-between group overflow-hidden">
+                <div className="relative z-10">
+                  <div className="w-14 h-14 rounded-2xl bg-orange-500/20 flex items-center justify-center mb-6 border border-orange-500/30">
+                    <Box className="h-7 w-7 text-orange-500" />
+                  </div>
+                  <h3 className="text-3xl font-bold text-white mb-4">Gestão de Estoque 3.0</h3>
+                  <p className="text-white/60 text-lg leading-relaxed max-w-md">
+                    Rastreamento em tempo real com níveis de estoque crítico, alertas automáticos e previsão de demanda baseada em histórico de consumo.
+                  </p>
+                  <ul className="mt-8 space-y-3">
+                    {["Múltiplos Depósitos", "Curva ABC Automatizada", "Alertas Push"].map(item => (
+                      <li key={item} className="flex items-center gap-2 text-white/50">
+                        <div className="h-1.5 w-1.5 rounded-full bg-orange-500" />
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                {/* Abstract UI decoration */}
+                <div className="absolute top-1/2 right-0 translate-x-1/3 -translate-y-1/2 w-[400px] h-[400px] bg-orange-500/10 rounded-full blur-[100px] group-hover:bg-orange-500/20 transition-all duration-500" />
+              </SpotlightCard>
+
+              {/* Feature 2 - Top Right */}
+              <SpotlightCard className="rounded-[2rem] border-white/10 bg-black/40 backdrop-blur-xl p-8 flex flex-col justify-center gap-4 group">
+                <div className="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center border border-blue-500/30">
+                  <Globe className="h-6 w-6 text-blue-500" />
+                </div>
+                <h3 className="text-xl font-bold text-white">Acesso Global</h3>
+                <p className="text-white/60">
+                  Sincronização em tempo real entre filiais e operação de campo via PWA Offline-First.
+                </p>
+              </SpotlightCard>
+
+              {/* Feature 3 - Bottom Right */}
+              <SpotlightCard className="rounded-[2rem] border-white/10 bg-black/40 backdrop-blur-xl p-8 flex flex-col justify-center gap-4 group">
+                <div className="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center border border-purple-500/30">
+                  <Shield className="h-6 w-6 text-purple-500" />
+                </div>
+                <h3 className="text-xl font-bold text-white">Segurança Militar</h3>
+                <p className="text-white/60">
+                  Logs de auditoria imutáveis, controle de acesso RBAC e criptografia AES-256.
+                </p>
+              </SpotlightCard>
+            </div>
+          </div>
+        </section>
+
+        {/* SECTION 3: IMMERSIVE TERMINAL */}
+        <section className="min-h-screen flex items-center justify-center py-20 px-4">
+          <div className="max-w-5xl w-full mx-auto">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+              <div className="space-y-8">
+                <div className="inline-flex items-center gap-2 text-primary font-mono text-sm uppercase tracking-widest">
+                  <Terminal className="h-4 w-4" />
+                  <span>Command Line Interface</span>
+                </div>
+                <h2 className="text-4xl md:text-6xl font-bold text-white leading-tight">
+                  O Poder na<br />Sua Mão.
+                </h2>
+                <p className="text-white/60 text-lg leading-relaxed">
+                  Não apenas visualize dados. Interaja com a infraestrutura da sua empresa como se fosse código. Rápido, preciso e sem fricção.
+                </p>
+                <div className="flex gap-4">
+                  <div className="px-6 py-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
+                    <p className="text-2xl font-bold text-white">0.05s</p>
+                    <p className="text-xs text-white/40 uppercase tracking-wider">Latência Média</p>
+                  </div>
+                  <div className="px-6 py-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
+                    <p className="text-2xl font-bold text-white">99.9%</p>
+                    <p className="text-xs text-white/40 uppercase tracking-wider">Uptime</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Terminal Visual */}
+              <div className="bg-black/80 rounded-xl border border-white/10 p-4 font-mono text-sm shadow-2xl backdrop-blur-xl">
+                <div className="flex gap-2 mb-4">
+                  <div className="w-3 h-3 rounded-full bg-red-500" />
+                  <div className="w-3 h-3 rounded-full bg-yellow-500" />
+                  <div className="w-3 h-3 rounded-full bg-green-500" />
+                </div>
+                <div className="space-y-2 text-white/80">
+                  <p><span className="text-green-500">➜</span> <span className="text-blue-400">~</span> initialize --system</p>
+                  <p className="text-gray-500">Loading modules...</p>
+                  <p className="text-gray-500">Connecting to secure database...</p>
+                  <p className="text-green-400">✔ Connection established (42ms)</p>
+                  <br />
+                  <p><span className="text-green-500">➜</span> <span className="text-blue-400">~</span> check --inventory --status=critical</p>
+                  <div className="pl-4 border-l-2 border-white/10 my-2">
+                    <p>Scanning 1,402 items...</p>
+                    <p className="text-red-400">⚠ ATTENTION REQUIRED:</p>
+                    <p> - MacBook Pro M3 (Stock: 2 | Min: 5)</p>
+                    <p> - Monitor Dell 27" (Stock: 1 | Min: 3)</p>
+                  </div>
+                  <p><span className="text-green-500">➜</span> <span className="text-blue-400">~</span> <span className="animate-pulse">_</span></p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* SECTION: INDUSTRIES (Before CTA) */}
+        <section className="py-24 px-4 bg-white/5 border-y border-white/5">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center mb-16">
+              <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">Projetado para Escala</h2>
+              <p className="text-white/60 text-xl max-w-2xl mx-auto">Sua operação não pode parar. Nós garantimos que ela flua.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {[
+                { title: "Construção Civil", desc: "Monitore ferramentas em canteiros de obras distribuídos.", icon: Box },
+                { title: "TI & Infraestrutura", desc: "Gerencie o ciclo de vida de milhares de dispositivos.", icon: Terminal },
+                { title: "Logística", desc: "Rastreio preciso de carga e estoque de transbordo.", icon: Globe }
+              ].map((item, i) => (
+                <div key={i} className="p-8 rounded-[2rem] bg-black/40 border border-white/10 hover:border-white/20 transition-all group">
+                  <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                    <item.icon className="h-6 w-6 text-white" />
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-3">{item.title}</h3>
+                  <p className="text-white/60 leading-relaxed">{item.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* SECTION: THE VAULT (Before CTA) */}
+        <section className="py-24 px-4 flex justify-center">
+          <div className="max-w-4xl w-full text-center space-y-8">
+            <div className="w-20 h-20 rounded-full bg-green-500/10 flex items-center justify-center mx-auto border border-green-500/20">
+              <Shield className="h-10 w-10 text-green-500" />
+            </div>
+            <h2 className="text-3xl md:text-5xl font-bold text-white">Fortaleza Digital</h2>
+            <p className="text-white/60 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
+              Seus dados são o ativo mais valioso. Nossa arquitetura garante que apenas olhos autorizados vejam o que importa.
+            </p>
+            <div className="flex flex-wrap justify-center gap-4 text-sm font-mono text-green-400/80">
+              <span className="px-4 py-2 rounded-full bg-green-500/5 border border-green-500/10">AES-256 ENCRYPTION</span>
+              <span className="px-4 py-2 rounded-full bg-green-500/5 border border-green-500/10">SOC-2 COMPLIANT</span>
+              <span className="px-4 py-2 rounded-full bg-green-500/5 border border-green-500/10">IMMUTABLE LOGS</span>
+            </div>
+          </div>
+        </section>
+
+        {/* SECTION 4: CTA */}
+        <section className="min-h-[50vh] flex items-center justify-center py-20 bg-gradient-to-t from-black via-black to-transparent">
+          <div className="text-center space-y-8 max-w-3xl mx-auto px-4">
+            <h2 className="text-4xl md:text-5xl font-bold text-white">Pronto para o Futuro?</h2>
+            <p className="text-white/60 text-xl">Eleve o padrão de gestão da sua empresa hoje.</p>
+            <Link href={user ? "/dashboard" : "/login"}>
+              <MagneticButton size="xl" className="h-20 px-16 text-2xl rounded-full bg-primary hover:bg-primary/90 text-white border-0 shadow-lg shadow-primary/20">
+                Iniciar Jornada
+              </MagneticButton>
+            </Link>
+          </div>
+        </section>
+
+      </div>
     </div>
   );
 }

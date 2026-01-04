@@ -1,7 +1,7 @@
 <div align="center">
   <img src="https://raw.githubusercontent.com/gist/charlles-dev/ea4a545ad53992160f4d490976500420/raw/7882fc5b7af8925833800920b8eab5294fb00d8f/davus02.svg" alt="Davus Logo" width="200" />
   
-  <h1>Davus Engenharia</h1>
+  <h1>Sis Davus</h1>
   <h3>Sistema Integrado de Gestão Empresarial (ERP)</h3>
   
   <p>
@@ -257,23 +257,23 @@ A plataforma oferece suporte nativo ao Next.js Runtime, garantindo que Server Ac
 
 ## 👥 Créditos
 
-Desenvolvido com ❤️ pela equipe **Delta Rise** para **Davus Engenharia**.
+Desenvolvido com ❤️ pela equipe [**Delta Rise**](https://deltarise.com.br) para [**Davus Engenharia**](https://davusengenharia.com.br).
 
 ### Core Team
 - [**Charlles Augusto**](https://github.com/charlles-dev) - *Lead Architect & Full Stack*
-- [**Flaviano Rodrigues**](https://github.com/) - *Backend & DevOps*
-- [**Weidy Lucena**](https://github.com/) - *Documentation & QA*
-- [**Savio Bezzera**](https://github.com/) - *Backend & QA*
-- [**Natalia Araújo**](https://github.com/) - *Backend & UX*
-- [**Rafael Leal**](https://github.com/) - *Backend & QA*
-- [**Edielson Miranda**](https://github.com/) - *Backend & QA*
+- [**Flaviano Rodrigues**](https://github.com/flavianorodrigues147-a11y) - *Backend & DevOps*
+- [**Weidy Lucena**](https://github.com/Weidyzk) - *Documentation & QA*
+- [**Savio Bezzera**](https://github.com/saviobezerra) - *Backend & QA*
+- [**Natalia Araújo**](https://github.com/nataliaraujo-me) - *Backend & UX*
+- [**Rafael Leal**](https://github.com/rafaelalm-Leal) - *Backend & QA*
+- [**Edielson Miranda**](https://github.com/Edi-elson) - *Backend & QA*
 
 ### Agradecimentos
-À estrutura da **Davus Engenharia** pela oportunidade e confiança, e especialmente à orientadora **Profª Ana** pelo suporte acadêmico fundamental para o desenvolvimento deste projeto.
+À estrutura da [**Davus Engenharia**](https://davusengenharia.com.br) pela oportunidade e confiança, e especialmente à orientadora [**Profª Ana Paula**](https://github.com/profanacgpb) pelo suporte acadêmico fundamental para o desenvolvimento deste projeto.
 
 ---
 
 ## 📄 Licença
 
 Propriedade intelectual reservada.
-© 2026 **Delta Rise**
+© 2026 [**Delta Rise**](https://deltarise.com.br)

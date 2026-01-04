@@ -1,14 +1,14 @@
 "use client";
 
-import { useRef, useState, CSSProperties } from "react";
-import { motion } from "framer-motion";
+import { useRef, useState } from "react";
+import { cn } from "@/lib/utils";
 
 interface SpotlightCardProps extends React.HTMLAttributes<HTMLDivElement> {
     children: React.ReactNode;
     border?: string;
 }
 
-export function SpotlightCard({ children, className = "", border = "border-border/50", ...props }: SpotlightCardProps) {
+export function SpotlightCard({ children, className, border = "border-border/50", ...props }: SpotlightCardProps) {
     const divRef = useRef<HTMLDivElement>(null);
     const [position, setPosition] = useState({ x: 0, y: 0 });
     const [opacity, setOpacity] = useState(0);
@@ -46,7 +46,11 @@ export function SpotlightCard({ children, className = "", border = "border-borde
             onBlur={handleBlur}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
-            className={`relative overflow-hidden rounded-3xl bg-card border ${border} ${className}`}
+            className={cn(
+                "relative overflow-hidden rounded-3xl bg-card border",
+                border,
+                className
+            )}
             {...props}
         >
             <div
