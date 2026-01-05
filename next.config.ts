@@ -25,13 +25,14 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  turbopack: {
-    rules: {
-      "*.{jsx,tsx}": {
-        loaders: [loaderPath]
-      }
-    }
-  }
+  /* orchids-visual-edits disabled to fix R3F crash */
+  // turbopack: {
+  //   rules: {
+  //     "*.{jsx,tsx}": {
+  //       loaders: [loaderPath]
+  //     }
+  //   }
+  // }
 } as NextConfig;
 
 export default nextConfig;

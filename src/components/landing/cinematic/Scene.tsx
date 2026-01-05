@@ -5,6 +5,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { Float, MeshTransmissionMaterial, Text, Trail } from "@react-three/drei";
 import * as THREE from "three";
 import { useScrollStore } from "@/lib/landing-store";
+import { MorphingSphere } from "./MorphingSphere";
 
 export function Scene() {
     const { viewport } = useThree();
@@ -22,21 +23,7 @@ export function Scene() {
     const ring2Ref = useRef<THREE.Mesh>(null);
     const ring3Ref = useRef<THREE.Mesh>(null);
 
-    // Particles Data
-    const particleCount = 40;
-    const particles = useMemo(() => {
-        const temp = [];
-        for (let i = 0; i < particleCount; i++) {
-            const t = Math.random() * 100;
-            const factor = 20 + Math.random() * 100;
-            const speed = 0.01 + Math.random() / 200;
-            const xFactor = -50 + Math.random() * 100;
-            const yFactor = -50 + Math.random() * 100;
-            const zFactor = -50 + Math.random() * 100;
-            temp.push({ t, factor, speed, xFactor, yFactor, zFactor, mx: 0, my: 0 });
-        }
-        return temp;
-    }, []);
+
 
     useFrame((state) => {
         const t = state.clock.getElapsedTime();
@@ -135,16 +122,15 @@ export function Scene() {
             <Float speed={2} rotationIntensity={isMobile ? 0.2 : 0.5} floatIntensity={0.2}>
 
                 {/* --- STATE 1: CORE (DATA) --- */}
-                <mesh ref={coreRef}>
-                    <octahedronGeometry args={[1, 0]} />
-                    <MeshTransmissionMaterial {...crystalMaterial} color="#ffffff" toneMapped={false} />
-                </mesh>
+                <group ref={coreRef}>
+                    <MorphingSphere />
+                </group>
 
                 {/* --- STATE 2: GLOBE (NETWORK) --- */}
                 <group ref={globeRef} scale={0}>
                     <mesh>
                         <sphereGeometry args={[1, 16, 16]} />
-                        <meshBasicMaterial wireframe color="#3b82f6" transparent opacity={0.3} />
+                        <meshBasicMaterial wireframe color="#ff5d38" transparent opacity={0.3} />
                     </mesh>
                     {/* Nodes */}
                     {[...Array(8)].map((_, i) => (
@@ -154,7 +140,7 @@ export function Scene() {
                             Math.sin(i * 2) * 1
                         ]}>
                             <sphereGeometry args={[0.05]} />
-                            <meshBasicMaterial color="#60a5fa" />
+                            <meshBasicMaterial color="#fdba74" />
                         </mesh>
                     ))}
                 </group>
@@ -164,7 +150,7 @@ export function Scene() {
                     <icosahedronGeometry args={[1.2, 0]} />
                     <MeshTransmissionMaterial
                         {...crystalMaterial}
-                        color="#10b981"
+                        color="#ff5d38"
                         distortion={0.5}
                         distortionScale={0.5}
                         temporalDistortion={0.2}

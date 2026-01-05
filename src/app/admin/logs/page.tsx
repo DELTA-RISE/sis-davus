@@ -70,9 +70,9 @@ export default function AuditLogsPage() {
 
   const filteredLogs = logs.filter((log) => {
     const matchesSearch =
-      log.details?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (typeof log.details === 'string' ? log.details : JSON.stringify(log.details))?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       log.user_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.entity?.toLowerCase().includes(searchTerm.toLowerCase());
+      log.resource?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesAction = actionFilter === "all" || log.action === actionFilter;
     return matchesSearch && matchesAction;
   });
@@ -159,10 +159,10 @@ export default function AuditLogsPage() {
                           {log.action}
                         </Badge>
                         <Badge variant="secondary" className="text-[10px]">
-                          {log.entity}
+                          {log.resource}
                         </Badge>
                       </div>
-                      <p className="text-sm font-medium truncate">{log.details}</p>
+                      <p className="text-sm font-medium truncate">{typeof log.details === 'string' ? log.details : JSON.stringify(log.details)}</p>
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <User className="h-3 w-3" />
@@ -170,11 +170,11 @@ export default function AuditLogsPage() {
                         </span>
                         <span className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />
-                          {formatDate(log.timestamp)}
+                          {formatDate(log.created_at)}
                         </span>
                         <span className="flex items-center gap-1 hidden md:flex">
                           <Monitor className="h-3 w-3" />
-                          {log.ip}
+                          {log.ip_address}
                         </span>
                       </div>
                     </div>
@@ -202,14 +202,14 @@ export default function AuditLogsPage() {
                   </div>
                   <div>
                     <h3 className="font-semibold">{selectedLog.action}</h3>
-                    <p className="text-xs text-muted-foreground">{selectedLog.entity} • ID: {selectedLog.entity_id}</p>
+                    <p className="text-xs text-muted-foreground">{selectedLog.resource} • ID: {selectedLog.resource_id}</p>
                   </div>
                 </div>
 
                 <div className="space-y-3 text-sm">
                   <div className="grid grid-cols-[100px_1fr] gap-2">
                     <span className="text-muted-foreground">Descrição:</span>
-                    <span className="font-medium">{selectedLog.details}</span>
+                    <span className="font-medium">{typeof selectedLog.details === 'string' ? selectedLog.details : JSON.stringify(selectedLog.details, null, 2)}</span>
                   </div>
                   <div className="grid grid-cols-[100px_1fr] gap-2">
                     <span className="text-muted-foreground">Usuário:</span>
@@ -220,35 +220,18 @@ export default function AuditLogsPage() {
                   <div className="grid grid-cols-[100px_1fr] gap-2">
                     <span className="text-muted-foreground">Data/Hora:</span>
                     <span className="font-medium flex items-center gap-1">
-                      <Clock className="h-3 w-3" /> {formatDate(selectedLog.timestamp)}
+                      <Clock className="h-3 w-3" /> {formatDate(selectedLog.created_at)}
                     </span>
                   </div>
                   <div className="grid grid-cols-[100px_1fr] gap-2">
                     <span className="text-muted-foreground">IP:</span>
                     <span className="font-medium flex items-center gap-1">
-                      <Monitor className="h-3 w-3" /> {selectedLog.ip || "Não registrado"}
+                      <Monitor className="h-3 w-3" /> {selectedLog.ip_address || "Não registrado"}
                     </span>
                   </div>
                   <div className="border-t border-border/50 my-2 pt-2">
-                    <p className="text-xs font-semibold text-muted-foreground mb-2">Informações do Dispositivo</p>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className="bg-secondary/50 p-2 rounded">
-                        <span className="text-muted-foreground block">Sistema Operacional</span>
-                        <span className="font-medium">{selectedLog.device_info?.os || "Desconhecido"}</span>
-                      </div>
-                      <div className="bg-secondary/50 p-2 rounded">
-                        <span className="text-muted-foreground block">Navegador</span>
-                        <span className="font-medium">{selectedLog.device_info?.browser || "Desconhecido"}</span>
-                      </div>
-                      <div className="bg-secondary/50 p-2 rounded col-span-2">
-                        <span className="text-muted-foreground block">Dispositivo</span>
-                        <span className="font-medium">{selectedLog.device_info?.device || "Desconhecido/Desktop"}</span>
-                      </div>
-                      <div className="bg-secondary/50 p-2 rounded col-span-2 overflow-hidden">
-                        <span className="text-muted-foreground block">User Agent (Raw)</span>
-                        <span className="font-mono truncate block" title={selectedLog.user_agent}>{selectedLog.user_agent || "N/A"}</span>
-                      </div>
-                    </div>
+                    <p className="text-xs font-semibold text-muted-foreground mb-1">User Agent</p>
+                    <span className="font-mono truncate block text-xs" title={selectedLog.user_agent}>{selectedLog.user_agent || "N/A"}</span>
                   </div>
                 </div>
               </div>

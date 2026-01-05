@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { motion, useScroll, useMotionValueEvent } from "framer-motion";
+import { m, useScroll, useMotionValueEvent } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { MagneticButton } from "@/components/ui/magnetic-button";
 import { AudioToggle } from "@/components/ui/audio-toggle";
@@ -27,7 +27,7 @@ export function LandingHeader() {
     });
 
     return (
-        <motion.header
+        <m.header
             variants={{
                 visible: { y: 0 },
                 hidden: { y: "-100%" },
@@ -37,7 +37,7 @@ export function LandingHeader() {
             className="sticky top-0 z-50 w-full border-b border-white/5 bg-black/20 backdrop-blur-md supports-[backdrop-filter]:bg-black/20"
         >
             <nav className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between relative">
-                <motion.div
+                <m.div
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     className="flex items-center gap-3"
@@ -49,7 +49,7 @@ export function LandingHeader() {
                         <h1 className="text-base font-bold tracking-tight">SIS DAVUS</h1>
                         <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Delta Rise</p>
                     </div>
-                </motion.div>
+                </m.div>
 
                 {/* Centered Greeting - Only for authenticated users */}
                 {user && (
@@ -58,7 +58,7 @@ export function LandingHeader() {
                     </div>
                 )}
 
-                <motion.div
+                <m.div
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
                     className="flex items-center gap-4"
@@ -69,8 +69,8 @@ export function LandingHeader() {
                             {user ? "Acessar Dashboard" : "Entrar"}
                         </MagneticButton>
                     </Link>
-                </motion.div>
+                </m.div>
             </nav>
-        </motion.header>
+        </m.header>
     );
 }

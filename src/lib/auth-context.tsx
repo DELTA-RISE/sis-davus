@@ -4,7 +4,7 @@ import { createContext, useContext, useState, ReactNode, useEffect, useRef } fro
 import { UserRole } from "./store";
 import { supabase } from "./supabase";
 import { User as SupabaseUser } from "@supabase/supabase-js";
-import { getProfile, saveUser } from "./db";
+import { getProfile, saveUser, logActivity } from "./db";
 
 import { getGravatarUrl } from "./gravatar";
 
@@ -75,7 +75,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         if (event === "SIGNED_IN" || event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") {
-          await fetchProfile(session.user.id);
+          const profile = await fetchProfile(session.user.id);
+
+          if (event === "SIGNED_IN" && profile) {
+            await logActivity(
+              "LOGIN",
+              "SESSAO",
+              `O usuário ${profile.name} realizou login no sistema.`,
+              session.user.id,
+              profile.name
+            );
+          }
         }
       } else {
         setCurrentRole("gestor");
@@ -97,7 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchProfile = async (userId: string) => {
     if (!userId) {
       console.warn("[AuthContext] fetchProfile called with empty userId");
-      return;
+      return null;
     }
     console.log("[AuthContext] fetchProfile started for:", userId);
     try {
@@ -123,10 +133,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setGravatarEmail(profile.gravatar_email || "");
           const url = await getGravatarUrl(profile.gravatar_email || profile.email);
           setGravatarUrl(url);
+          return profile;
         }
       }
+      return null;
     } catch (error) {
       console.error("[AuthContext] Error in fetchProfile:", error);
+      return null;
     } finally {
       setIsLoading(false);
     }

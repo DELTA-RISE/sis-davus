@@ -4,7 +4,7 @@ import "./globals.css";
 import { VisualEditsMessenger } from "orchids-visual-edits";
 import { LayoutWrapper } from "@/components/LayoutWrapper";
 import { CustomCursor } from "@/components/CustomCursor";
-import { OnboardingTour } from "@/components/OnboardingTour";
+
 import { SyncProvider } from "@/components/SyncProvider";
 import { SoundProvider } from "@/components/SoundProvider";
 import { Analytics } from "@/components/Analytics";
@@ -21,7 +21,22 @@ const sora = Sora({
 
 export const metadata: Metadata = {
   title: "SIS DAVUS - Controle de Estoque e Patrimônio",
-  description: "Sistema de Controle de Estoque e Patrimônio by Delta Rise",
+  description: "Otimize a gestão do seu patrimônio e estoque com o SIS DAVUS. Controle total, do físico ao digital.",
+  metadataBase: new URL("https://sis-davus.netlify.app"), // Using a probable default or placeholder
+  openGraph: {
+    type: "website",
+    locale: "pt_BR",
+    url: "https://sis-davus.netlify.app/",
+    title: "SIS DAVUS - Controle de Estoque e Patrimônio",
+    description: "Otimize a gestão do seu patrimônio e estoque com o SIS DAVUS. Controle total, do físico ao digital.",
+    siteName: "SIS DAVUS",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "SIS DAVUS - Controle de Estoque e Patrimônio",
+    description: "Otimize a gestão do seu patrimônio e estoque com o SIS DAVUS. Controle total, do físico ao digital.",
+    creator: "@deltarise",
+  },
   manifest: "/manifest.json",
   icons: {
     icon: "/davus-logo.svg",
@@ -60,7 +75,7 @@ export default function RootLayout({
             <CustomCursor />
             <SyncProvider>
               <LayoutWrapper>{children}</LayoutWrapper>
-              <OnboardingTour />
+
               <Analytics />
               <JsonLd />
             </SyncProvider>

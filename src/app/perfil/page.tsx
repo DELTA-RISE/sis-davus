@@ -215,44 +215,18 @@ export default function PerfilPage() {
               <ChevronRight className="h-4 w-4 text-muted-foreground" />
             </Link>
 
-            <Dialog>
-              <DialogTrigger asChild>
-                <button
-                  className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-muted/50 transition-all active:scale-[0.99] text-left"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center">
-                      <HelpCircle className="h-5 v-5 text-green-500" />
-                    </div>
-                    <span className="text-sm font-semibold">Ajuda e Suporte</span>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                </button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[500px]">
-                <DialogHeader>
-                  <DialogTitle>Suporte SIS DAVUS</DialogTitle>
-                </DialogHeader>
-                <div className="py-4">
-                  <Accordion type="single" collapsible className="w-full">
-                    <AccordionItem value="faq">
-                      <AccordionTrigger className="text-sm">Consulte o FAQ</AccordionTrigger>
-                      <AccordionContent className="text-xs space-y-2">
-                        <p><strong>Como mudar minha foto?</strong> Basta alterar seu e-mail para um vinculado ao Gravatar.</p>
-                        <p><strong>Esqueci minha senha?</strong> Contacte o administrador via e-mail abaixo.</p>
-                      </AccordionContent>
-                    </AccordionItem>
-                  </Accordion>
-                  <div className="mt-4 p-4 rounded-xl bg-muted/50 border border-border space-y-2">
-                    <p className="text-xs font-medium">Suporte Administrativo:</p>
-                    <p className="text-[10px] text-muted-foreground">Consulte o TI Central para problemas técnicos.</p>
-                    <Button className="w-full h-8 text-xs" variant="outline" onClick={() => window.open('mailto:suporte@deltarise.com')}>
-                      suporte@deltarise.com
-                    </Button>
-                  </div>
+            <Link
+              href="/perfil/suporte"
+              className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-muted/50 transition-all active:scale-[0.99]"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center">
+                  <HelpCircle className="h-5 w-5 text-green-500" />
                 </div>
-              </DialogContent>
-            </Dialog>
+                <span className="text-sm font-semibold">Ajuda e Suporte</span>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            </Link>
 
             <Link
               href="/perfil/ajustes"
@@ -267,44 +241,18 @@ export default function PerfilPage() {
               <ChevronRight className="h-4 w-4 text-muted-foreground" />
             </Link>
 
-            <Dialog>
-              <DialogTrigger asChild>
-                <button
-                  className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-muted/50 transition-all active:scale-[0.99] text-left"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
-                      <Info className="h-5 w-5 text-purple-500" />
-                    </div>
-                    <span className="text-sm font-semibold">Sobre o Aplicativo</span>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                </button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[400px]">
-                <DialogHeader className="items-center text-center">
-                  <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
-                    <Shield className="h-10 w-10 text-primary" />
-                  </div>
-                  <DialogTitle className="text-xl">SIS DAVUS</DialogTitle>
-                  <DialogDescription>v1.0.0 Stable</DialogDescription>
-                </DialogHeader>
-                <div className="text-center space-y-4 py-4">
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">Orgulhosamente desenvolvido por</p>
-                    <p className="text-lg font-bold text-primary">Grupo DELTA RISE</p>
-                  </div>
-                  <div className="flex justify-center gap-4 pt-2">
-                    <Link href="#" className="p-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors">
-                      <Info className="h-5 w-5" />
-                    </Link>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground italic">
-                    "Excelência em Gestão Patrimonial"
-                  </p>
+            <Link
+              href="/perfil/sobre"
+              className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-muted/50 transition-all active:scale-[0.99]"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
+                  <Info className="h-5 w-5 text-purple-500" />
                 </div>
-              </DialogContent>
-            </Dialog>
+                <span className="text-sm font-semibold">Sobre o Aplicativo</span>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            </Link>
           </CardContent>
         </Card>
 

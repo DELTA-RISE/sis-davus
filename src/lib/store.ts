@@ -94,27 +94,32 @@ export interface StorageLocation {
 
 export interface AuditLog {
   id: string;
+  created_at: string;
+  user_id: string;
+  user_email?: string;
   action: string;
-  entity: string;
-  entity_id: string;
-  user_name: string;
-  details: string;
-  timestamp: string;
-  ip?: string;
+  resource: string; // Was entity
+  resource_id?: string; // Was entity_id
+  details: any; // JSONB
+  ip_address?: string; // Was ip
   user_agent?: string;
-  device_info?: any;
-  created_at?: string;
+  // Deprecated/Converted fields helper
+  user_name?: string;
 }
+
+export type UserRole = 'admin' | 'user' | 'manager' | 'gestor';
 
 export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'admin' | 'user' | 'manager';
+  role: UserRole;
   avatar_url?: string;
+  gravatar_email?: string;
+  must_change_password?: boolean;
   department?: string;
   phone?: string;
-  status: 'active' | 'inactive';
+  status: 'active' | 'inactive' | 'ativo' | 'inativo';
   created_at?: string;
   last_login?: string;
 }
@@ -197,5 +202,41 @@ export const mockAssets: Asset[] = [
     category: 'Frota',
     model: 'Endurance 1.4',
     serial_number: 'ABC-1234'
+  }
+];
+
+export const mockStockMovements: StockMovement[] = [
+  {
+    id: '1',
+    type: 'entrada',
+    quantity: 10,
+    product_id: '1',
+    product_name: 'MacBook Pro M3',
+    reason: 'Compra de Estoque',
+    user_id: 'admin',
+    date: new Date().toISOString()
+  },
+  {
+    id: '2',
+    type: 'saida',
+    quantity: 2,
+    product_id: '3',
+    product_name: 'Teclado Mecânico Keychron',
+    reason: 'Uso Interno',
+    user_id: 'user1',
+    date: new Date(Date.now() - 86400000).toISOString()
+  }
+];
+
+export const mockCheckouts: Checkout[] = [
+  {
+    id: '1',
+    item_id: '1',
+    item_type: 'asset',
+    item_name: 'Servidor Dell PowerEdge',
+    user_id: 'user2',
+    user_name: 'João Silva',
+    checkout_date: new Date().toISOString(),
+    status: 'Ativo'
   }
 ];

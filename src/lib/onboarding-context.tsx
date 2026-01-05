@@ -234,21 +234,17 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         }
         setSteps(selectedSteps);
 
-        // Auto-start if not onboarded
-        if (!hasOnboarded) {
+        // Auto-start if not onboarded AND on dashboard
+        if (!hasOnboarded && pathname === "/dashboard") {
             // Small delay to ensure UI is ready
             const timer = setTimeout(() => {
                 setIsActive(true);
                 setIsDemoMode(true);
                 setCurrentStepIndex(0); // Ensure starting from the first step
-                // For non-mobile, ensure we start at dashboard if not already there
-                if (!isMobile && pathname !== "/dashboard") {
-                    router.push("/dashboard");
-                }
             }, 1000);
             return () => clearTimeout(timer);
         }
-    }, [user, currentRole, isMobile]);
+    }, [user, currentRole, isMobile, pathname]);
 
     // Handle Step Actions (Navigation)
     useEffect(() => {

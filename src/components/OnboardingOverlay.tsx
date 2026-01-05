@@ -6,12 +6,16 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { X, ChevronRight, ChevronLeft, Sparkles, Rocket } from "lucide-react";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 export function OnboardingOverlay() {
     const { isActive, currentStepIndex, steps, nextStep, prevStep, skipOnboarding, finishOnboarding } = useOnboarding();
     const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
+    const isMobile = useIsMobile();
 
     const step = steps[currentStepIndex];
+    const isCenter = step?.placement === "center";
+    const isLastStep = currentStepIndex === steps.length - 1;
 
     // Update target position on resize or step change
     useEffect(() => {
@@ -74,8 +78,37 @@ export function OnboardingOverlay() {
 
     if (!isActive || !step) return null;
 
-    const isLastStep = currentStepIndex === steps.length - 1;
-    const isCenter = step.placement === "center";
+    // Helper to determine position
+    const getPosition = () => {
+        if (!isMobile && !isCenter && targetRect) {
+            return calculateTooltipPosition(targetRect, step?.placement || "bottom");
+        }
+        if (isCenter) {
+            return {
+                top: "50%",
+                left: "50%",
+                x: "-50%",
+                y: "-50%"
+            };
+        }
+        // Mobile && !isCenter: Center horizontally, keep vertical relation if possible, or just center bottom
+        if (targetRect) {
+            const pos = calculateTooltipPosition(targetRect, step?.placement || "bottom");
+            // Force horizontal center on mobile
+            return {
+                ...pos,
+                left: "50%",
+                x: "-50%"
+            };
+        }
+        // Fallback
+        return {
+            top: "50%",
+            left: "50%",
+            x: "-50%",
+            y: "-50%"
+        };
+    };
 
     return (
         <div className="fixed inset-0 z-[100] isolate pointer-events-none">
@@ -124,22 +157,16 @@ export function OnboardingOverlay() {
                     animate={{
                         opacity: 1,
                         scale: 1,
-                        // Position calculation
-                        ...(!isCenter && targetRect ? calculateTooltipPosition(targetRect, step.placement || "bottom") : {
-                            top: "50%",
-                            left: "50%",
-                            x: "-50%",
-                            y: "-50%"
-                        })
+                        ...getPosition()
                     }}
                     exit={{ opacity: 0, scale: 0.9 }}
                     transition={{ type: "spring", duration: 0.5 }}
                     className={cn(
                         "absolute pointer-events-auto bg-card text-card-foreground p-6 rounded-2xl shadow-2xl border border-primary/20",
-                        isCenter ? "w-full max-w-lg" : "w-[350px]"
+                        isCenter ? "w-full max-w-lg" : "w-[calc(100vw-32px)] md:w-[350px]"
                     )}
                     style={{
-                        position: "absolute", // Override motion style if needed
+                        position: "absolute",
                     }}
                 >
                     {/* Header */}

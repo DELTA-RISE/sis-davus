@@ -172,26 +172,26 @@ export const getProductById = async (id: string): Promise<Product | null> => {
 export const saveProduct = async (product: Partial<Product>, userInfo?: { name: string, id: string }) => {
   const result = await upsert<Product>('products', product);
   if (result && userInfo) {
-    await saveAuditLog({
-      action: product.id ? "UPDATE" : "CREATE",
-      entity: "PRODUTO",
-      entity_id: result.id,
-      user_name: userInfo.name,
-      details: `Produto "${result.name}" (${result.sku}) ${product.id ? "atualizado" : "criado"} por ${userInfo.name}.`,
-    });
+    await logActivity(
+      product.id ? "UPDATE" : "CREATE",
+      "PRODUTO",
+      `Produto "${result.name}" (${result.sku}) ${product.id ? "atualizado" : "criado"} por ${userInfo.name}.`,
+      result.id,
+      userInfo.name
+    );
   }
   return result;
 };
 export const deleteProduct = async (id: string, userInfo?: { name: string, id: string }) => {
   const success = await remove('products', id);
   if (success && userInfo) {
-    await saveAuditLog({
-      action: "DELETE",
-      entity: "PRODUTO",
-      entity_id: id,
-      user_name: userInfo.name,
-      details: `Produto (ID: ${id}) excluído por ${userInfo.name}.`,
-    });
+    await logActivity(
+      "DELETE",
+      "PRODUTO",
+      `Produto (ID: ${id}) excluído por ${userInfo.name}.`,
+      id,
+      userInfo.name
+    );
   }
   return success;
 };
@@ -215,26 +215,26 @@ export const getAssetById = async (id: string): Promise<Asset | null> => {
 export const saveAsset = async (asset: Partial<Asset>, userInfo?: { name: string, id: string }) => {
   const result = await upsert<Asset>('assets', asset);
   if (result && userInfo) {
-    await saveAuditLog({
-      action: asset.id ? "UPDATE" : "CREATE",
-      entity: "PATRIMONIO",
-      entity_id: result.id,
-      user_name: userInfo.name,
-      details: `Patrimônio "${result.name}" (${result.code}) ${asset.id ? "atualizado" : "criado"} por ${userInfo.name}.`,
-    });
+    await logActivity(
+      asset.id ? "UPDATE" : "CREATE",
+      "PATRIMONIO",
+      `Patrimônio "${result.name}" (${result.code}) ${asset.id ? "atualizado" : "criado"} por ${userInfo.name}.`,
+      result.id,
+      userInfo.name
+    );
   }
   return result;
 };
 export const deleteAsset = async (id: string, userInfo?: { name: string, id: string }) => {
   const success = await remove('assets', id);
   if (success && userInfo) {
-    await saveAuditLog({
-      action: "DELETE",
-      entity: "PATRIMONIO",
-      entity_id: id,
-      user_name: userInfo.name,
-      details: `Patrimônio (ID: ${id}) excluído por ${userInfo.name}.`,
-    });
+    await logActivity(
+      "DELETE",
+      "PATRIMONIO",
+      `Patrimônio (ID: ${id}) excluído por ${userInfo.name}.`,
+      id,
+      userInfo.name
+    );
   }
   return success;
 };
@@ -244,13 +244,13 @@ export const getMovements = (forceRefresh = false) => getAll<StockMovement>('sto
 export const saveMovement = async (movement: Partial<StockMovement>, userInfo?: { name: string, id: string }) => {
   const result = await upsert<StockMovement>('stock_movements', movement);
   if (result && userInfo) {
-    await saveAuditLog({
-      action: movement.type === "entrada" ? "CREATE" : "DELETE", // Interpreting Stock IN/OUT as Create/Delete logic for simplicity or just UPDATE
-      entity: "ESTOQUE",
-      entity_id: result.id,
-      user_name: userInfo.name,
-      details: `Movimentação de ${movement.type} (${movement.quantity} un.) para "${movement.product_name}" por ${userInfo.name}.`
-    })
+    await logActivity(
+      movement.type === "entrada" ? "CREATE" : "DELETE",
+      "ESTOQUE",
+      `Movimentação de ${movement.type} (${movement.quantity} un.) para "${movement.product_name}" por ${userInfo.name}.`,
+      result.id,
+      userInfo.name
+    );
   }
   return result;
 }
@@ -273,13 +273,13 @@ export const getMaintenanceTasks = async (assetId?: string, forceRefresh = false
 export const saveMaintenanceTask = async (task: Partial<MaintenanceTask>, userInfo?: { name: string, id: string }) => {
   const result = await upsert<MaintenanceTask>('maintenance_tasks', task);
   if (result && userInfo) {
-    await saveAuditLog({
-      action: task.id ? "UPDATE" : "CREATE",
-      entity: "MANUTENCAO",
-      entity_id: result.id,
-      user_name: userInfo.name,
-      details: `Tarefa de manutenção "${result.title}" para "${result.asset_name}" ${task.id ? "atualizada" : "criada"} por ${userInfo.name}.`,
-    });
+    await logActivity(
+      task.id ? "UPDATE" : "CREATE",
+      "MANUTENCAO",
+      `Tarefa de manutenção "${result.title}" para "${result.asset_name}" ${task.id ? "atualizada" : "criada"} por ${userInfo.name}.`,
+      result.id,
+      userInfo.name
+    );
   }
   return result;
 };
@@ -304,13 +304,13 @@ export const getCheckouts = async (itemId?: string, itemType?: 'product' | 'asse
 export const saveCheckout = async (checkout: Partial<Checkout>, userInfo?: { name: string, id: string }) => {
   const result = await upsert<Checkout>('checkouts', checkout);
   if (result && userInfo) {
-    await saveAuditLog({
-      action: checkout.id ? "UPDATE" : "CHECKOUT",
-      entity: "CHECKOUT",
-      entity_id: result.id,
-      user_name: userInfo.name,
-      details: `Checkout de "${result.item_name}" ${checkout.id ? "atualizado" : "realizado"} para ${result.user_name} por ${userInfo.name}.`,
-    });
+    await logActivity(
+      checkout.id ? "UPDATE" : "CHECKOUT",
+      "CHECKOUT",
+      `Checkout de "${result.item_name}" ${checkout.id ? "atualizado" : "realizado"} para ${result.user_name} por ${userInfo.name}.`,
+      result.id,
+      userInfo.name
+    );
   }
   return result;
 };
@@ -324,19 +324,42 @@ export const getStorageLocations = (forceRefresh = false) => getAll<StorageLocat
 export const saveStorageLocation = (loc: Partial<StorageLocation>) => upsert<StorageLocation>('storage_locations', loc);
 
 // Audit Logs
-export const getAuditLogs = (forceRefresh = false) => getAll<AuditLog>('audit_logs', 'timestamp', false, forceRefresh);
-export const saveAuditLog = async (log: Partial<AuditLog>) => {
-  // Enrich log with simple device info if available
-  const deviceInfo = getDeviceInfo();
-  if (deviceInfo) {
-    log.user_agent = window.navigator.userAgent;
-    log.device_info = deviceInfo;
-  }
-  // If IP isn't set, try to simulate or leave blank (mostly client-side limitation)
-  if (!log.ip) log.ip = "127.0.0.1"; // Placeholder or fetch from service
+export const getAuditLogs = (forceRefresh = false) => getAll<AuditLog>('admin_audit_logs', 'created_at', false, forceRefresh);
 
-  return upsert<AuditLog>('audit_logs', log);
-}
+export const logActivity = async (
+  action: string,
+  resource: string,
+  details: any,
+  resourceId?: string,
+  userName?: string
+) => {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) return null;
+
+    const deviceInfo = getDeviceInfo();
+
+    // Construct the log entry matching admin_audit_logs table
+    const logEntry = {
+      user_id: session.user.id,
+      user_email: session.user.email,
+      user_name: userName || session.user.user_metadata?.name || session.user.email,
+      action,
+      resource,
+      resource_id: resourceId,
+      details: details, // Supabase handles object -> JSONB
+      ip_address: "127.0.0.1", // Placeholder or fetch if possible
+      user_agent: window.navigator.userAgent
+    };
+
+    return upsert<AuditLog>('admin_audit_logs', logEntry);
+  } catch (error) {
+    console.error("Failed to log activity:", error);
+    return null;
+  }
+};
+
+
 
 // Users / Profiles
 export const getUsers = (forceRefresh = false) => getAll<User>('profiles', 'name', true, forceRefresh);
@@ -344,13 +367,13 @@ export const saveUser = async (user: Partial<User>, userInfo?: { name: string, i
   if (!user.id && !user.email) return Promise.resolve(null); // Basic validation
   const result = await upsert<User>('profiles', user);
   if (result && userInfo) {
-    await saveAuditLog({
-      action: "UPDATE",
-      entity: "USUARIO",
-      entity_id: result.id,
-      user_name: userInfo.name,
-      details: `Usuário "${result.name}" (${result.email}) atualizado por ${userInfo.name}.`,
-    });
+    await logActivity(
+      "UPDATE",
+      "USUARIO",
+      `Usuário "${result.name}" (${result.email}) atualizado por ${userInfo.name}.`,
+      result.id,
+      userInfo.name
+    );
   }
   return result;
 };
