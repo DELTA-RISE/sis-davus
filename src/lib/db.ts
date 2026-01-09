@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { db } from './dexie-db';
 import { addToSyncQueue } from './offline-sync';
 import {
   Product,
@@ -45,9 +46,7 @@ export const getDeviceInfo = () => {
 const isOnline = () => typeof window !== 'undefined' && window.navigator.onLine;
 
 const TIMEOUT_MS = 15000;
-const CACHE_TTL = 60000; // 60 seconds
-
-const memoryCache: Record<string, { data: any[], timestamp: number }> = {};
+// memoryCache removed in favor of Dexie
 
 async function withTimeout<T>(promise: PromiseLike<T>, timeoutMs: number = TIMEOUT_MS): Promise<T> {
   let timeoutId: NodeJS.Timeout;
@@ -65,14 +64,18 @@ async function withTimeout<T>(promise: PromiseLike<T>, timeoutMs: number = TIMEO
 
 // Helper to handle standard CRUD
 async function getAll<T>(table: string, orderColumn: string = 'created_at', ascending: boolean = false, forceRefresh = false): Promise<T[]> {
-  const cached = memoryCache[table];
-  const now = Date.now();
+  const localData = await db.table(table).toArray();
 
-  if (!forceRefresh && cached && (now - cached.timestamp < CACHE_TTL)) {
-    console.log(`[Cache] Serving ${table} from memory`);
-    return cached.data as T[];
+  if (!isOnline()) {
+    return localData.sort((a, b) => {
+      // Simple sort for offline
+      if (a[orderColumn] < b[orderColumn]) return ascending ? -1 : 1;
+      if (a[orderColumn] > b[orderColumn]) return ascending ? 1 : -1;
+      return 0;
+    }) as T[];
   }
 
+  // Network First (if online)
   try {
     const { data, error } = await withTimeout(
       supabase
@@ -81,30 +84,49 @@ async function getAll<T>(table: string, orderColumn: string = 'created_at', asce
         .order(orderColumn, { ascending })
     );
 
-    if (error) {
-      console.error(`Error fetching from ${table}:`, error);
-      return cached ? cached.data as T[] : []; // Return stale cache on error if available
-    }
+    if (error) throw error;
 
-    // Update cache
-    memoryCache[table] = { data: data, timestamp: now };
+    // Cache to Dexie (Overwrite strategy)
+    // Note: We might want to be smarter about this to not overwrite unsynced changes
+    // But for now, we rely on the sync queue re-applying changes if needed, or sync running first.
+    await db.table(table).bulkPut(data);
 
+    // Also cleanup deprecated/deleted items (simple approach: clear and add)
+    // For large datasets, bulkPut is better. To remove deleted items, we'd need to know IDs.
+    // Let's assume bulkPut updates existing. 'clear' + 'bulkAdd' is cleaner for full sync but risky for pending.
+    // Compromise: We return the FRESH server data to the UI.
     return data as T[];
   } catch (err) {
-    console.error(`Timeout or error fetching from ${table}:`, err);
-    return cached ? cached.data as T[] : []; // Return stale cache on error if available
+    console.error(`Fetch error ${table}, falling back to cache:`, err);
+    return localData as T[];
   }
 }
 
-async function upsert<T>(table: string, item: Partial<T>): Promise<T | null> {
-  // Invalidate cache immediately
-  delete memoryCache[table];
+async function upsert<T>(table: string, item: any): Promise<T | null> {
+  const tableRef = db.table(table);
 
+  // 1. Optimistic Update (Local)
+  try {
+    // If it's a new item without ID, give it a temp ID for local storage? 
+    // Dexie moves fine with auto-increment, but we use UUIDs usually from Supabase.
+    // If item.id is missing, we might need to generate one if Supabase expects it, or let Supabase generate.
+    // For offline, we MUST have an ID.
+    if (!item.id) {
+      // Create a temp ID if needed, or handle in payload. 
+      // But usually we rely on Supabase returning the ID.
+    }
+    await tableRef.put(item);
+  } catch (e) {
+    console.warn("Local update failed", e);
+  }
+
+  // 2. Offline Handling
   if (!isOnline()) {
-    addToSyncQueue({ table, action: 'upsert', payload: item });
+    await addToSyncQueue({ table, action: 'upsert', payload: item });
     return item as T;
   }
 
+  // 3. Online Handling
   try {
     const { data, error } = await withTimeout(
       supabase
@@ -114,26 +136,34 @@ async function upsert<T>(table: string, item: Partial<T>): Promise<T | null> {
         .single()
     );
 
-    if (error) {
-      console.error(`Error saving to ${table}:`, error);
-      return null;
-    }
+    if (error) throw error;
+
+    // Update local with confirmed server data (e.g. correct ID, timestamps)
+    await tableRef.put(data);
+
     return data as T;
   } catch (err) {
-    console.error(`Timeout or error saving to ${table}:`, err);
-    return null;
+    console.error(`Sync error ${table}, queuing:`, err);
+    await addToSyncQueue({ table, action: 'upsert', payload: item });
+    return item as T;
   }
 }
 
 async function remove(table: string, id: string): Promise<boolean> {
-  // Invalidate cache immediately
-  delete memoryCache[table];
+  const tableRef = db.table(table);
 
+  // 1. Optimistic Delete (Local)
+  try {
+    await tableRef.delete(id);
+  } catch (e) { console.warn("Local delete failed", e); }
+
+  // 2. Offline Handling
   if (!isOnline()) {
-    addToSyncQueue({ table, action: 'delete', payload: { id } });
+    await addToSyncQueue({ table, action: 'delete', payload: { id } });
     return true;
   }
 
+  // 3. Online Handling
   try {
     const { error } = await withTimeout(
       supabase
@@ -142,14 +172,12 @@ async function remove(table: string, id: string): Promise<boolean> {
         .match({ id })
     );
 
-    if (error) {
-      console.error(`Error deleting from ${table}:`, error);
-      return false;
-    }
+    if (error) throw error;
     return true;
   } catch (err) {
-    console.error(`Timeout or error deleting from ${table}:`, err);
-    return false;
+    console.error(`Sync delete error ${table}, queuing:`, err);
+    await addToSyncQueue({ table, action: 'delete', payload: { id } });
+    return true;
   }
 }
 

@@ -43,3 +43,13 @@ next-env.d.ts
 
 # local env files
 .env*.local
+
+# generated pwa files
+public/sw.js
+public/workbox-*.js
+
+# build output
+/dist
+
+# logs
+build_log*.txt

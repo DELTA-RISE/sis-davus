@@ -171,7 +171,7 @@ export function TopBar() {
     if (result.type === "product") {
       router.push(`/estoque?search=${encodeURIComponent(result.name)}`);
     } else {
-      router.push(`/patrimonio/${result.id}`);
+      router.push(`/patrimonio/detalhes?id=${result.id}`);
     }
   };
 

@@ -28,6 +28,9 @@ export interface Asset {
   category?: string;
   assigned_to?: string;
   image_url?: string;
+  brand?: string;
+  cost_center?: string;
+  description?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -50,6 +53,7 @@ export interface MaintenanceTask {
   description: string;
   asset_id: string;
   asset_name: string;
+  asset_code?: string;
   due_date: string;
   status: 'Pendente' | 'Em Andamento' | 'Concluída' | 'Atrasada';
   priority: 'Baixa' | 'Média' | 'Alta';
@@ -57,6 +61,7 @@ export interface MaintenanceTask {
   cost?: number;
   completed_date?: string;
   created_at?: string;
+  updated_at?: string;
 }
 
 export interface Checkout {

@@ -471,13 +471,13 @@ export default function PatrimonioPage() {
                         </div>
                         <div className="space-y-2">
                           <Label>Responsável</Label>
-                          <Input value={newAsset.responsible || ""} onChange={(e) => setNewAsset({ ...newAsset, responsible: e.target.value })} />
+                          <Input value={newAsset.assigned_to || ""} onChange={(e) => setNewAsset({ ...newAsset, assigned_to: e.target.value })} />
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label>Data Aquisição</Label>
-                          <Input type="date" value={newAsset.acquisition_date || ""} onChange={(e) => setNewAsset({ ...newAsset, acquisition_date: e.target.value })} />
+                          <Input type="date" value={newAsset.purchase_date || ""} onChange={(e) => setNewAsset({ ...newAsset, purchase_date: e.target.value })} />
                         </div>
                         <div className="space-y-2">
                           <Label>Valor (R$)</Label>
@@ -582,7 +582,7 @@ export default function PatrimonioPage() {
                             <Checkbox checked={isSelected} onCheckedChange={() => toggleSelect(asset.id)} />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <Link href={`/patrimonio/${asset.id}`} className="block group" onClick={(e) => e.stopPropagation()}>
+                            <Link href={`/patrimonio/detalhes?id=${asset.id}`} className="block group" onClick={(e) => e.stopPropagation()}>
                               <div className="flex items-center gap-2 mb-1">
                                 <p className="font-medium text-sm truncate group-hover:text-primary transition-colors">{asset.name}</p>
                                 <Badge variant="outline" className="font-mono text-[10px] flex-shrink-0">{asset.code}</Badge>
@@ -591,7 +591,7 @@ export default function PatrimonioPage() {
                             <p className="text-xs text-muted-foreground truncate">{asset.description}</p>
                             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-[10px] text-muted-foreground">
                               <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{asset.location}</span>
-                              <span className="flex items-center gap-1"><User className="h-3 w-3" />{asset.responsible}</span>
+                              <span className="flex items-center gap-1"><User className="h-3 w-3" />{asset.assigned_to}</span>
                             </div>
                             <div className="flex items-center gap-2 mt-2">
                               <Badge variant="secondary" className="text-[10px]">{asset.category}</Badge>
@@ -602,7 +602,7 @@ export default function PatrimonioPage() {
                             <p className="text-sm font-semibold">R$ {(asset.value || 0).toLocaleString("pt-BR", { minimumFractionDigits: 0 })}</p>
                             <div className="flex items-center gap-1">
                               <Button variant="ghost" size="sm" onClick={(e) => handleEdit(e, asset)} className="h-7 w-7 p-0"><Edit className="h-4 w-4" /></Button>
-                              <Link href={`/patrimonio/${asset.id}`}><ChevronRight className="h-4 w-4 text-muted-foreground hover:text-primary" /></Link>
+                              <Link href={`/patrimonio/detalhes?id=${asset.id}`}><ChevronRight className="h-4 w-4 text-muted-foreground hover:text-primary" /></Link>
                             </div>
                           </div>
                         </div>

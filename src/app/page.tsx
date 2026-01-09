@@ -1,10 +1,12 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { m, LazyMotion, domAnimation, useScroll, useTransform } from "framer-motion";
-import { ArrowRight, Box, Shield, Zap, Globe, BarChart3, ChevronDown, Terminal } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ArrowRight, Box, Shield, Zap, Globe, BarChart3, ChevronDown, Terminal, Download, AppWindow, Smartphone, Apple, Share2, MoreVertical } from "lucide-react";
+import { Terminal as TerminalIcon } from "lucide-react";
 import { LandingHeader } from "@/components/landing/LandingHeader";
 import { MagneticButton } from "@/components/ui/magnetic-button";
 import { useAuth } from "@/lib/auth-context";
@@ -32,6 +34,54 @@ export default function LandingPage() {
 
   const opacityHero = useTransform(scrollYProgress, [0, 0.1], [1, 0]);
   const yHero = useTransform(scrollYProgress, [0, 0.1], [0, 100]);
+
+  // OS Detection & PWA Logic
+  const [os, setOs] = useState<"Windows" | "Mac" | "Linux" | "iOS" | "Android" | null>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    // Detect OS
+    const userAgent = window.navigator.userAgent.toLowerCase();
+    if (/iphone|ipad|ipod/.test(userAgent)) setOs("iOS");
+    else if (/android/.test(userAgent)) setOs("Android");
+    else if (userAgent.includes("win")) setOs("Windows");
+    else if (userAgent.includes("mac")) setOs("Mac");
+    else if (userAgent.includes("linux")) setOs("Linux");
+
+    // Capture PWA install prompt
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === "accepted") {
+      setDeferredPrompt(null);
+    }
+  };
+
+  const getMainDownloadButton = () => {
+    switch (os) {
+      case "Mac":
+        return { label: "Download para macOS", icon: Apple };
+      case "Linux":
+        return { label: "Download para Linux", icon: TerminalIcon };
+      default: // Windows or Unknown (default to Windows)
+        return { label: "Download para Windows", icon: AppWindow };
+    }
+  };
+
+  const mainBtn = getMainDownloadButton();
 
   return (
     <LazyMotion features={domAnimation}>
@@ -277,6 +327,111 @@ export default function LandingPage() {
 
           {/* SECTION: SAVINGS CALCULATOR */}
           <SavingsCalculator />
+
+          {/* SECTION: DOWNLOADS */}
+          <section className="py-32 px-4 relative">
+            <div className="max-w-7xl mx-auto">
+              <div className="text-center mb-16 space-y-4">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10">
+                  <Download className="h-4 w-4 text-primary" />
+                  <span className="text-xs font-medium text-white/70 tracking-widest uppercase">Multi-Platform</span>
+                </div>
+                <h2 className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/50">
+                  Disponível onde você estiver
+                </h2>
+                <p className="text-white/60 text-xl max-w-2xl mx-auto">
+                  Instale o app nativo para máxima performance ou utilize a versão web otimizada.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Desktop Downloads */}
+                <SpotlightCard className="rounded-[2.5rem] border-white/10 bg-black/40 backdrop-blur-xl p-12 flex flex-col justify-between group overflow-hidden">
+                  <div className="relative z-10 space-y-8">
+                    <div>
+                      <div className="w-16 h-16 rounded-2xl bg-blue-500/10 flex items-center justify-center mb-6 border border-blue-500/20">
+                        <AppWindow className="h-8 w-8 text-blue-500" />
+                      </div>
+                      <h3 className="text-3xl font-bold text-white mb-2">Desktop App</h3>
+                      <p className="text-white/60 text-lg leading-relaxed">
+                        Acesso offline, atalhos de sistema e notificações nativas.
+                      </p>
+                    </div>
+
+                    <div className="space-y-4">
+                      <Button size="lg" className="w-full h-14 text-base gap-3 bg-white text-black hover:bg-gray-200 rounded-xl transition-all shadow-lg shadow-white/5">
+                        <mainBtn.icon className="h-5 w-5" />
+                        <span className="font-semibold">{mainBtn.label}</span>
+                      </Button>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <Button variant="outline" size="lg" className="h-12 border-white/10 text-white hover:bg-white/5 hover:text-white rounded-xl gap-2">
+                          <Apple className="h-5 w-5" />
+                          <span className="text-sm">macOS</span>
+                        </Button>
+                        <Button variant="outline" size="lg" className="h-12 border-white/10 text-white hover:bg-white/5 hover:text-white rounded-xl gap-2">
+                          <TerminalIcon className="h-5 w-5" />
+                          <span className="text-sm">Linux</span>
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </SpotlightCard>
+
+                {/* Mobile PWA */}
+                <SpotlightCard className="rounded-[2.5rem] border-white/10 bg-black/40 backdrop-blur-xl p-12 flex flex-col justify-between group overflow-hidden">
+                  <div className="relative z-10 space-y-8">
+                    <div>
+                      <div className="w-16 h-16 rounded-2xl bg-purple-500/10 flex items-center justify-center mb-6 border border-purple-500/20">
+                        <Smartphone className="h-8 w-8 text-purple-500" />
+                      </div>
+                      <h3 className="text-3xl font-bold text-white mb-2">Mobile PWA</h3>
+                      <p className="text-white/60 text-lg leading-relaxed">
+                        Instale diretamente pelo navegador sem precisar de loja de aplicativos.
+                      </p>
+                    </div>
+
+                    <div className="space-y-4">
+                      {deferredPrompt && (
+                        <Button
+                          onClick={handleInstallClick}
+                          size="lg"
+                          className="w-full h-14 text-base gap-3 bg-primary hover:bg-primary/90 text-white rounded-xl transition-all shadow-lg shadow-primary/20 mb-4 animate-pulse"
+                        >
+                          <Download className="h-5 w-5" />
+                          <span className="font-semibold">Instalar Aplicativo Agora</span>
+                        </Button>
+                      )}
+
+                      <div className={`p-5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/[0.07] transition-colors ${os === 'iOS' ? 'border-blue-500/50 bg-blue-500/10' : ''}`}>
+                        <div className="flex items-center gap-3 mb-3 text-white">
+                          <Apple className={`h-5 w-5 ${os === 'iOS' ? 'text-white' : 'text-gray-400'}`} />
+                          <span className="font-semibold">iOS (iPhone/iPad)</span>
+                        </div>
+                        <ol className="text-sm text-white/50 space-y-2 list-decimal list-inside pl-1 marker:text-white/20">
+                          <li>Abra no <strong>Safari</strong></li>
+                          <li>Toque em <Share2 className="h-3 w-3 inline mx-1" /> <strong>Compartilhar</strong></li>
+                          <li>Selecione <strong>Adicionar à Tela de Início</strong></li>
+                        </ol>
+                      </div>
+
+                      <div className="p-5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/[0.07] transition-colors">
+                        <div className="flex items-center gap-3 mb-3 text-white">
+                          <Smartphone className="h-5 w-5 text-green-400" />
+                          <span className="font-semibold">Android</span>
+                        </div>
+                        <ol className="text-sm text-white/50 space-y-2 list-decimal list-inside pl-1 marker:text-white/20">
+                          <li>Abra no <strong>Chrome</strong></li>
+                          <li>Toque em <MoreVertical className="h-3 w-3 inline mx-1" /> <strong>Mais</strong></li>
+                          <li>Selecione <strong>Instalar aplicativo</strong></li>
+                        </ol>
+                      </div>
+                    </div>
+                  </div>
+                </SpotlightCard>
+              </div>
+            </div>
+          </section>
 
           {/* SECTION: FAQ */}
           <FAQ />

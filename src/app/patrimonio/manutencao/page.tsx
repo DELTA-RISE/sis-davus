@@ -45,17 +45,17 @@ import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
 
 const statusConfig = {
-  pendente: { label: "Pendente", color: "bg-slate-500/20 text-slate-400 border-slate-500/30", icon: Clock, columnColor: "border-slate-500/50" },
-  em_andamento: { label: "Em Andamento", color: "bg-blue-500/20 text-blue-500 border-blue-500/30", icon: PlayCircle, columnColor: "border-blue-500/50" },
-  aguardando_peca: { label: "Aguardando Peça", color: "bg-amber-500/20 text-amber-500 border-amber-500/30", icon: Pause, columnColor: "border-amber-500/50" },
-  concluido: { label: "Concluído", color: "bg-green-500/20 text-green-500 border-green-500/30", icon: CheckCircle2, columnColor: "border-green-500/50" },
+  Pendente: { label: "Pendente", color: "bg-slate-500/20 text-slate-400 border-slate-500/30", icon: Clock, columnColor: "border-slate-500/50" },
+  'Em Andamento': { label: "Em Andamento", color: "bg-blue-500/20 text-blue-500 border-blue-500/30", icon: PlayCircle, columnColor: "border-blue-500/50" },
+  Atrasada: { label: "Atrasada", color: "bg-amber-500/20 text-amber-500 border-amber-500/30", icon: Pause, columnColor: "border-amber-500/50" },
+  'Concluída': { label: "Concluído", color: "bg-green-500/20 text-green-500 border-green-500/30", icon: CheckCircle2, columnColor: "border-green-500/50" },
 };
 
 const priorityConfig = {
-  baixa: { label: "Baixa", color: "bg-slate-500/20 text-slate-400" },
-  media: { label: "Média", color: "bg-blue-500/20 text-blue-500" },
-  alta: { label: "Alta", color: "bg-orange-500/20 text-orange-500" },
-  urgente: { label: "Urgente", color: "bg-red-500/20 text-red-500" },
+  Baixa: { label: "Baixa", color: "bg-slate-500/20 text-slate-400" },
+  Média: { label: "Média", color: "bg-blue-500/20 text-blue-500" },
+  Alta: { label: "Alta", color: "bg-orange-500/20 text-orange-500" },
+  Urgente: { label: "Urgente", color: "bg-red-500/20 text-red-500" },
 };
 
 export default function ManutencaoKanbanPage() {
@@ -64,7 +64,7 @@ export default function ManutencaoKanbanPage() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [newTask, setNewTask] = useState<Partial<MaintenanceTask>>({ status: "pendente", priority: "media" });
+  const [newTask, setNewTask] = useState<Partial<MaintenanceTask>>({ status: "Pendente", priority: "Média" });
   const [viewMode, setViewMode] = useState<"kanban" | "list">("list");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
@@ -99,7 +99,7 @@ export default function ManutencaoKanbanPage() {
     if (saved) {
       toast.success("Manutenção agendada!");
       setIsDialogOpen(false);
-      setNewTask({ status: "pendente", priority: "media" });
+      setNewTask({ status: "Pendente", priority: "Média" });
     }
   };
 
@@ -109,10 +109,10 @@ export default function ManutencaoKanbanPage() {
   };
 
   const columns: { status: MaintenanceTask["status"]; tasks: MaintenanceTask[] }[] = [
-    { status: "pendente", tasks: tasks.filter((t) => t.status === "pendente") },
-    { status: "em_andamento", tasks: tasks.filter((t) => t.status === "em_andamento") },
-    { status: "aguardando_peca", tasks: tasks.filter((t) => t.status === "aguardando_peca") },
-    { status: "concluido", tasks: tasks.filter((t) => t.status === "concluido") },
+    { status: "Pendente", tasks: tasks.filter((t) => t.status === "Pendente") },
+    { status: "Em Andamento", tasks: tasks.filter((t) => t.status === "Em Andamento") },
+    { status: "Atrasada", tasks: tasks.filter((t) => t.status === "Atrasada") },
+    { status: "Concluída", tasks: tasks.filter((t) => t.status === "Concluída") },
   ];
 
   const filteredTasks = statusFilter === "all" ? tasks : tasks.filter(t => t.status === statusFilter);
@@ -123,7 +123,7 @@ export default function ManutencaoKanbanPage() {
     return (
       <Card className="border-border/50 bg-card">
         <CardContent className="p-3">
-          <Link href={`/patrimonio/${task.asset_id}`} className="group">
+          <Link href={`/patrimonio/detalhes?id=${task.asset_id}`} className="group">
             <p className="font-medium text-sm truncate group-hover:text-primary transition-colors">{task.title}</p>
             <p className="text-[10px] text-muted-foreground truncate">{task.asset_code} - {task.asset_name}</p>
           </Link>

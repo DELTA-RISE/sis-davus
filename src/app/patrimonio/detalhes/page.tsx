@@ -1,9 +1,9 @@
 "use client";
 
-import { use, useEffect, useState, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Asset, MaintenanceTask, AssetTimeline, Checkout, User, StorageLocation, CostCenter } from "@/lib/store";
+import { Asset, MaintenanceTask, AssetTimeline, Checkout, StorageLocation, CostCenter } from "@/lib/store";
 import {
   getAssetById,
   getMaintenanceTasks,
@@ -11,7 +11,6 @@ import {
   getCheckouts,
   saveAsset,
   saveCheckout,
-  getUsers,
   getStorageLocations,
   getCostCenters,
 } from "@/lib/db";
@@ -30,7 +29,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -58,10 +56,9 @@ import {
   AlertTriangle,
   Clock,
   QrCode,
-  Printer,
   Download,
   Save,
-  LayoutTemplate,
+  Printer,
 } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
 import { toast } from "sonner";
@@ -94,8 +91,9 @@ const timelineColors: Record<string, string> = {
   atualizacao: "bg-slate-500/20 text-slate-400",
 };
 
-export default function AssetHubPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+export default function AssetHubPage() {
+  const searchParams = useSearchParams();
+  const id = searchParams.get("id");
   const router = useRouter();
   const { userName, user } = useAuth();
 
@@ -130,6 +128,7 @@ export default function AssetHubPage({ params }: { params: Promise<{ id: string 
   });
 
   async function loadData() {
+    if (!id) return;
     setIsLoading(true);
     try {
       const [assetData, tasksData, timelineData, checkoutsData, locsData, ccsData] = await Promise.all([
@@ -150,7 +149,7 @@ export default function AssetHubPage({ params }: { params: Promise<{ id: string 
       setLocations(locsData);
       setCostCenters(ccsData);
 
-      const current = checkoutsData.find(c => c.status === "em_uso" || c.status === "atrasado");
+      const current = checkoutsData.find(c => c.status === "Ativo" || c.status === "Atrasado");
       setActiveCheckout(current || null);
     } catch (error) {
       console.error("Error loading asset details:", error);
@@ -161,7 +160,9 @@ export default function AssetHubPage({ params }: { params: Promise<{ id: string 
   }
 
   useEffect(() => {
-    loadData();
+    if (id) {
+      loadData();
+    }
   }, [id]);
 
   const downloadQR = () => {
@@ -200,7 +201,7 @@ export default function AssetHubPage({ params }: { params: Promise<{ id: string 
       id: asset.id,
       location: transferData.location,
       cost_center: transferData.cost_center || asset.cost_center,
-      responsible: transferData.responsible || asset.responsible
+      assigned_to: transferData.responsible || asset.assigned_to
     }, { name: userName, id: user?.id || "" });
 
     if (updated) {
@@ -221,11 +222,10 @@ export default function AssetHubPage({ params }: { params: Promise<{ id: string 
       item_id: asset.id,
       item_type: "asset",
       item_name: asset.name,
-      quantity: 1,
       user_name: checkoutData.user_name,
       checkout_date: new Date().toISOString(),
-      expected_return: checkoutData.expected_return || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // Default 7 days
-      status: "em_uso",
+      expected_return_date: checkoutData.expected_return || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // Default 7 days
+      status: "Ativo",
       notes: checkoutData.notes
     }, { name: userName, id: user?.id || "" });
 
@@ -244,7 +244,7 @@ export default function AssetHubPage({ params }: { params: Promise<{ id: string 
     const updated = await saveCheckout({
       ...activeCheckout,
       return_date: new Date().toISOString(),
-      status: "devolvido"
+      status: "Devolvido"
     }, { name: userName, id: user?.id || "" });
     if (updated) {
       toast.success("Devolução registrada!");
@@ -277,7 +277,7 @@ export default function AssetHubPage({ params }: { params: Promise<{ id: string 
   }
 
   const daysSinceAcquisition = Math.floor(
-    (new Date().getTime() - new Date(asset.acquisition_date).getTime()) / (1000 * 60 * 60 * 24)
+    (new Date().getTime() - new Date(asset.purchase_date || new Date()).getTime()) / (1000 * 60 * 60 * 24)
   );
   const yearsSinceAcquisition = (daysSinceAcquisition / 365).toFixed(1);
 
@@ -318,10 +318,10 @@ export default function AssetHubPage({ params }: { params: Promise<{ id: string 
                 <div className="flex-1">
                   <p className="font-medium text-sm">Em uso por {activeCheckout.user_name}</p>
                   <p className="text-xs text-muted-foreground">
-                    Devolução prevista: {new Date(activeCheckout.expected_return).toLocaleDateString("pt-BR")}
+                    Devolução prevista: {new Date(activeCheckout.expected_return_date || '').toLocaleDateString("pt-BR")}
                   </p>
                 </div>
-                {activeCheckout.status === "atrasado" && (
+                {activeCheckout.status === "Atrasado" && (
                   <Badge className="bg-red-500/20 text-red-500">
                     <AlertTriangle className="h-3 w-3 mr-1" />
                     Atrasado
@@ -422,7 +422,7 @@ export default function AssetHubPage({ params }: { params: Promise<{ id: string 
                     </div>
                     <div>
                       <p className="text-[10px] text-muted-foreground uppercase">Responsável</p>
-                      <p className="text-sm font-medium truncate">{asset.responsible}</p>
+                      <p className="text-sm font-medium truncate">{asset.assigned_to}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -458,16 +458,16 @@ export default function AssetHubPage({ params }: { params: Promise<{ id: string 
                         className="flex items-center gap-3 p-2 rounded-lg bg-background/50"
                       >
                         <div
-                          className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${task.status === "concluido"
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${task.status === "Concluída"
                             ? "bg-green-500/20"
-                            : task.status === "em_andamento"
+                            : task.status === "Em Andamento"
                               ? "bg-blue-500/20"
                               : "bg-amber-500/20"
                             }`}
                         >
-                          {task.status === "concluido" ? (
+                          {task.status === "Concluída" ? (
                             <CheckCircle2 className="h-4 w-4 text-green-500" />
-                          ) : task.status === "em_andamento" ? (
+                          ) : task.status === "Em Andamento" ? (
                             <Clock className="h-4 w-4 text-blue-500" />
                           ) : (
                             <AlertTriangle className="h-4 w-4 text-amber-500" />
@@ -476,24 +476,24 @@ export default function AssetHubPage({ params }: { params: Promise<{ id: string 
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{task.title}</p>
                           <p className="text-xs text-muted-foreground">
-                            {new Date(task.updated_at).toLocaleDateString("pt-BR")}
+                            {task.updated_at ? new Date(task.updated_at).toLocaleDateString("pt-BR") : '-'}
                           </p>
                         </div>
                         <Badge
                           variant="outline"
-                          className={`text-[10px] ${task.status === "concluido"
+                          className={`text-[10px] ${task.status === "Concluída"
                             ? "border-green-500/30 text-green-500"
-                            : task.status === "em_andamento"
+                            : task.status === "Em Andamento"
                               ? "border-blue-500/30 text-blue-500"
                               : "border-amber-500/30 text-amber-500"
                             }`}
                         >
-                          {task.status === "concluido"
+                          {task.status === "Concluída"
                             ? "Concluído"
-                            : task.status === "em_andamento"
+                            : task.status === "Em Andamento"
                               ? "Em andamento"
-                              : task.status === "aguardando_peca"
-                                ? "Aguardando"
+                              : task.status === "Atrasada"
+                                ? "Atrasado"
                                 : "Pendente"}
                         </Badge>
                       </div>
@@ -577,8 +577,8 @@ export default function AssetHubPage({ params }: { params: Promise<{ id: string 
                   <div className="space-y-2">
                     <Label>Responsável</Label>
                     <UserSelect
-                      value={editForm.responsible || ""}
-                      onChange={(v) => setEditForm({ ...editForm, responsible: v })}
+                      value={editForm.assigned_to || ""}
+                      onChange={(v) => setEditForm({ ...editForm, assigned_to: v })}
                     />
                   </div>
                   <div className="space-y-2">
@@ -804,19 +804,23 @@ export default function AssetHubPage({ params }: { params: Promise<{ id: string 
                         pdf.addImage(dataUrl, 'PNG', x, y, tagWidth, tagHeight);
                       }
 
-                      pdf.save(`patrimonios-${asset.code}.pdf`);
+                      pdf.save(`${asset?.code || 'etiqueta'}.pdf`);
                       toast.success("PDF gerado com sucesso!");
                     } catch (error) {
-                      console.error('PDF Generation Error:', error);
+                      console.error("Error generating PDF:", error);
                       toast.error("Erro ao gerar PDF");
                     }
                   }}>
-                    <Printer className="w-4 h-4" />
-                    Gerar PDF
+                    <Download className="h-4 w-4" />
+                    Salvar PDF
                   </Button>
-                  <Button variant="outline" className="flex-1 gap-2" onClick={downloadQR}>
-                    <Download className="w-4 h-4" />
-                    Baixar PNG
+                  <Button variant="outline" onClick={handlePrint}>
+                    <Printer className="h-4 w-4" />
+                    Imprimir
+                  </Button>
+                  <Button variant="outline" onClick={downloadQR}>
+                    <Save className="h-4 w-4" />
+                    PNG
                   </Button>
                 </div>
               </div>
