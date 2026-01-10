@@ -7,7 +7,7 @@ import { Scene } from "@/components/landing/cinematic/Scene";
 
 export function Experience() {
     return (
-        <div className="fixed inset-0 z-0 bg-black">
+        <div className="fixed inset-0 z-0 bg-black pointer-events-none">
             <Canvas
                 shadows
                 dpr={[1, 2]}

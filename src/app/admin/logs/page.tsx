@@ -23,7 +23,7 @@ import {
 import {
   FileText,
   Search,
-  User,
+  User as UserIcon,
   Clock,
   Monitor,
   Filter,
@@ -165,7 +165,7 @@ export default function AuditLogsPage() {
                       <p className="text-sm font-medium truncate">{typeof log.details === 'string' ? log.details : JSON.stringify(log.details)}</p>
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
-                          <User className="h-3 w-3" />
+                          <UserIcon className="h-3 w-3" />
                           {log.user_name}
                         </span>
                         <span className="flex items-center gap-1">
@@ -187,7 +187,7 @@ export default function AuditLogsPage() {
 
         {/* Detail Dialog */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="sm:max-w-md border-border">
+          <DialogContent className="sm:max-w-xl border-border">
             <DialogHeader>
               <DialogTitle>Detalhes do Log</DialogTitle>
             </DialogHeader>
@@ -209,12 +209,12 @@ export default function AuditLogsPage() {
                 <div className="space-y-3 text-sm">
                   <div className="grid grid-cols-[100px_1fr] gap-2">
                     <span className="text-muted-foreground">Descrição:</span>
-                    <span className="font-medium">{typeof selectedLog.details === 'string' ? selectedLog.details : JSON.stringify(selectedLog.details, null, 2)}</span>
+                    <span className="font-medium break-words whitespace-pre-wrap">{typeof selectedLog.details === 'string' ? selectedLog.details : JSON.stringify(selectedLog.details, null, 2)}</span>
                   </div>
                   <div className="grid grid-cols-[100px_1fr] gap-2">
                     <span className="text-muted-foreground">Usuário:</span>
                     <span className="font-medium flex items-center gap-1">
-                      <User className="h-3 w-3" /> {selectedLog.user_name}
+                      <UserIcon className="h-3 w-3" /> {selectedLog.user_name}
                     </span>
                   </div>
                   <div className="grid grid-cols-[100px_1fr] gap-2">
@@ -231,7 +231,7 @@ export default function AuditLogsPage() {
                   </div>
                   <div className="border-t border-border/50 my-2 pt-2">
                     <p className="text-xs font-semibold text-muted-foreground mb-1">User Agent</p>
-                    <span className="font-mono truncate block text-xs" title={selectedLog.user_agent}>{selectedLog.user_agent || "N/A"}</span>
+                    <span className="font-mono break-all whitespace-pre-wrap block text-xs" title={selectedLog.user_agent}>{selectedLog.user_agent || "N/A"}</span>
                   </div>
                 </div>
               </div>

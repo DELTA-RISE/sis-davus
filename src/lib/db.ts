@@ -43,6 +43,17 @@ export const getDeviceInfo = () => {
   return { os, browser, device };
 };
 
+export const getPublicIp = async (): Promise<string> => {
+  try {
+    const response = await fetch('https://api.ipify.org?format=json');
+    if (!response.ok) return "127.0.0.1";
+    const data = await response.json();
+    return data.ip || "127.0.0.1";
+  } catch (error) {
+    return "127.0.0.1";
+  }
+};
+
 const isOnline = () => typeof window !== 'undefined' && window.navigator.onLine;
 
 const TIMEOUT_MS = 15000;
@@ -376,7 +387,7 @@ export const logActivity = async (
       resource,
       resource_id: resourceId,
       details: details, // Supabase handles object -> JSONB
-      ip_address: "127.0.0.1", // Placeholder or fetch if possible
+      ip_address: await getPublicIp(),
       user_agent: window.navigator.userAgent
     };
 

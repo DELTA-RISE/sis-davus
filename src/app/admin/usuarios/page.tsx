@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getUsers, saveUser, getDeviceInfo } from "@/lib/db";
+import { getUsers, saveUser, getDeviceInfo, getPublicIp } from "@/lib/db";
 import { createUserAction, deleteUserAction, updateUserPasswordAction } from "@/actions/auth";
 import { useAuth } from "@/lib/auth-context";
 import { User } from "@/lib/store";
@@ -35,22 +35,29 @@ import {
   UserCog,
   Trash2,
   Lock,
+  User as UserIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 
-const roleLabels = {
+const roleLabels: Record<string, string> = {
   admin: "Administrador",
   gestor: "Gestor",
+  user: "Usuário",
+  manager: "Gerente",
 };
 
-const roleColors = {
+const roleColors: Record<string, string> = {
   admin: "bg-purple-500/20 text-purple-500 border-purple-500/30",
   gestor: "bg-blue-500/20 text-blue-500 border-blue-500/30",
+  user: "bg-gray-500/20 text-gray-500 border-gray-500/30",
+  manager: "bg-orange-500/20 text-orange-500 border-orange-500/30",
 };
 
-const roleIcons = {
+const roleIcons: Record<string, any> = {
   admin: Shield,
   gestor: UserCog,
+  user: UserIcon,
+  manager: Shield,
 };
 
 export default function UsersPage() {
@@ -120,12 +127,12 @@ export default function UsersPage() {
           name: newUser.name,
           email: newUser.email,
           role: newUser.role || 'gestor',
-          status: newUser.status || 'ativo'
+          status: (newUser.status === 'ativo' || newUser.status === 'inativo') ? newUser.status : 'ativo'
         }, {
           userName,
           userId: user?.id || "",
           deviceInfo: getDeviceInfo(),
-          ip: "127.0.0.1" // Mock IP as client can't easily get it
+          ip: await getPublicIp() // Mock IP as client can't easily get it
         });
 
         if (result.success) {
@@ -160,7 +167,7 @@ export default function UsersPage() {
         userName,
         userId: user?.id || "",
         deviceInfo: getDeviceInfo(),
-        ip: "127.0.0.1"
+        ip: await getPublicIp()
       });
       if (result.success) {
         toast.success("Usuário excluído com sucesso");

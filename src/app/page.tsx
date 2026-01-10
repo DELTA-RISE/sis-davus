@@ -16,7 +16,7 @@ import { SpotlightCard } from "@/components/landing/SpotlightCard";
 // Dynamic Imports for Heavy Components
 const Experience = dynamic(() => import("@/components/landing/cinematic/Experience").then(mod => mod.Experience), {
   ssr: false,
-  loading: () => <div className="fixed inset-0 bg-[#030014] -z-10" />
+  loading: () => <div className="fixed inset-0 bg-black -z-10" />
 });
 const StickyScrollGuide = dynamic(() => import("@/components/landing/StickyScrollGuide").then(mod => mod.StickyScrollGuide));
 const MegaFooter = dynamic(() => import("@/components/landing/MegaFooter").then(mod => mod.MegaFooter));
@@ -85,14 +85,9 @@ export default function LandingPage() {
 
   return (
     <LazyMotion features={domAnimation}>
-      <div ref={containerRef} className="relative min-h-[400vh] bg-[#030014] overflow-hidden selection:bg-primary/30">
+      <div ref={containerRef} className="relative min-h-[400vh] bg-black overflow-hidden selection:bg-primary/30">
 
-        {/* Gradient Background Layer */}
-        <div className="absolute inset-0 z-0 pointer-events-none">
-          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-purple-500/20 blur-[120px]" />
-          <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-blue-600/20 blur-[120px]" />
-          <div className="absolute top-[20%] left-[20%] w-[30%] h-[30%] rounded-full bg-pink-500/10 blur-[100px]" />
-        </div>
+
 
         {/* 3D Background Layer */}
         <Experience />

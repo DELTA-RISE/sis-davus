@@ -211,7 +211,7 @@ export default function EstoquePage() {
 
     const payload: Partial<Product> = {
       ...newProduct,
-      last_updated: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     };
 
     const saved = await saveProduct(payload, { name: userName, id: user?.id || "" });

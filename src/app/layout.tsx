@@ -7,7 +7,7 @@ import { CustomCursor } from "@/components/CustomCursor";
 
 import { SyncProvider } from "@/components/SyncProvider";
 import { SoundProvider } from "@/components/SoundProvider";
-import { Analytics } from "@/components/Analytics";
+
 import { JsonLd } from "@/components/JsonLd";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "next-themes";
@@ -76,7 +76,7 @@ export default function RootLayout({
             <SyncProvider>
               <LayoutWrapper>{children}</LayoutWrapper>
 
-              <Analytics />
+
               <JsonLd />
             </SyncProvider>
           </SoundProvider>

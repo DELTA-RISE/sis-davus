@@ -14,7 +14,7 @@ interface AuditContext {
     ip?: string;
 }
 
-export async function createUserAction(data: CreateUserData, audit: AuditContext) {
+export async function createUserAction(data: CreateUserData, audit: AuditContext): Promise<{ success: boolean; error?: string; tempPassword?: string }> {
     console.warn("createUserAction: Functionality disabled in Desktop App (requires server).");
     return { success: false, error: "Funcionalidade indisponível na versão Desktop. Use a versão Web para criar usuários." };
 }

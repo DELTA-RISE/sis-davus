@@ -24,24 +24,25 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
   const isLoginPage = pathname === "/login";
   const isChangePasswordPage = pathname === "/change-password";
   const isTVMode = pathname?.includes("/dashboard/tv");
+  const isWikiPage = pathname?.startsWith("/wiki");
   const { isCollapsed } = useSidebar();
 
   useEffect(() => {
-    if (!isLoading && !isLandingPage && !isLoginPage) {
+    if (!isLoading && !isLandingPage && !isLoginPage && !isWikiPage) {
       if (!user) {
         router.push("/login"); // Redirect to login if not authenticated
       } else if (mustChangePassword && !isChangePasswordPage) {
         router.push("/change-password"); // Force password change
       }
     }
-  }, [user, isLoading, isLandingPage, isLoginPage, isChangePasswordPage, mustChangePassword, router]);
+  }, [user, isLoading, isLandingPage, isLoginPage, isWikiPage, isChangePasswordPage, mustChangePassword, router]);
 
-  if (isLandingPage || isLoginPage || isTVMode || isChangePasswordPage) {
+  if (isLandingPage || isLoginPage || isTVMode || isChangePasswordPage || isWikiPage) {
     return (
-      <>
+      <div className="relative">
         {isLandingPage && <ScrollProgress />}
         {children}
-      </>
+      </div>
     );
   }
 

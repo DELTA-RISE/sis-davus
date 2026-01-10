@@ -6,10 +6,12 @@ export interface Product {
   category: string;
   quantity: number;
   min_stock: number;
+  max_stock?: number;
   unit_price?: number;
   location?: string;
   description?: string;
   supplier?: string;
+  cost_center?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -43,6 +45,8 @@ export interface StockMovement {
   product_name: string;
   reason: string;
   user_id: string;
+  user_name?: string;
+  cost_center?: string;
   date: string;
   created_at?: string;
 }
@@ -83,8 +87,9 @@ export interface CostCenter {
   id: string;
   name: string;
   code: string;
-  budget?: number;
-  manager?: string;
+  responsible?: string;
+  description?: string;
+  status: 'ativo' | 'inativo';
   created_at?: string;
 }
 

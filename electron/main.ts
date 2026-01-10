@@ -40,6 +40,11 @@ function createWindow() {
 }
 
 app.on("ready", () => {
+    // Suppress security warnings in dev
+    if (!app.isPackaged) {
+        process.env["ELECTRON_DISABLE_SECURITY_WARNINGS"] = "true";
+    }
+
     // Set App User Model ID for Windows Taskbar grouping
     if (process.platform === 'win32') {
         app.setAppUserModelId('com.sisdavus.app');
