@@ -11,9 +11,9 @@ O Electron opera com dois tipos de processos distintos:
 
 ```mermaid
 graph TD
-    Main[Main Process (Node)] -->|IPC Msg| Renderer[Renderer (Web/React)]
+    Main["Main Process (Node)"] -->|IPC Msg| Renderer["Renderer (Web/React)"]
     Renderer -->|IPC Invoke| Main
-    Main -->|Native API| OS[Sistema Operacional]
+    Main -->|Native API| OS["Sistema Operacional"]
 ```
 
 ## 2. Segurança: Context Isolation

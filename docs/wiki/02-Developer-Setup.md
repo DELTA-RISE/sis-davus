@@ -8,7 +8,7 @@ Antes de iniciar, certifique-se de ter as seguintes ferramentas instaladas em se
 
 - **Node.js** (v20 ou superior recomendada)
 - **Bun** (Gerenciador de pacotes e runtime utilizado no projeto)
-- **Git**
+- **Git** (Sistema de controle de versão distribuído)
 
 ## Configuração do Ambiente
 

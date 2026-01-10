@@ -23,7 +23,7 @@ const components = {
         <ul className="list-none space-y-2 mb-6" {...props} />
     ),
     li: ({ node, ...props }: any) => (
-        <li className="flex gap-2 text-neutral-400 items-start before:content-['•'] before:text-primary before:font-bold before:mr-2" {...props} />
+        <li className="relative pl-5 mb-2 text-neutral-400 before:content-['•'] before:text-primary before:font-bold before:absolute before:left-0 before:top-0" {...props} />
     ),
     blockquote: ({ node, ...props }: any) => (
         <blockquote className="border-l-4 border-primary/50 bg-primary/5 p-6 rounded-r-xl my-8 italic text-neutral-300" {...props} />
@@ -45,7 +45,7 @@ const components = {
         );
     },
     pre: ({ node, children, ...props }: any) => {
-        return <div className="relative group my-6" {...props}>{children}</div>
+        return <div className="relative group my-4" {...props}>{children}</div>
     },
     code: ({ node, inline, className, children, ...props }: any) => {
         const match = /language-(\w+)/.exec(className || '');
@@ -57,21 +57,18 @@ const components = {
 
         if (inline) {
             return (
-                <code className="bg-white/10 px-1.5 py-0.5 rounded text-primary/80 font-mono text-sm" {...props}>
+                <code className="inline-block bg-white/10 px-1.5 py-0.5 rounded text-primary/80 font-mono text-sm align-middle" {...props}>
                     {children}
                 </code>
             );
         }
 
         return (
-            <div className="relative">
-                <div className="absolute inset-0 bg-primary/5 blur-xl group-hover:bg-primary/10 transition-all rounded-2xl" />
-                <pre className="relative bg-[#0d1117] border border-white/10 p-6 rounded-xl overflow-x-auto text-sm text-neutral-300 shadow-2xl font-mono">
-                    <code className={className} {...props}>
-                        {children}
-                    </code>
-                </pre>
-            </div>
+            <pre className="inline-block bg-[#111] border border-white/5 px-3 py-1.5 rounded-md overflow-x-auto text-sm text-neutral-300 font-mono w-fit max-w-full align-middle">
+                <code className={className} {...props}>
+                    {children}
+                </code>
+            </pre>
         );
     },
     table: ({ node, ...props }: any) => (
