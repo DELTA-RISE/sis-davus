@@ -247,4 +247,4 @@ sequenceDiagram
 
 ---
 
-[Próximo: Design de Interface →](./06-Interface-Design.md)
+

@@ -41,4 +41,4 @@ Guia rápido de operação para Gestores e Colaboradores.
 
 ---
 
-[Próximo: Solução de Problemas →](./17-Troubleshooting-Guide.md)
+

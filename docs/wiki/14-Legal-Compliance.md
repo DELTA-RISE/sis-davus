@@ -29,4 +29,4 @@ O sistema utiliza apenas armazenamento essencial técnica:
 
 ---
 
-[Próximo: Política de Segurança →](./15-Security-Policy.md)
+

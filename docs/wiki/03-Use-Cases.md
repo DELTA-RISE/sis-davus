@@ -81,4 +81,4 @@ Documentação detalhada dos principais cenários de interação Usuário-Sistem
 
 ---
 
-[Próximo: Arquitetura do Sistema →](./04-System-Architecture.md)
+

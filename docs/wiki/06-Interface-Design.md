@@ -70,4 +70,4 @@ Aplicação das 10 heurísticas de Jakob Nielsen no SisDavus:
 
 ---
 
-[Próximo: Engenharia Frontend Detalhada →](./07-Frontend-Engineering.md)
+

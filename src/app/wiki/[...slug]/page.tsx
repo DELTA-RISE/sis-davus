@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 import Link from 'next/link';
 import { MDXMermaid } from "@/components/MDXMermaid";
 import remarkGfm from "remark-gfm";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 // Configuração para renderizar tabelas e código com estilo
 const components = {
@@ -107,6 +108,11 @@ export default async function WikiPage({
         notFound();
     }
 
+    const docs = getAllDocs();
+    const currentIndex = docs.findIndex(d => d.slug[0] === doc.slug[0]);
+    const prevDoc = currentIndex > 0 ? docs[currentIndex - 1] : null;
+    const nextDoc = currentIndex < docs.length - 1 ? docs[currentIndex + 1] : null;
+
     return (
         <div className="max-w-4xl mx-auto px-6 py-12 lg:py-20 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* Breadcrumb simplificado */}
@@ -124,6 +130,39 @@ export default async function WikiPage({
                     {doc.content}
                 </ReactMarkdown>
             </article>
+
+            {/* Navigation Buttons */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-16 pt-8 border-t border-white/5">
+                {prevDoc ? (
+                    <Link
+                        href={`/wiki/${prevDoc.slug[0]}`}
+                        className="group flex flex-col p-4 rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 hover:border-primary/30 transition-all duration-300"
+                    >
+                        <span className="flex items-center gap-2 text-sm text-neutral-500 group-hover:text-primary mb-1">
+                            <ChevronLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+                            Anterior
+                        </span>
+                        <span className="font-medium text-neutral-200 group-hover:text-white break-words leading-tight">
+                            {prevDoc.title}
+                        </span>
+                    </Link>
+                ) : <div />}
+
+                {nextDoc ? (
+                    <Link
+                        href={`/wiki/${nextDoc.slug[0]}`}
+                        className="group flex flex-col items-end p-4 rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 hover:border-primary/30 transition-all duration-300 text-right"
+                    >
+                        <span className="flex items-center gap-2 text-sm text-neutral-500 group-hover:text-primary mb-1">
+                            Próximo
+                            <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                        </span>
+                        <span className="font-medium text-neutral-200 group-hover:text-white text-right break-words leading-tight">
+                            {nextDoc.title}
+                        </span>
+                    </Link>
+                ) : <div />}
+            </div>
 
             <div className="mt-20 pt-10 border-t border-white/5 flex justify-between text-neutral-500 text-sm">
                 <p>© 2026 SisDavus Engineering Team</p>

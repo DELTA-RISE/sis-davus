@@ -33,4 +33,4 @@ Em caso de suspeita de violação (ex: Ativos sumiram do sistema, Admin não con
 
 ---
 
-[Próximo: Manual do Usuário →](./16-User-Manual.md)
+

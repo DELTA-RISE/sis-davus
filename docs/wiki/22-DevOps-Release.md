@@ -51,4 +51,4 @@ Caso a automação falhe, o procedimento manual de release é:
 
 ---
 
-[Próximo: Operações e Manutenção →](./12-Maintenance-Ops.md)
+

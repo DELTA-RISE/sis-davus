@@ -43,4 +43,4 @@ Para conformidade com requisitos de segurança corporativa, todas as ações des
 
 ---
 
-[Próximo: Integração Desktop →](./09-Desktop-Integration.md)
+

@@ -33,4 +33,4 @@ Definições dos termos técnicos e de negócio utilizados na documentação e n
 
 ---
 
-[Próximo: Auditoria de Dependências →](./19-Dependency-Audit.md)
+

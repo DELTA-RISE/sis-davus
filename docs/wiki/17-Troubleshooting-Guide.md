@@ -12,4 +12,4 @@ Referência rápida para erros comuns reportados por usuários.
 
 ---
 
-[Próximo: Glossário →](./18-Glossary.md)
+

@@ -48,4 +48,4 @@ Embora não implementado no MVP, a arquitetura suporta `electron-updater`.
 
 ---
 
-[Próximo: Testes e Qualidade →](./10-Testing-Strategy.md)
+

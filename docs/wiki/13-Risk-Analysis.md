@@ -25,4 +25,4 @@ Caso o sistema saia do ar completamente (Supabase Down):
 
 ---
 
-[Próximo: Conformidade Legal (LGPD) →](./14-Legal-Compliance.md)
+

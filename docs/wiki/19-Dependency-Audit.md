@@ -32,4 +32,4 @@ Todas as bibliotecas utilizadas possuem licenças permissivas (MIT, Apache 2.0, 
 
 ---
 
-[Próximo: Roadmap e Futuro →](./20-Roadmap-Future.md)
+

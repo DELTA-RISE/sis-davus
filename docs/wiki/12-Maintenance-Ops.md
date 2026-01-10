@@ -41,4 +41,4 @@ O repositório Git é a fonte única da verdade. Garantir que a branch `main` es
 
 ---
 
-[Próximo: Análise de Riscos →](./13-Risk-Analysis.md)
+
