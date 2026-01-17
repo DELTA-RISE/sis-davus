@@ -14,6 +14,7 @@ import {
   LogOut,
   ChevronRight,
   Briefcase,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
@@ -30,7 +31,7 @@ const adminItems = [
   { href: "/admin/logs", icon: FileText, label: "Logs de Auditoria" },
   { href: "/admin/usuarios", icon: Users, label: "Gestão de Usuários" },
   { href: "/admin/centros-custo", icon: Briefcase, label: "Centros de Custo" },
-  { href: "/admin/locais", icon: MapPin, label: "Locais de Armazenamento" },
+  { href: "/admin/configuracoes", icon: Settings, label: "Sistema & Dispositivos" },
 ];
 
 const gestorItems = [

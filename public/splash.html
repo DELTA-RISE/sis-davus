@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SisDavus - Carregando...</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #09090b; /* Zinc-950 matched */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: white;
+            font-family: system-ui, -apple-system, sans-serif;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .container {
+            text-align: center;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .logo {
+            width: 180px;
+            height: auto;
+            margin-bottom: 24px;
+            filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.1));
+            animation: pulse 2s infinite ease-in-out;
+        }
+
+        .loader {
+            width: 48px;
+            height: 48px;
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            border-top-color: #3b82f6; /* Blue-500 */
+            animation: spin 1s ease-in-out infinite;
+            margin: 0 auto;
+        }
+
+        .text {
+            margin-top: 16px;
+            font-size: 14px;
+            color: #a1a1aa; /* Zinc-400 */
+            letter-spacing: 0.5px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.9; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Assuming davus-full-logo.svg is in the same folder during served mode, or relatively accessed -->
+        <img src="davus-full-logo.svg" alt="SisDavus Logo" class="logo">
+        <div class="loader"></div>
+        <div class="text">Iniciando Sistema...</div>
+    </div>
+</body>
+</html>

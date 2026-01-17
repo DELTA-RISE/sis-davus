@@ -1,7 +1,7 @@
 import Dexie, { Table } from 'dexie';
 import {
     Product, Asset, StockMovement, MaintenanceTask,
-    Checkout, CostCenter, StorageLocation, AuditLog,
+    Checkout, CostCenter, AuditLog,
     User, AssetTimeline
 } from './store';
 
@@ -12,7 +12,7 @@ export class SisDavusDB extends Dexie {
     maintenance_tasks!: Table<MaintenanceTask>;
     checkouts!: Table<Checkout>;
     cost_centers!: Table<CostCenter>;
-    storage_locations!: Table<StorageLocation>;
+
     admin_audit_logs!: Table<AuditLog>;
     profiles!: Table<User>;
     asset_timelines!: Table<AssetTimeline>;
@@ -34,7 +34,7 @@ export class SisDavusDB extends Dexie {
             maintenance_tasks: 'id, status, priority, due_date, asset_id',
             checkouts: 'id, item_id, user_id, status, checkout_date',
             cost_centers: 'id, name, code',
-            storage_locations: 'id, name, type',
+
             admin_audit_logs: 'id, action, resource, created_at',
             profiles: 'id, name, email, role',
             asset_timelines: 'id, asset_id, type',

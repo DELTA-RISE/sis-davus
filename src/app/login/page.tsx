@@ -46,7 +46,9 @@ export default function LoginPage() {
       });
 
       if (authError) {
-        setError("E-mail ou senha inválidos");
+        console.error("Login error details:", authError);
+        console.error("Error message:", authError.message);
+        setError(`Erro ao entrar: ${authError.message}`);
         setLoading(false);
         return;
       }

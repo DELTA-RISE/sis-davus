@@ -22,7 +22,7 @@ const StickyScrollGuide = dynamic(() => import("@/components/landing/StickyScrol
 const MegaFooter = dynamic(() => import("@/components/landing/MegaFooter").then(mod => mod.MegaFooter));
 const ImpactMetrics = dynamic(() => import("@/components/landing/ImpactMetrics").then(mod => mod.ImpactMetrics));
 const FAQ = dynamic(() => import("@/components/landing/FAQ").then(mod => mod.FAQ));
-const SavingsCalculator = dynamic(() => import("@/components/landing/SavingsCalculator").then(mod => mod.SavingsCalculator));
+
 
 export default function LandingPage() {
   const { user } = useAuth();
@@ -320,8 +320,7 @@ export default function LandingPage() {
             </div>
           </section>
 
-          {/* SECTION: SAVINGS CALCULATOR */}
-          <SavingsCalculator />
+
 
           {/* SECTION: DOWNLOADS */}
           <section className="py-32 px-4 relative">

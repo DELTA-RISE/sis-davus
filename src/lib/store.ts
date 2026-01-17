@@ -93,14 +93,7 @@ export interface CostCenter {
   created_at?: string;
 }
 
-export interface StorageLocation {
-  id: string;
-  name: string;
-  type: string;
-  capacity?: number;
-  description?: string;
-  created_at?: string;
-}
+
 
 export interface AuditLog {
   id: string;

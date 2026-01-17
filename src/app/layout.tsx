@@ -11,6 +11,7 @@ import { SoundProvider } from "@/components/SoundProvider";
 import { JsonLd } from "@/components/JsonLd";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "next-themes";
+import { DeepLinkListener } from "@/components/DeepLinkListener";
 
 const sora = Sora({
   variable: "--font-sora",
@@ -22,7 +23,7 @@ const sora = Sora({
 export const metadata: Metadata = {
   title: "SIS DAVUS - Controle de Estoque e Patrimônio",
   description: "Otimize a gestão do seu patrimônio e estoque com o SIS DAVUS. Controle total, do físico ao digital.",
-  metadataBase: new URL("https://sis-davus.netlify.app"), // Using a probable default or placeholder
+  metadataBase: new URL("https://sis-davus.netlify.app"),
   openGraph: {
     type: "website",
     locale: "pt_BR",
@@ -73,6 +74,7 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
           <SoundProvider>
             <CustomCursor />
+            <DeepLinkListener />
             <SyncProvider>
               <LayoutWrapper>{children}</LayoutWrapper>
 

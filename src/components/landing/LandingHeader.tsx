@@ -43,7 +43,7 @@ export function LandingHeader() {
                     className="flex items-center gap-3"
                 >
                     <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
-                        <Image src="/davus-logo.svg" alt="Logo" width={28} height={28} className="w-7 h-7 brightness-0 invert" priority />
+                        <Image src="/davus-logo.svg" alt="Logo" width={28} height={28} className="w-7 h-7 brightness-0 invert" />
                     </div>
                     <div className="hidden sm:block">
                         <h1 className="text-base font-bold tracking-tight">SIS DAVUS</h1>

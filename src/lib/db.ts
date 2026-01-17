@@ -8,7 +8,7 @@ import {
   MaintenanceTask,
   Checkout,
   CostCenter,
-  StorageLocation,
+
   AuditLog,
   User,
   AssetTimeline
@@ -358,9 +358,7 @@ export const saveCheckout = async (checkout: Partial<Checkout>, userInfo?: { nam
 export const getCostCenters = (forceRefresh = false) => getAll<CostCenter>('cost_centers', 'name', true, forceRefresh);
 export const saveCostCenter = (cc: Partial<CostCenter>) => upsert<CostCenter>('cost_centers', cc);
 
-// Storage Locations
-export const getStorageLocations = (forceRefresh = false) => getAll<StorageLocation>('storage_locations', 'name', true, forceRefresh);
-export const saveStorageLocation = (loc: Partial<StorageLocation>) => upsert<StorageLocation>('storage_locations', loc);
+
 
 // Audit Logs
 export const getAuditLogs = (forceRefresh = false) => getAll<AuditLog>('admin_audit_logs', 'created_at', false, forceRefresh);

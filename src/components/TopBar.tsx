@@ -182,7 +182,7 @@ export function TopBar() {
       <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-lg border-b border-border safe-area-top md:hidden">
         <div className="flex items-center justify-between h-14 px-4">
           <div className="flex items-center gap-2">
-            <Image src="/davus-logo.svg" alt="SIS DAVUS" width={32} height={32} className="w-8 h-8" priority />
+            <Image src="/davus-logo.svg" alt="SIS DAVUS" width={32} height={32} className="w-8 h-8" />
             <span className="font-semibold text-sm hidden sm:inline">SIS DAVUS</span>
           </div>
 

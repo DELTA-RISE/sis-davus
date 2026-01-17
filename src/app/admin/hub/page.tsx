@@ -15,52 +15,45 @@ import {
 } from "lucide-react";
 
 const adminItems = [
-  { 
-    href: "/admin/usuarios", 
-    icon: Users, 
-    label: "Gestão de Usuários", 
+  {
+    href: "/admin/usuarios",
+    icon: Users,
+    label: "Gestão de Usuários",
     description: "Adicionar, editar e gerenciar acessos",
     color: "bg-blue-500/20 text-blue-500"
   },
-  { 
-    href: "/admin/centros-custo", 
-    icon: Briefcase, 
-    label: "Centros de Custo", 
+  {
+    href: "/admin/centros-custo",
+    icon: Briefcase,
+    label: "Centros de Custo",
     description: "Gerenciar centros de custo e orçamentos",
     color: "bg-green-500/20 text-green-500"
   },
-  { 
-    href: "/admin/locais", 
-    icon: MapPin, 
-    label: "Locais de Armazenamento", 
-    description: "Configurar locais e capacidades",
-    color: "bg-amber-500/20 text-amber-500"
-  },
-  { 
-    href: "/admin/logs", 
-    icon: FileText, 
-    label: "Logs de Auditoria", 
+  {
+    href: "/admin/logs",
+    icon: FileText,
+    label: "Logs de Auditoria",
     description: "Visualizar histórico de ações",
     color: "bg-purple-500/20 text-purple-500"
   },
 ];
 
 const systemItems = [
-  { 
-    icon: Settings, 
-    label: "Configurações do Sistema", 
+  {
+    icon: Settings,
+    label: "Configurações do Sistema",
     description: "Preferências gerais do sistema",
     color: "bg-muted"
   },
-  { 
-    icon: Database, 
-    label: "Backup de Dados", 
+  {
+    icon: Database,
+    label: "Backup de Dados",
     description: "Gerenciar backups e restauração",
     color: "bg-muted"
   },
-  { 
-    icon: Activity, 
-    label: "Monitoramento", 
+  {
+    icon: Activity,
+    label: "Monitoramento",
     description: "Status e performance do sistema",
     color: "bg-muted"
   },

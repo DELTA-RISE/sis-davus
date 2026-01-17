@@ -18,6 +18,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -66,6 +76,7 @@ export default function UsersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [newPassword, setNewPassword] = useState("");
@@ -74,6 +85,7 @@ export default function UsersPage() {
     role: "gestor",
     status: "ativo",
   });
+  const [createdUser, setCreatedUser] = useState<{ email: string; password: string } | null>(null);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -138,7 +150,7 @@ export default function UsersPage() {
         if (result.success) {
           toast.success("Usuário criado com sucesso!");
           if (result.tempPassword) {
-            alert(`Usuário criado com sucesso.\n\nSenha temporária: ${result.tempPassword}\n\nO usuário será solicitado a alterar esta senha no primeiro acesso.`);
+            setCreatedUser({ email: newUser.email || "", password: result.tempPassword });
           }
           loadData();
           setIsDialogOpen(false);
@@ -154,12 +166,8 @@ export default function UsersPage() {
     }
   };
 
-  const handleDeleteUser = async () => {
+  const executeDeleteUser = async () => {
     if (!editingUser) return;
-
-    if (!confirm("Tem certeza que deseja excluir este usuário? Esta ação não pode ser desfeita.")) {
-      return;
-    }
 
     setIsDeleting(true);
     try {
@@ -173,6 +181,7 @@ export default function UsersPage() {
         toast.success("Usuário excluído com sucesso");
         loadData();
         setIsDialogOpen(false);
+        setIsAlertOpen(false);
       } else {
         toast.error("Erro ao excluir usuário: " + result.error);
       }
@@ -298,7 +307,7 @@ export default function UsersPage() {
                       <Button
                         type="button"
                         variant="destructive"
-                        onClick={handleDeleteUser}
+                        onClick={() => setIsAlertOpen(true)}
                         disabled={isDeleting || isSaving}
                         className="w-1/3"
                       >
@@ -313,6 +322,68 @@ export default function UsersPage() {
                 </div>
               </DialogContent>
             </Dialog>
+
+            <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Tem certeza absoluta?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Esta ação não pode ser desfeita. Isso excluirá permanentemente o usuário
+                    <span className="font-semibold text-foreground"> {editingUser?.name} </span>
+                    e todos os dados associados.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={(e) => {
+                      e.preventDefault();
+                      executeDeleteUser();
+                    }}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    disabled={isDeleting}
+                  >
+                    {isDeleting ? "Excluindo..." : "Sim, excluir usuário"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog open={!!createdUser} onOpenChange={(open) => !open && setCreatedUser(null)}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Usuário criado com sucesso</AlertDialogTitle>
+                  <AlertDialogDescription className="space-y-4 pt-2">
+                    <span className="block">O usuário foi criado e já pode acessar o sistema.</span>
+                    <div className="bg-muted/50 p-4 rounded-xl border border-border/50 text-center space-y-3">
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">E-mail</p>
+                        <p className="text-sm font-medium select-all text-foreground">{createdUser?.email}</p>
+                      </div>
+                      <div className="w-full h-px bg-border/50" />
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Senha temporária</p>
+                        <p className="text-xl font-mono font-bold tracking-wider select-all text-primary">{createdUser?.password}</p>
+                      </div>
+                    </div>
+                    <span className="block text-sm">O usuário será solicitado a alterar esta senha no primeiro acesso.</span>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogAction
+                    onClick={() => {
+                      const textToCopy = `E-mail: ${createdUser?.email}\nSenha: ${createdUser?.password}`;
+                      navigator.clipboard.writeText(textToCopy);
+                      toast.success("Credenciais copiadas para a área de transferência");
+                      setCreatedUser(null);
+                    }}
+                    className="w-full sm:w-auto"
+                  >
+                    Copiar e Fechar
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </div>
       </header>

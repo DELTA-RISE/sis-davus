@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Asset, MaintenanceTask, AssetTimeline, Checkout, StorageLocation, CostCenter } from "@/lib/store";
+import { Asset, MaintenanceTask, AssetTimeline, Checkout, CostCenter } from "@/lib/store";
 import {
   getAssetById,
   getMaintenanceTasks,
@@ -11,7 +11,7 @@ import {
   getCheckouts,
   saveAsset,
   saveCheckout,
-  getStorageLocations,
+
   getCostCenters,
 } from "@/lib/db";
 import { useAuth } from "@/lib/auth-context";
@@ -117,7 +117,7 @@ export default function AssetHubPage() {
   const [fillPage, setFillPage] = useState(false);
 
   // Lists for Selects
-  const [locations, setLocations] = useState<StorageLocation[]>([]);
+
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
 
   const printRef = useRef<HTMLDivElement>(null);
@@ -131,12 +131,12 @@ export default function AssetHubPage() {
     if (!id) return;
     setIsLoading(true);
     try {
-      const [assetData, tasksData, timelineData, checkoutsData, locsData, ccsData] = await Promise.all([
+      const [assetData, tasksData, timelineData, checkoutsData, ccsData] = await Promise.all([
         getAssetById(id),
         getMaintenanceTasks(id),
         getAssetTimelines(id),
         getCheckouts(id, "asset"),
-        getStorageLocations(),
+
         getCostCenters()
       ]);
 
@@ -146,7 +146,7 @@ export default function AssetHubPage() {
       }
       setMaintenanceTasks(tasksData);
       setTimeline(timelineData);
-      setLocations(locsData);
+
       setCostCenters(ccsData);
 
       const current = checkoutsData.find(c => c.status === "Ativo" || c.status === "Atrasado");
@@ -616,16 +616,11 @@ export default function AssetHubPage() {
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
                   <Label>Novo Local</Label>
-                  <Select onValueChange={(v) => setTransferData({ ...transferData, location: v })}>
-                    <SelectTrigger><SelectValue placeholder="Selecione o local..." /></SelectTrigger>
-                    <SelectContent>
-                      {locations.map(l => <SelectItem key={l.id} value={l.name}>{l.name}</SelectItem>)}
-                      <SelectItem value="Outro">Outro (especificar)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {transferData.location === "Outro" && (
-                    <Input placeholder="Digite o local..." onChange={e => setTransferData({ ...transferData, location: e.target.value })} />
-                  )}
+                  <Input
+                    placeholder="Digite o local..."
+                    value={transferData.location}
+                    onChange={e => setTransferData({ ...transferData, location: e.target.value })}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Novo Responsável (Opcional)</Label>

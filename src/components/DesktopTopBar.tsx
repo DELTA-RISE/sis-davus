@@ -228,7 +228,7 @@ export function DesktopTopBar() {
       <header className="hidden md:flex fixed top-0 left-0 right-0 z-50 h-16 bg-background/80 backdrop-blur-lg border-b border-border items-center justify-between px-6">
         <div className="flex items-center gap-6">
           <Link href="/dashboard" className="flex items-center gap-3">
-            <Image src="/davus-logo.svg" alt="SIS DAVUS" width={36} height={36} className="w-9 h-9" priority />
+            <Image src="/davus-logo.svg" alt="SIS DAVUS" width={36} height={36} className="w-9 h-9" />
             <span className="font-bold text-xl tracking-tight hidden lg:block">SIS <span className="text-primary">DAVUS</span></span>
           </Link>
         </div>

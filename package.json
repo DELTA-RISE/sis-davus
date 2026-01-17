@@ -55,6 +55,8 @@
     "dexie": "^4.2.1",
     "driver.js": "^1.4.0",
     "electron-serve": "^3.0.0",
+    "electron-store": "^11.0.2",
+    "electron-updater": "^6.7.3",
     "embla-carousel-react": "^8.6.0",
     "exceljs": "^4.4.0",
     "file-saver": "^2.0.5",
@@ -118,10 +120,30 @@
     "appId": "com.sisdavus.app",
     "productName": "SisDavus",
     "directories": {
-      "output": "dist"
+      "output": "release"
     },
     "win": {
-      "icon": "public/davus-logo.ico"
+      "icon": "public/davus-logo.ico",
+      "target": [
+        "nsis"
+      ]
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "public/icons/icon-512x512.png"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "public/icons/icon-512x512.png",
+      "category": "Office"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "DELTA-RISE",
+      "repo": "sis-davus"
     }
   }
 }

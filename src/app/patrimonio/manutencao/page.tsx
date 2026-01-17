@@ -118,8 +118,9 @@ export default function ManutencaoKanbanPage() {
   const filteredTasks = statusFilter === "all" ? tasks : tasks.filter(t => t.status === statusFilter);
 
   const TaskCard = ({ task, showStatus = false }: { task: MaintenanceTask; showStatus?: boolean }) => {
-    const priorityCfg = priorityConfig[task.priority];
-    const statusCfg = statusConfig[task.status];
+    const priorityCfg = priorityConfig[task.priority] || { label: task.priority, color: "bg-slate-500/20 text-slate-400" };
+    const statusCfg = statusConfig[task.status] || { label: task.status, color: "bg-slate-500/20 text-slate-400" };
+
     return (
       <Card className="border-border/50 bg-card">
         <CardContent className="p-3">

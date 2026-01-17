@@ -26,8 +26,9 @@ export function CustomCursor() {
     setMounted(true);
   }, []);
 
-  // Show cursor on all pages, but ensure it doesn't conflict with touch devices
-  const shouldRender = mounted && typeof window !== "undefined" && window.matchMedia("(pointer: fine)").matches;
+  // Show cursor only on landing and wiki pages, and ensure it doesn't conflict with touch devices
+  const isAllowedPath = pathname === "/" || pathname?.startsWith("/wiki");
+  const shouldRender = mounted && typeof window !== "undefined" && window.matchMedia("(pointer: fine)").matches && isAllowedPath;
 
   useEffect(() => {
     if (!shouldRender) return;

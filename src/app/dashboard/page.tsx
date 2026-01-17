@@ -48,7 +48,6 @@ const adminMenuItems = [
   { href: "/admin/logs", icon: FileText, label: "Logs de Auditoria", description: "Histórico de ações", color: "bg-blue-500/20 text-blue-500" },
   { href: "/admin/usuarios", icon: Users, label: "Gestão de Usuários", description: "Gerenciar acessos", color: "bg-purple-500/20 text-purple-500" },
   { href: "/admin/centros-custo", icon: Briefcase, label: "Centros de Custo", description: "Gerenciar centros", color: "bg-amber-500/20 text-amber-500" },
-  { href: "/admin/locais", icon: MapPin, label: "Locais", description: "Pontos de armazenamento", color: "bg-green-500/20 text-green-500" },
 ];
 
 const gestorMenuItems = [

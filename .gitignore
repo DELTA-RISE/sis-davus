@@ -50,6 +50,7 @@ public/workbox-*.js
 
 # build output
 /dist
+/release
 
 # logs
 build_log*.txt

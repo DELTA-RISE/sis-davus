@@ -1,7 +1,16 @@
-import { contextBridge } from "electron";
+import { contextBridge, ipcRenderer } from "electron";
 
-// Expose safe APIs to the renderer process if needed
 contextBridge.exposeInMainWorld("electron", {
-    // Example:
-    // versions: process.versions,
+    print: async (content: string, printerName?: string) => {
+        return ipcRenderer.invoke("print-silent", { content, printerName });
+    },
+    getPrinters: async () => {
+        return ipcRenderer.invoke("get-printers");
+    },
+    setProgressBar: (value: number) => {
+        ipcRenderer.send("set-progress-bar", value);
+    },
+    onDeepLink: (callback: (url: string) => void) => {
+        ipcRenderer.on("deep-link", (_event, url) => callback(url));
+    }
 });
