@@ -128,18 +128,6 @@
         "nsis"
       ]
     },
-    "mac": {
-      "target": "dmg",
-      "icon": "public/icons/icon-512x512.png"
-    },
-    "linux": {
-      "target": [
-        "AppImage",
-        "deb"
-      ],
-      "icon": "public/icons/icon-512x512.png",
-      "category": "Office"
-    },
     "publish": {
       "provider": "github",
       "owner": "DELTA-RISE",
