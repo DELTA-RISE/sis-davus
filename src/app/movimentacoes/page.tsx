@@ -56,7 +56,7 @@ import { DateRange } from "react-day-picker";
 import { PageTransition, StaggerContainer, StaggerItem } from "@/components/PageTransition";
 
 export default function MovementsPage() {
-  const { userName, user } = useAuth();
+  const { userName, user, currentRole, costCenter } = useAuth();
   const [movements, setMovements] = useState<StockMovement[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -143,6 +143,18 @@ export default function MovementsPage() {
 
     const product = products.find((p) => p.id === newMovement.product_id);
     if (!product) return;
+
+    // Restriction: Manager can only move stock if product belongs to their Cost Center
+    if (currentRole === 'gestor' || currentRole === 'manager') {
+      if (!costCenter) {
+        toast.error("Seu usuário não possui Centro de Custo vinculado.");
+        return;
+      }
+      if (product.cost_center !== costCenter) {
+        toast.error(`Você só pode movimentar insumos do seu Centro de Custo (${costCenter}). Produto pertence a: ${product.cost_center || 'Nenhum'}`);
+        return;
+      }
+    }
 
     const payload: Partial<StockMovement> = {
       ...newMovement,

@@ -1,12 +1,15 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { getProducts, getAssets, getCheckouts } from "@/lib/db";
+import { getProducts, getAssets, getCheckouts, getWriteOffRequests } from "@/lib/db";
+import { approveWriteOff, rejectWriteOff } from "@/actions/write-off";
+import { useAuth } from "@/lib/auth-context";
+import { toast } from "sonner";
 import { PageTransition, StaggerContainer, StaggerItem } from "@/components/PageTransition";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Bell, CheckCheck, Package, Building2, ChevronLeft, Trash2, Calendar } from "lucide-react";
+import { Bell, CheckCheck, Package, Building2, ChevronLeft, Trash2, Calendar, FileWarning, CheckCircle, XCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
@@ -16,7 +19,8 @@ interface Notification {
   message: string;
   time: string;
   unread: boolean;
-  type: "low_stock" | "maintenance" | "overdue";
+  type: "low_stock" | "maintenance" | "overdue" | "write_off_request";
+  metadata?: any; // To store requestId, assetId for actions
 }
 
 import {
@@ -28,6 +32,7 @@ import {
 
 export default function NotificationsPage() {
   const router = useRouter();
+  const { user, userName } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [readIds, setReadIds] = useState<string[]>([]);
@@ -40,10 +45,11 @@ export default function NotificationsPage() {
 
   const loadNotifications = useCallback(async () => {
     setIsLoading(true);
-    const [products, assets, checkouts] = await Promise.all([
+    const [products, assets, checkouts, writeOffRequests] = await Promise.all([
       getProducts(),
       getAssets(),
       getCheckouts(),
+      getWriteOffRequests(),
     ]);
 
     const lowStockNotifs: Notification[] = products
@@ -69,17 +75,29 @@ export default function NotificationsPage() {
       }));
 
     const overdueNotifs: Notification[] = checkouts
-      .filter(c => c.status === "atrasado" || (c.status === "em_uso" && c.expected_return && new Date(c.expected_return) < new Date()))
+      .filter(c => c.status === "Atrasado" || (c.status === "Ativo" && c.expected_return_date && new Date(c.expected_return_date) < new Date()))
       .map(c => ({
         id: `checkout-${c.id}`,
         title: "Checkout Atrasado",
-        message: `${c.item_name} deveria ter sido devolvido em ${new Date(c.expected_return || "").toLocaleDateString()}`,
+        message: `${c.item_name} deveria ter sido devolvido em ${new Date(c.expected_return_date || "").toLocaleDateString()}`,
         time: "Atrasado",
         unread: !readIds.includes(`checkout-${c.id}`),
         type: "overdue"
       }));
 
-    const allNotifs = [...lowStockNotifs, ...maintenanceNotifs, ...overdueNotifs]
+    const writeOffNotifs: Notification[] = writeOffRequests
+      .filter(r => r.status === 'pending')
+      .map(r => ({
+        id: `writeoff-${r.id}`,
+        title: "Solicitação de Baixa",
+        message: `Solicitado por ${r.user_name || 'Usuário'} para o patrimônio ${r.asset_name || r.asset_id}. Motivo: ${r.reason}`,
+        time: new Date(r.created_at || "").toLocaleDateString(),
+        unread: true, // Always show as actionable
+        type: "write_off_request",
+        metadata: r
+      }));
+
+    const allNotifs = [...writeOffNotifs, ...lowStockNotifs, ...maintenanceNotifs, ...overdueNotifs]
       .filter(n => !dismissedIds.includes(n.id));
 
     setNotifications(allNotifs);
@@ -115,6 +133,44 @@ export default function NotificationsPage() {
     const newDismissed = Array.from(new Set([...dismissedIds, ...allIds]));
     setDismissedIds(newDismissed);
     saveDismissedNotifications(newDismissed);
+  };
+
+  const handleApprove = async (e: React.MouseEvent, notif: Notification) => {
+    e.stopPropagation();
+    if (!user || notif.type !== 'write_off_request') return;
+
+    const request = notif.metadata;
+    try {
+      const result = await approveWriteOff(request.id, request.asset_id, user.id, userName);
+      if (result.success) {
+        toast.success("Solicitação aprovada e patrimônio baixado!");
+        loadNotifications();
+      } else {
+        toast.error("Erro ao aprovar: " + result.error);
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao aprovar solicitação.");
+    }
+  };
+
+  const handleReject = async (e: React.MouseEvent, notif: Notification) => {
+    e.stopPropagation();
+    if (!user || notif.type !== 'write_off_request') return;
+
+    const request = notif.metadata;
+    try {
+      const result = await rejectWriteOff(request.id, user.id);
+      if (result.success) {
+        toast.success("Solicitação rejeitada.");
+        loadNotifications();
+      } else {
+        toast.error("Erro ao rejeitar: " + result.error);
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao rejeitar solicitação.");
+    }
   };
 
   return (
@@ -167,11 +223,13 @@ export default function NotificationsPage() {
                         "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
                         notif.type === "low_stock" ? "bg-destructive/10 text-destructive" :
                           notif.type === "overdue" ? "bg-red-500/10 text-red-500" :
-                            "bg-amber-500/10 text-amber-500"
+                            notif.type === "write_off_request" ? "bg-purple-500/10 text-purple-500" :
+                              "bg-amber-500/10 text-amber-500"
                       )}>
                         {notif.type === "low_stock" ? <Package className="h-5 w-5" /> :
                           notif.type === "overdue" ? <Calendar className="h-5 w-5" /> :
-                            <Building2 className="h-5 w-5" />}
+                            notif.type === "write_off_request" ? <FileWarning className="h-5 w-5" /> :
+                              <Building2 className="h-5 w-5" />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
@@ -189,6 +247,16 @@ export default function NotificationsPage() {
                           <Badge variant="outline" className="text-[10px] h-4 px-1.5 capitalize">
                             {notif.type.replace('_', ' ')}
                           </Badge>
+                          {notif.type === 'write_off_request' && (
+                            <div className="flex items-center gap-2 ml-auto">
+                              <Button size="sm" variant="outline" className="h-7 border-green-500/50 text-green-600 hover:bg-green-50" onClick={(e) => handleApprove(e, notif)}>
+                                <CheckCircle className="h-3.5 w-3.5 mr-1" /> Aprovar
+                              </Button>
+                              <Button size="sm" variant="outline" className="h-7 border-red-500/50 text-red-600 hover:bg-red-50" onClick={(e) => handleReject(e, notif)}>
+                                <XCircle className="h-3.5 w-3.5 mr-1" /> Rejeitar
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </CardContent>

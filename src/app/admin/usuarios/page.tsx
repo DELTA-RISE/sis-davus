@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getUsers, saveUser, getDeviceInfo, getPublicIp } from "@/lib/db";
+import { saveUser, getDeviceInfo, getPublicIp, syncUsers, syncCostCenters } from "@/lib/db";
 import { createUserAction, deleteUserAction, updateUserPasswordAction } from "@/actions/auth";
 import { useAuth } from "@/lib/auth-context";
-import { User } from "@/lib/store";
+import { useUsers, useCostCenters } from "@/hooks/use-queries";
+import { User, CostCenter } from "@/lib/store";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -46,6 +48,7 @@ import {
   Trash2,
   Lock,
   User as UserIcon,
+  Copy,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -72,37 +75,32 @@ const roleIcons: Record<string, any> = {
 
 export default function UsersPage() {
   const { userName, user } = useAuth();
-  const [users, setUsers] = useState<User[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Reactive Hooks
+  const { users, isLoading: isLoadingUsers } = useUsers(searchTerm);
+  const { costCenters, isLoading: isLoadingCC } = useCostCenters();
+
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
+  const [createdCredentials, setCreatedCredentials] = useState<{ email: string, password: string } | null>(null);
   const [newUser, setNewUser] = useState<Partial<User>>({
     role: "gestor",
     status: "ativo",
   });
-  const [createdUser, setCreatedUser] = useState<{ email: string; password: string } | null>(null);
 
-  const loadData = async () => {
-    setIsLoading(true);
-    const data = await getUsers();
-    setUsers(data);
-    setIsLoading(false);
-  };
-
+  // Background Sync on Mount
   useEffect(() => {
-    loadData();
+    syncUsers();
+    syncCostCenters();
   }, []);
 
-  const filteredUsers = users.filter(
-    (u) =>
-      u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // No filteredUsers derived state needed, useUsers handles it.
+  const filteredUsers = users; // Already filtered by hook
 
   const handleSaveUser = async () => {
     if (!newUser.name || !newUser.email) {
@@ -113,7 +111,7 @@ export default function UsersPage() {
     setIsSaving(true);
     try {
       if (editingUser) {
-        // Edit existing user - update profile directly
+        // Edit existing user - update Dexie (optimistic) + Supabase
         const result = await saveUser(newUser, { name: userName, id: user?.id || "" });
         if (result) {
           // If password was provided, update it
@@ -127,7 +125,7 @@ export default function UsersPage() {
           }
 
           toast.success("Usuário atualizado");
-          loadData();
+          // No manual loadData needed!
           setIsDialogOpen(false);
           setNewPassword("");
         } else {
@@ -135,11 +133,16 @@ export default function UsersPage() {
         }
       } else {
         // Create new user - use Server Action
+        // NOTE: createUserAction creates user in Auth AND Profile (via triggers hopefully, or explicitly).
+        // If it creates in Profile, we need to sync users OR optimistically add to Dexie if we knew the ID.
+        // createUserAction returns tempPassword.
+
         const result = await createUserAction({
           name: newUser.name,
           email: newUser.email,
           role: newUser.role || 'gestor',
-          status: (newUser.status === 'ativo' || newUser.status === 'inativo') ? newUser.status : 'ativo'
+          status: (newUser.status === 'ativo' || newUser.status === 'inativo') ? newUser.status : 'ativo',
+          cost_center: newUser.role === 'gestor' ? (newUser as any).cost_center : null // Pass cost center
         }, {
           userName,
           userId: user?.id || "",
@@ -150,9 +153,17 @@ export default function UsersPage() {
         if (result.success) {
           toast.success("Usuário criado com sucesso!");
           if (result.tempPassword) {
-            setCreatedUser({ email: newUser.email || "", password: result.tempPassword });
+            setCreatedCredentials({
+              email: newUser.email!,
+              password: result.tempPassword
+            });
           }
-          loadData();
+          // The creation happens on server. We need to fetch the new user to see it locally.
+          // Since createUserAction might not return the full user object to simply puts(), we trigger a sync.
+          // However, for "instant" feeling without full sync, we could optimistically add it if we constructed the User object.
+          // But auth creation is complex. Let's just trigger sync.
+          syncUsers();
+
           setIsDialogOpen(false);
         } else {
           toast.error("Erro ao criar usuário: " + result.error);
@@ -179,7 +190,7 @@ export default function UsersPage() {
       });
       if (result.success) {
         toast.success("Usuário excluído com sucesso");
-        loadData();
+        syncUsers(); // Sync to remove from local
         setIsDialogOpen(false);
         setIsAlertOpen(false);
       } else {
@@ -231,6 +242,11 @@ export default function UsersPage() {
                   <DialogTitle>
                     {editingUser ? "Editar Usuário" : "Novo Usuário"}
                   </DialogTitle>
+                  <DialogDescription>
+                    {editingUser
+                      ? "Faça alterações no perfil do usuário aqui. Clique em salvar quando terminar."
+                      : "Preencha as informações para criar um novo usuário no sistema."}
+                  </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
@@ -282,6 +298,27 @@ export default function UsersPage() {
                       </Select>
                     </div>
                   </div>
+
+                  {newUser.role === 'gestor' && (
+                    <div className="space-y-2">
+                      <Label>Centro de Custo (Vinculado)</Label>
+                      <Select
+                        value={(newUser as any).cost_center || "none"}
+                        onValueChange={(v) => setNewUser({ ...newUser, cost_center: v === "none" ? null : v } as any)}
+                      >
+                        <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Nenhum</SelectItem>
+                          {costCenters.map(cc => (
+                            <SelectItem key={cc.id} value={cc.id}>{cc.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-[10px] text-muted-foreground">
+                        O gestor só poderá ver itens deste centro de custo.
+                      </p>
+                    </div>
+                  )}
 
                   {editingUser && (
                     <div className="space-y-2 pt-2 border-t border-border/50">
@@ -348,44 +385,74 @@ export default function UsersPage() {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
-
-            <AlertDialog open={!!createdUser} onOpenChange={(open) => !open && setCreatedUser(null)}>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Usuário criado com sucesso</AlertDialogTitle>
-                  <AlertDialogDescription className="space-y-4 pt-2">
-                    <span className="block">O usuário foi criado e já pode acessar o sistema.</span>
-                    <div className="bg-muted/50 p-4 rounded-xl border border-border/50 text-center space-y-3">
-                      <div className="space-y-1">
-                        <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">E-mail</p>
-                        <p className="text-sm font-medium select-all text-foreground">{createdUser?.email}</p>
-                      </div>
-                      <div className="w-full h-px bg-border/50" />
-                      <div className="space-y-1">
-                        <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Senha temporária</p>
-                        <p className="text-xl font-mono font-bold tracking-wider select-all text-primary">{createdUser?.password}</p>
-                      </div>
-                    </div>
-                    <span className="block text-sm">O usuário será solicitado a alterar esta senha no primeiro acesso.</span>
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogAction
-                    onClick={() => {
-                      const textToCopy = `E-mail: ${createdUser?.email}\nSenha: ${createdUser?.password}`;
-                      navigator.clipboard.writeText(textToCopy);
-                      toast.success("Credenciais copiadas para a área de transferência");
-                      setCreatedUser(null);
-                    }}
-                    className="w-full sm:w-auto"
-                  >
-                    Copiar e Fechar
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
           </div>
         </div>
+
+        <Dialog open={!!createdCredentials} onOpenChange={(open) => !open && setCreatedCredentials(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-center text-xl text-green-500">
+                Usuário Criado com Sucesso!
+              </DialogTitle>
+              <DialogDescription className="text-center">
+                As credenciais abaixo foram geradas. Copie-as e envie para o usuário, pois a senha não poderá ser visualizada novamente.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>E-mail de Acesso</Label>
+                <div className="relative">
+                  <Input value={createdCredentials?.email || ''} readOnly className="pr-10 bg-muted/50" />
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="absolute right-0 top-0 h-full px-3 text-muted-foreground hover:text-foreground"
+                    onClick={() => {
+                      navigator.clipboard.writeText(createdCredentials?.email || '');
+                      toast.success("E-mail copiado!");
+                    }}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Senha Temporária</Label>
+                <div className="relative">
+                  <Input value={createdCredentials?.password || ''} readOnly className="pr-10 font-mono bg-muted/50" />
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="absolute right-0 top-0 h-full px-3 text-muted-foreground hover:text-foreground"
+                    onClick={() => {
+                      navigator.clipboard.writeText(createdCredentials?.password || '');
+                      toast.success("Senha copiada!");
+                    }}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3 text-sm text-yellow-600 dark:text-yellow-400">
+                <p className="flex gap-2">
+                  <Shield className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                  <span>
+                    O usuário será solicitado a redefinir esta senha no primeiro acesso.
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <Button onClick={() => setCreatedCredentials(null)} className="w-full sm:w-auto">
+                Concluir
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </header>
 
       <div className="p-4 md:p-6 lg:p-8 space-y-4 max-w-7xl mx-auto">

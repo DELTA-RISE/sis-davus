@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useAuth } from "@/lib/auth-context";
 import { Product, Asset, StockMovement, MaintenanceTask } from "@/lib/store";
 import { getProducts, getAssets, getMovements, getMaintenanceTasks } from "@/lib/db";
 import { exportProducts, exportAssets, exportMaintenance, exportOverview } from "@/lib/export-utils";
@@ -143,10 +144,10 @@ export default function RelatoriosPage() {
     }).length;
 
     // Maintenance Metrics
-    const pendingMaintenance = maintenanceTasks.filter(t => t.status !== 'concluido').length;
-    const overdueMaintenance = maintenanceTasks.filter(t => t.status !== 'concluido' && t.due_date && new Date(t.due_date) < new Date()).length;
-    const inProgressMaintenance = maintenanceTasks.filter(t => t.status === 'em_andamento').length;
-    const completedMaintenance = maintenanceTasks.filter(t => t.status === 'concluido').length;
+    const pendingMaintenance = maintenanceTasks.filter(t => t.status !== 'Concluída').length;
+    const overdueMaintenance = maintenanceTasks.filter(t => t.status !== 'Concluída' && t.due_date && new Date(t.due_date) < new Date()).length;
+    const inProgressMaintenance = maintenanceTasks.filter(t => t.status === 'Em Andamento').length;
+    const completedMaintenance = maintenanceTasks.filter(t => t.status === 'Concluída').length;
 
     // Top Products and Assets
     const topProducts = [...products]
@@ -190,7 +191,8 @@ export default function RelatoriosPage() {
 
     const assetsCategoryData = Object.entries(
       assets.reduce((acc, a) => {
-        acc[a.category] = (acc[a.category] || 0) + 1;
+        const cat = a.category || "Sem Categoria";
+        acc[cat] = (acc[cat] || 0) + 1;
         return acc;
       }, {} as Record<string, number>)
     ).map(([name, value]) => ({ name, value }));
@@ -667,7 +669,7 @@ export default function RelatoriosPage() {
                       </TableHeader>
                       <TableBody>
                         {maintenanceTasks
-                          .filter(t => t.status !== 'concluido' && t.due_date && new Date(t.due_date) < new Date())
+                          .filter(t => t.status !== 'Concluída' && t.due_date && new Date(t.due_date) < new Date())
                           .slice(0, 5)
                           .map((t) => (
                             <TableRow key={t.id}>
@@ -844,7 +846,7 @@ export default function RelatoriosPage() {
                   </TableHeader>
                   <TableBody>
                     {maintenanceTasks
-                      .filter(t => t.status !== 'concluido')
+                      .filter(t => t.status !== 'Concluída')
                       .sort((a, b) => {
                         if (!a.due_date) return 1;
                         if (!b.due_date) return -1;
@@ -862,7 +864,7 @@ export default function RelatoriosPage() {
                               {isLate && " (Atrasada)"}
                             </TableCell>
                             <TableCell>
-                              <Badge variant={task.priority === 'alta' ? 'destructive' : 'secondary'}>
+                              <Badge variant={task.priority === 'Alta' ? 'destructive' : 'secondary'}>
                                 {task.priority}
                               </Badge>
                             </TableCell>
@@ -870,7 +872,7 @@ export default function RelatoriosPage() {
                           </TableRow>
                         );
                       })}
-                    {maintenanceTasks.filter(t => t.status !== 'concluido').length === 0 && (
+                    {maintenanceTasks.filter(t => t.status !== 'Concluída').length === 0 && (
                       <TableRow>
                         <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">Nenhuma manutenção pendente</TableCell>
                       </TableRow>

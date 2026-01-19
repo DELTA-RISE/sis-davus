@@ -2,8 +2,9 @@
 
 
 import { useState, useEffect } from "react";
-import { getAuditLogs } from "@/lib/db";
+import { getAuditLogs, restoreAsset, restoreProduct } from "@/lib/db";
 import { AuditLog } from "@/lib/store";
+import { useAuth } from "@/lib/auth-context";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -12,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -33,7 +35,9 @@ import {
   LogIn,
   Download,
   ArrowLeftRight,
+  RotateCcw,
 } from "lucide-react";
+import { toast } from "sonner";
 
 const actionIcons: Record<string, typeof Plus> = {
   CREATE: Plus,
@@ -41,7 +45,9 @@ const actionIcons: Record<string, typeof Plus> = {
   DELETE: Trash,
   LOGIN: LogIn,
   EXPORT: Download,
+
   CHECKOUT: ArrowLeftRight,
+  RESTORE: RotateCcw,
 };
 
 const actionColors: Record<string, string> = {
@@ -51,9 +57,11 @@ const actionColors: Record<string, string> = {
   LOGIN: "bg-purple-500/20 text-purple-500",
   EXPORT: "bg-amber-500/20 text-amber-500",
   CHECKOUT: "bg-cyan-500/20 text-cyan-500",
+  RESTORE: "bg-teal-500/20 text-teal-500",
 };
 
 export default function AuditLogsPage() {
+  const { userName, user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [actionFilter, setActionFilter] = useState("all");
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
@@ -91,6 +99,32 @@ export default function AuditLogsPage() {
   const handleLogClick = (log: AuditLog) => {
     setSelectedLog(log);
     setIsDialogOpen(true);
+  };
+
+  const handleRestore = async () => {
+    if (!selectedLog || !selectedLog.resource_id) return;
+
+    try {
+      let success = false;
+      if (selectedLog.resource === 'PATRIMONIO') {
+        success = await restoreAsset(selectedLog.resource_id, { name: userName, id: user?.id || "" });
+      } else if (selectedLog.resource === 'PRODUTO') {
+        success = await restoreProduct(selectedLog.resource_id, { name: userName, id: user?.id || "" });
+      }
+
+      if (success) {
+        toast.success("Item restaurado com sucesso!");
+        setIsDialogOpen(false);
+        // Reload logs to show RESTORE action
+        const data = await getAuditLogs();
+        setLogs(data);
+      } else {
+        toast.error("Erro ao restaurar item. Verifique se ele ainda existe.");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao processar restauração");
+    }
   };
 
   return (
@@ -133,6 +167,7 @@ export default function AuditLogsPage() {
               <SelectItem value="LOGIN">Login</SelectItem>
               <SelectItem value="EXPORT">Export</SelectItem>
               <SelectItem value="CHECKOUT">Checkout</SelectItem>
+              <SelectItem value="RESTORE">Restauração</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -234,6 +269,18 @@ export default function AuditLogsPage() {
                     <span className="font-mono break-all whitespace-pre-wrap block text-xs" title={selectedLog.user_agent}>{selectedLog.user_agent || "N/A"}</span>
                   </div>
                 </div>
+
+                {selectedLog.action === 'DELETE' && (selectedLog.resource === 'PATRIMONIO' || selectedLog.resource === 'PRODUTO') && (
+                  <div className="pt-2">
+                    <Button onClick={handleRestore} className="w-full gap-2" variant="outline">
+                      <RotateCcw className="h-4 w-4" />
+                      Restaurar Item
+                    </Button>
+                    <p className="text-[10px] text-muted-foreground mt-1 text-center">
+                      Isso fará o item aparecer novamente nas listagens.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </DialogContent>

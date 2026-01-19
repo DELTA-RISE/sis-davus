@@ -14,6 +14,7 @@ export interface Product {
   cost_center?: string;
   created_at?: string;
   updated_at?: string;
+  deleted_at?: string;
 }
 
 export interface Asset {
@@ -35,6 +36,7 @@ export interface Asset {
   description?: string;
   created_at?: string;
   updated_at?: string;
+  deleted_at?: string;
 }
 
 export interface StockMovement {
@@ -51,22 +53,8 @@ export interface StockMovement {
   created_at?: string;
 }
 
-export interface MaintenanceTask {
-  id: string;
-  title: string;
-  description: string;
-  asset_id: string;
-  asset_name: string;
-  asset_code?: string;
-  due_date: string;
-  status: 'Pendente' | 'Em Andamento' | 'Concluída' | 'Atrasada';
-  priority: 'Baixa' | 'Média' | 'Alta';
-  assigned_to?: string;
-  cost?: number;
-  completed_date?: string;
-  created_at?: string;
-  updated_at?: string;
-}
+// MaintenanceTask definition moved to be near User or consolidated
+
 
 export interface Checkout {
   id: string;
@@ -75,6 +63,7 @@ export interface Checkout {
   item_name: string;
   user_id: string;
   user_name: string;
+  quantity?: number;
   checkout_date: string;
   expected_return_date?: string;
   return_date?: string;
@@ -121,10 +110,53 @@ export interface User {
   gravatar_email?: string;
   must_change_password?: boolean;
   department?: string;
+  cost_center?: string; // Link to CostCenter
   phone?: string;
   status: 'active' | 'inactive' | 'ativo' | 'inativo';
   created_at?: string;
   last_login?: string;
+}
+
+export interface MaintenanceStep {
+  id: string;
+  title: string;
+  description?: string;
+  completed: boolean;
+  completed_by?: string;
+  completed_at?: string;
+  data?: any; // Form data for this step
+}
+
+export interface MaintenanceTask {
+  id: string;
+  title: string;
+  description: string;
+  asset_id: string;
+  asset_name: string;
+  asset_code?: string;
+  due_date: string;
+  status: 'Pendente' | 'Em Andamento' | 'Aguardando Aprovação' | 'Aprovado' | 'Rejeitado' | 'Concluída' | 'Atrasada';
+  priority: 'Baixa' | 'Média' | 'Alta';
+  assigned_to?: string;
+  cost?: number;
+  completed_date?: string;
+
+  // Workflow Data
+  steps_data?: MaintenanceStep[];
+  approval_status?: 'pending' | 'approved' | 'rejected';
+  rejection_reason?: string;
+
+  // Signatures
+  created_by?: string; // Manager ID
+  manager_signature?: string; // Digital signature/hash
+  manager_signed_at?: string;
+
+  approved_by?: string; // Admin ID
+  admin_signature?: string; // Digital signature/hash
+  admin_signed_at?: string;
+
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface AssetTimeline {
@@ -136,6 +168,20 @@ export interface AssetTimeline {
   type: 'maintenance' | 'assignment' | 'location' | 'status' | 'audit';
   user_name?: string;
   created_at?: string;
+}
+
+export interface WriteOffRequest {
+  id: string;
+  asset_id: string;
+  user_id: string;
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected';
+  created_at?: string;
+  updated_at?: string;
+  // Joins
+  asset_name?: string;
+  asset_code?: string;
+  user_name?: string;
 }
 
 // Mock Data

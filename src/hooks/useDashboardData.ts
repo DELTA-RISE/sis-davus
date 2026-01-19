@@ -1,63 +1,104 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
 import { Product, Asset, StockMovement, Checkout, mockProducts, mockAssets, mockStockMovements, mockCheckouts } from "@/lib/store";
-import { getProducts, getAssets, getMovements, getCheckouts } from "@/lib/db";
+import { syncTable } from "@/lib/db";
 import { useOnboarding } from "@/lib/onboarding-context";
+import { useLiveQuery } from "dexie-react-hooks";
+import { db } from "@/lib/dexie-db";
 
-export function useDashboardData() {
+interface DashboardDataParams {
+    role?: string;
+    costCenterId?: string | null;
+}
+
+export function useDashboardData({ role, costCenterId }: DashboardDataParams = {}) {
     const { isDemoMode } = useOnboarding();
-    const [products, setProducts] = useState<Product[]>([]);
-    const [assets, setAssets] = useState<Asset[]>([]);
-    const [movements, setMovements] = useState<StockMovement[]>([]);
-    const [checkouts, setCheckouts] = useState<Checkout[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
 
-    const loadData = useCallback(async (silent = false) => {
-        if (!silent) setIsLoading(true);
-        try {
-            if (isDemoMode) {
-                // Simulate delay for realism
-                await new Promise(resolve => setTimeout(resolve, 800));
-                setProducts(mockProducts);
-                setAssets(mockAssets);
-                setMovements(mockStockMovements);
-                setCheckouts(mockCheckouts);
-            } else {
-                const [p, a, m, c] = await Promise.all([
-                    getProducts(),
-                    getAssets(),
-                    getMovements(),
-                    getCheckouts(),
-                ]);
-                setProducts(p);
-                setAssets(a);
-                setMovements(m);
-                setCheckouts(c);
-            }
-        } catch (error) {
-            console.error("Failed to load dashboard data", error);
-            toast.error("Erro ao carregar dados do dashboard");
-        } finally {
-            if (!silent) setIsLoading(false);
-        }
-    }, [isDemoMode]);
-
+    // Trigger Syncs
     useEffect(() => {
-        loadData();
-    }, [loadData]);
+        if (!isDemoMode && role === 'admin') {
+            // Admin syncs everything to ensure they can see all data
+            syncTable('products', 'name', true);
+            syncTable('assets', 'name', true);
+            syncTable('stock_movements', 'date', false);
+            syncTable('checkouts', 'checkout_date', false);
+        }
+    }, [isDemoMode, role]);
 
-    const refreshData = useCallback(async () => {
-        await loadData(true); // Silent for pull to refresh or manual refresh to avoid skeleton flash if desired, 
-        // OR await loadData(false) if we WANT skeleton. 
-        // For PullToRefresh, typically we dont want full page skeleton, the ptr spinner is enough.
-        // Let's stick to the plan: silent updates for background/minor refreshes.
-        // Actually for explicit "Refresh", maybe we keep it as is?
-        // The plan said: "Update `refreshData` to use `loadData(false)` (or true...)"
-        // Let's make refreshData use silent=true so the user sees the old data while new comes in, 
-        // unless it's an initial load.
-        // Wait, PullToRefresh has its own spinner. So silent=true is perfect.
+    const data = useLiveQuery(async () => {
+        if (isDemoMode) {
+            return {
+                products: mockProducts,
+                assets: mockAssets,
+                movements: mockStockMovements,
+                checkouts: mockCheckouts
+            };
+        }
+
+        let productsQuery = db.products.filter(p => !p.deleted_at);
+        let assetsQuery = db.assets.filter(a => !a.deleted_at);
+        // Movements don't typically have cost_center directly on the table in this schema?
+        // Actually, store.ts says User has cost_center. Movement has user_id or similar?
+        // Checking StockMovement interface: product_id, type, quantity, reason, date. No cost_center.
+        // But we can filter by products that belong to cost_center? Or assume movements should be filtered by user?
+        // Use case: Manager checks "Movements". They should see movements of THEIR products or THEIR actions?
+        // Usually movements of products in their cost center.
+        // NOTE: Product has `cost_center`? Let's check store.ts.
+        // Wait, db.ts getAllFiltered uses `item.cost_center`.
+        // Let's assume Products and Assets have `cost_center`.
+
+        const targetCostCenter = role === 'gestor' ? (costCenterId || undefined) : costCenterId; // If gestor, costCenterId passed in hook should be theirs.
+
+        if (targetCostCenter) {
+            productsQuery = productsQuery.filter(p => p.cost_center === targetCostCenter);
+            assetsQuery = assetsQuery.filter(a => a.cost_center === targetCostCenter);
+        }
+
+        const [products, assets, allMovements, allCheckouts] = await Promise.all([
+            productsQuery.toArray(),
+            assetsQuery.toArray(),
+            db.stock_movements.toArray(),
+            db.checkouts.toArray()
+        ]);
+
+        // Post-filter movements based on visible products?
+        // Or if we want to be strict, we need to join.
+        // For dashboard speed, let's filter movements that relate to the visible products.
+        const visibleProductIds = new Set(products.map(p => p.id));
+        const movements = allMovements.filter(m => visibleProductIds.has(m.product_id));
+
+        // Checkouts: filter by asset_id (if asset) or item_id (if product)
+        const visibleAssetIds = new Set(assets.map(a => a.id));
+        const checkouts = allCheckouts.filter(c => {
+            if (c.item_type === 'asset') return visibleAssetIds.has(c.item_id);
+            // if c.item_type === 'product' // Checkouts usually only assets in this system?
+            // Interface says item_type: 'product' | 'asset'.
+            return visibleProductIds.has(c.item_id); // Fallback
+        });
+
+
+        return { products, assets, movements, checkouts };
+    }, [isDemoMode, role, costCenterId]);
+
+    const refreshData = async () => {
+        if (isDemoMode) {
+            toast.success("Dados atualizados (Demo)!");
+            return;
+        }
+        await Promise.all([
+            syncTable('products', 'name', true),
+            syncTable('assets', 'name', true),
+            syncTable('stock_movements', 'date', false),
+            syncTable('checkouts', 'checkout_date', false)
+        ]);
         toast.success("Dados atualizados!");
-    }, [loadData]);
+    };
+
+    const products = data?.products || [];
+    const assets = data?.assets || [];
+    const movements = data?.movements || [];
+    const checkouts = data?.checkouts || [];
+    const isLoading = !data;
 
     // Derived Data
     const lowStockProducts = useMemo(() =>
@@ -65,7 +106,7 @@ export function useDashboardData() {
         [products]);
 
     const pendingCheckouts = useMemo(() =>
-        checkouts.filter((c) => c.status === "em_uso" || c.status === "atrasado"),
+        checkouts.filter((c) => c.status === "Ativo" || c.status === "Atrasado"),
         [checkouts]);
 
     const assetsInMaintenance = useMemo(() =>

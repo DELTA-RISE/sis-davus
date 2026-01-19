@@ -16,6 +16,7 @@ interface AuthContextType {
   mustChangePassword: boolean;
   gravatarEmail: string;
   gravatarUrl: string | null;
+  costCenter?: string;
   isLoading: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -28,6 +29,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [currentRole, setCurrentRole] = useState<UserRole>("gestor");
+  const [costCenter, setCostCenter] = useState<string | undefined>(undefined);
   const [userName, setUserName] = useState("Carregando...");
   const [email, setEmail] = useState("");
   const [mustChangePassword, setMustChangePassword] = useState(false);
@@ -89,6 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } else {
         setCurrentRole("gestor");
+        setCostCenter(undefined);
         setUserName("");
         setEmail("");
         setMustChangePassword(false);
@@ -118,6 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.log("[AuthContext] User inactive");
           await supabase.auth.signOut();
           setCurrentRole("gestor");
+          setCostCenter(undefined);
           setUserName("");
           setEmail("");
           setMustChangePassword(false);
@@ -127,6 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
           console.log("[AuthContext] Setting user data:", profile.name);
           setCurrentRole(profile.role);
+          setCostCenter(profile.cost_center);
           setUserName(profile.name);
           setEmail(profile.email);
           setMustChangePassword(profile.must_change_password || false);
@@ -159,6 +164,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider value={{
       user,
       currentRole,
+      costCenter,
       userName,
       email,
       mustChangePassword,

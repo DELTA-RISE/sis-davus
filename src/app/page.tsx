@@ -12,6 +12,12 @@ import { MagneticButton } from "@/components/ui/magnetic-button";
 import { useAuth } from "@/lib/auth-context";
 import { TextMorph } from "@/components/landing/TextMorph";
 import { SpotlightCard } from "@/components/landing/SpotlightCard";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 // Dynamic Imports for Heavy Components
 const Experience = dynamic(() => import("@/components/landing/cinematic/Experience").then(mod => mod.Experience), {
@@ -70,18 +76,7 @@ export default function LandingPage() {
     }
   };
 
-  const getMainDownloadButton = () => {
-    switch (os) {
-      case "Mac":
-        return { label: "Download para macOS", icon: Apple };
-      case "Linux":
-        return { label: "Download para Linux", icon: TerminalIcon };
-      default: // Windows or Unknown (default to Windows)
-        return { label: "Download para Windows", icon: AppWindow };
-    }
-  };
 
-  const mainBtn = getMainDownloadButton();
 
   return (
     <LazyMotion features={domAnimation}>
@@ -354,20 +349,28 @@ export default function LandingPage() {
 
                     <div className="space-y-4">
                       <Button size="lg" className="w-full h-14 text-base gap-3 bg-white text-black hover:bg-gray-200 rounded-xl transition-all shadow-lg shadow-white/5">
-                        <mainBtn.icon className="h-5 w-5" />
-                        <span className="font-semibold">{mainBtn.label}</span>
+                        <AppWindow className="h-5 w-5" />
+                        <span className="font-semibold">Download para Windows</span>
                       </Button>
 
-                      <div className="grid grid-cols-2 gap-4">
-                        <Button variant="outline" size="lg" className="h-12 border-white/10 text-white hover:bg-white/5 hover:text-white rounded-xl gap-2">
-                          <Apple className="h-5 w-5" />
-                          <span className="text-sm">macOS</span>
-                        </Button>
-                        <Button variant="outline" size="lg" className="h-12 border-white/10 text-white hover:bg-white/5 hover:text-white rounded-xl gap-2">
-                          <TerminalIcon className="h-5 w-5" />
-                          <span className="text-sm">Linux</span>
-                        </Button>
-                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="lg" className="w-full h-12 border-white/10 text-white hover:bg-white/5 hover:text-white rounded-xl gap-2">
+                            <MoreVertical className="h-5 w-5" />
+                            <span className="text-sm">Outras Versões</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)] bg-zinc-950 border-white/10 text-white">
+                          <DropdownMenuItem disabled className="gap-2 focus:bg-white/10 focus:text-white cursor-not-allowed opacity-70">
+                            <Apple className="h-4 w-4" />
+                            <span>macOS (Em breve)</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem disabled className="gap-2 focus:bg-white/10 focus:text-white cursor-not-allowed opacity-70">
+                            <TerminalIcon className="h-4 w-4" />
+                            <span>Linux (Em breve)</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
                 </SpotlightCard>

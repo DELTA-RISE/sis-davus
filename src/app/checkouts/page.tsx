@@ -44,25 +44,25 @@ import { PageTransition, StaggerContainer, StaggerItem } from "@/components/Page
 import { useAuth } from "@/lib/auth-context";
 
 const statusColors = {
-  em_uso: "bg-blue-500/20 text-blue-500 border-blue-500/30",
-  devolvido: "bg-green-500/20 text-green-500 border-green-500/30",
-  atrasado: "bg-red-500/20 text-red-500 border-red-500/30",
+  Ativo: "bg-blue-500/20 text-blue-500 border-blue-500/30",
+  Devolvido: "bg-green-500/20 text-green-500 border-green-500/30",
+  Atrasado: "bg-red-500/20 text-red-500 border-red-500/30",
 };
 
 const statusLabels = {
-  em_uso: "Em Uso",
-  devolvido: "Devolvido",
-  atrasado: "Atrasado",
+  Ativo: "Em Uso",
+  Devolvido: "Devolvido",
+  Atrasado: "Atrasado",
 };
 
 const statusIcons = {
-  em_uso: Clock,
-  devolvido: CheckCircle,
-  atrasado: AlertTriangle,
+  Ativo: Clock,
+  Devolvido: CheckCircle,
+  Atrasado: AlertTriangle,
 };
 
 export default function CheckoutsPage() {
-  const { userName, user } = useAuth();
+  const { userName, user, currentRole, costCenter } = useAuth();
   const [checkouts, setCheckouts] = useState<Checkout[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -101,7 +101,7 @@ export default function CheckoutsPage() {
   }, [checkouts, searchTerm, statusFilter]);
 
   const handleSaveCheckout = async () => {
-    if (!newCheckout.item_id || !newCheckout.user_name || !newCheckout.expected_return) {
+    if (!newCheckout.item_id || !newCheckout.user_name || !newCheckout.expected_return_date) {
       toast.error("Preencha todos os campos obrigatórios");
       return;
     }
@@ -110,11 +110,38 @@ export default function CheckoutsPage() {
     const item = items.find((i) => i.id === newCheckout.item_id);
     if (!item) return;
 
+    // Restriction: Manager can only checkout items assigned to them (Assets) or their Cost Center (Products)
+    if (user?.role === 'gestor' || user?.role === 'manager') {
+      if (newCheckout.item_type === 'asset') {
+        // For assets, must be assigned to the manager? Or is "associado a ele" meaning assigned to him?
+        // User request: "caso esteja associado a ele e não necessariamente a obra"
+        const assetItem = item as Asset;
+        // Check if assigned_to matches user.id OR maybe user.name if ids aren't consistent, but prefer ID.
+        // If assigned_to is a name, we might have issues. store.ts says assigned_to?: string.
+        // Let's assume it stores ID or Name. The save operation uses userName usually.
+        // But strict reading: "associado a ele" -> assigned_to check.
+
+        // Restriction: Manager can only checkout items assigned to them (Assets) or their Cost Center (Products)
+        const isAssignedToUser = assetItem.assigned_to === user?.id || assetItem.assigned_to === userName;
+
+        if (!isAssignedToUser) {
+          toast.error("Você só pode realizar empréstimos de patrimônios associados a você.");
+          return;
+        }
+      } else if (newCheckout.item_type === 'product') {
+        const prodItem = item as Product;
+        if (costCenter && prodItem.cost_center !== costCenter) {
+          toast.error(`Você só pode realizar empréstimos de insumos do seu Centro de Custo (${costCenter}).`);
+          return;
+        }
+      }
+    }
+
     const payload: Partial<Checkout> = {
       ...newCheckout,
       item_name: item.name,
       checkout_date: new Date().toISOString(),
-      status: "em_uso",
+      status: "Ativo",
     };
 
     const saved = await saveCheckout(payload, { name: userName, id: user?.id || "" });
@@ -131,7 +158,7 @@ export default function CheckoutsPage() {
     const checkout = checkouts.find(c => c.id === id);
     if (!checkout) return;
 
-    const updated = await saveCheckout({ ...checkout, status: "devolvido", return_date: new Date().toISOString() }, { name: userName, id: user?.id || "" });
+    const updated = await saveCheckout({ ...checkout, status: "Devolvido", return_date: new Date().toISOString() }, { name: userName, id: user?.id || "" });
     if (updated) toast.success("Item devolvido!");
   };
 
@@ -186,7 +213,7 @@ export default function CheckoutsPage() {
                     </div>
                     <div className="space-y-2">
                       <Label>Previsão Devolução</Label>
-                      <Input type="date" value={newCheckout.expected_return ?? ""} onChange={e => setNewCheckout({ ...newCheckout, expected_return: e.target.value })} />
+                      <Input type="date" value={newCheckout.expected_return_date ?? ""} onChange={e => setNewCheckout({ ...newCheckout, expected_return_date: e.target.value })} />
                     </div>
                     <div className="space-y-2">
                       <Label>Observações</Label>
@@ -210,9 +237,9 @@ export default function CheckoutsPage() {
               <SelectTrigger className="w-[120px] bg-card/50 h-10"><Filter className="h-4 w-4 mr-2" /><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="em_uso">Em Uso</SelectItem>
-                <SelectItem value="devolvido">Devolvido</SelectItem>
-                <SelectItem value="atrasado">Atrasado</SelectItem>
+                <SelectItem value="Ativo">Em Uso</SelectItem>
+                <SelectItem value="Devolvido">Devolvido</SelectItem>
+                <SelectItem value="Atrasado">Atrasado</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -231,7 +258,7 @@ export default function CheckoutsPage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
                             <p className="font-medium text-sm truncate">{c.item_name}</p>
-                            {c.quantity > 1 && <Badge variant="secondary" className="text-[10px]">x{c.quantity}</Badge>}
+                            {(c.quantity || 1) > 1 && <Badge variant="secondary" className="text-[10px]">x{c.quantity}</Badge>}
                           </div>
                           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground mt-1">
                             <span className="flex items-center gap-1"><User className="h-3 w-3" />{c.user_name}</span>
@@ -241,11 +268,11 @@ export default function CheckoutsPage() {
                             <Badge variant="outline" className={`text-[10px] ${statusColors[c.status]}`}>
                               <Icon className="h-3 w-3 mr-1" />{statusLabels[c.status]}
                             </Badge>
-                            {c.status !== 'devolvido' && <span className="text-[10px] text-muted-foreground">Retorno: {new Date(c.expected_return || "").toLocaleDateString()}</span>}
+                            {c.status !== 'Devolvido' && <span className="text-[10px] text-muted-foreground">Retorno: {new Date(c.expected_return_date || "").toLocaleDateString()}</span>}
                           </div>
                         </div>
                       </div>
-                      {c.status !== 'devolvido' && (
+                      {c.status !== 'Devolvido' && (
                         <Button variant="outline" size="sm" onClick={() => handleReturn(c.id)} className="w-full mt-3 h-8 gap-1 text-xs"><RotateCcw className="h-3 w-3" /> Devolver</Button>
                       )}
                     </CardContent>

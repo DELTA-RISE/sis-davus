@@ -3,12 +3,15 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { Asset } from "@/lib/store";
-import { getAssets, saveAsset, deleteAsset } from "@/lib/db";
+import { saveAsset, deleteAsset, syncAssets } from "@/lib/db";
+import { requestWriteOff } from "@/actions/write-off";
+import { db } from "@/lib/dexie-db";
 import { supabase } from "@/lib/supabase";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useItemHistory } from "@/hooks/useItemHistory";
+import { useAssets } from "@/hooks/use-queries";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -53,6 +56,7 @@ import {
   Zap,
   Printer,
   RefreshCcw,
+  FileWarning,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -104,10 +108,15 @@ import { mockAssets } from "@/lib/store"; // Removed Asset (duplicate)
 // ... imports
 
 export default function PatrimonioPage() {
-  const { userName, user } = useAuth();
+  const { userName, user, currentRole } = useAuth();
   const { isDemoMode } = useOnboarding();
-  const [assets, setAssets] = useState<Asset[]>([]);
-  const [isLoading, setIsLoading] = useState(true); // Restored
+
+  // Local-First Hook
+  const { assets, isLoading: isLocalLoading } = useAssets();
+  // We can use isLocalLoading for the initial skeleton, or specific loading state.
+  // Existing code uses 'isLoading'. Let's map it.
+  const isLoading = isLocalLoading && assets.length === 0;
+  // Only show loading if we have NO assets. If we have cache, show it immediately.
 
   const [searchTerm, setSearchTerm] = useState("");
   const debouncedSearch = useDebounce(searchTerm, 300);
@@ -158,6 +167,56 @@ export default function PatrimonioPage() {
   const [printLayout, setPrintLayout] = useState<AssetLabelLayout>('standard');
   const [printingAssets, setPrintingAssets] = useState<Asset[]>([]);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
+  // Write Off Request State
+  const [writeOffDialogOpen, setWriteOffDialogOpen] = useState(false);
+  const [writeOffReason, setWriteOffReason] = useState("");
+  const [assetToWriteOff, setAssetToWriteOff] = useState<Asset | null>(null);
+
+  const handleOpenWriteOff = async (e: React.MouseEvent, asset: Asset) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Check for dependencies (Maintenance)
+    const activeTasks = await db.maintenance_tasks
+      .where('asset_id')
+      .equals(asset.id)
+      .filter((task) => (task.status as string) !== 'Concluída' && (task.status as string) !== 'Concluida')
+      .count();
+
+    if (activeTasks > 0) {
+      toast.warning(`Não é possível solicitar baixa. O patrimônio está em manutenção.`, {
+        duration: 5000,
+      });
+      return;
+    }
+
+    setAssetToWriteOff(asset);
+    setWriteOffReason("");
+    setWriteOffDialogOpen(true);
+  };
+
+  const submitWriteOffRequest = async () => {
+    if (!assetToWriteOff) return;
+    if (!writeOffReason.trim()) {
+      toast.error("Por favor, informe o motivo da baixa.");
+      return;
+    }
+
+    try {
+      const result = await requestWriteOff(assetToWriteOff.id, writeOffReason, user?.id || "");
+      if (result.success) {
+        toast.success("Solicitação de baixa enviada com sucesso!");
+        setWriteOffDialogOpen(false);
+        setAssetToWriteOff(null);
+      } else {
+        toast.error("Erro ao enviar solicitação: " + result.error);
+      }
+    } catch (error) {
+      toast.error("Erro inesperado ao enviar solicitação.");
+      console.error(error);
+    }
+  };
 
   const generateBulkPDF = async () => {
     setIsGeneratingPdf(true);
@@ -236,39 +295,26 @@ export default function PatrimonioPage() {
     }
   };
 
-  const loadData = useCallback(async (silent = false) => {
-    if (!silent) setIsLoading(true);
-
-    if (isDemoMode) {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      setAssets(mockAssets);
-    } else {
-      const data = await getAssets();
-      setAssets(data);
-    }
-
-    if (!silent) setIsLoading(false);
-  }, [isDemoMode]);
-
   useEffect(() => {
-    loadData();
+    // Trigger background sync on mount
+    syncAssets();
 
     const channel = supabase
       .channel('assets-changes')
       .on('postgres_changes' as any, { event: '*', table: 'assets' }, () => {
-        loadData(true);
+        syncAssets(); // Sync instead of loadData
       })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [loadData]);
+  }, []);
 
   const handleRefresh = useCallback(async () => {
-    await loadData(true);
+    await syncAssets();
     toast.success("Dados atualizados!");
-  }, [loadData]);
+  }, []);
 
   const { isRefreshing, pullDistance, threshold } = usePullToRefresh({
     onRefresh: handleRefresh,
@@ -347,12 +393,38 @@ export default function PatrimonioPage() {
   };
 
   const bulkDelete = async () => {
+    // Check for dependencies
+    const assetsWithDependencies: string[] = [];
+    for (const id of selectedIds) {
+      const activeTasks = await db.maintenance_tasks
+        .where('asset_id')
+        .equals(id)
+        .filter((task) => (task.status as string) !== 'Concluída' && (task.status as string) !== 'Concluida')
+        .count();
+
+      if (activeTasks > 0) {
+        const asset = assets.find(a => a.id === id);
+        assetsWithDependencies.push(asset?.name || id);
+      }
+    }
+
+    if (assetsWithDependencies.length > 0) {
+      toast.warning(`Não é possível excluir: ${assetsWithDependencies.join(", ")}. Existem manutenções pendentes.`, {
+        duration: 5000,
+      });
+      return;
+    }
+
     if (confirm(`Deseja excluir ${selectedIds.length} patrimônios?`)) {
       const results = await Promise.all(selectedIds.map(id => deleteAsset(id, { name: userName, id: user?.id || "" })));
       const successCount = results.filter(Boolean).length;
       toast.success(`${successCount} itens excluídos.`);
       setSelectedIds([]);
-      loadData();
+      toast.success(`${successCount} itens excluídos.`);
+      setSelectedIds([]);
+      // loadData(); // No need to reload, sync covers it or soft delete updates local?
+      // deleteAsset calls softDelete which updates Dexie locally immediately.
+      // So UI should update automatically via useLiveQuery.
     }
   };
 
@@ -492,6 +564,32 @@ export default function PatrimonioPage() {
                     </div>
                   </DialogContent>
                 </Dialog>
+
+                <Dialog open={writeOffDialogOpen} onOpenChange={setWriteOffDialogOpen}>
+                  <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Solicitar Baixa de Patrimônio</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="p-3 bg-muted rounded-md text-sm">
+                        <p className="font-medium">{assetToWriteOff?.name}</p>
+                        <p className="text-xs text-muted-foreground">{assetToWriteOff?.code}</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Motivo da Baixa</Label>
+                        <Textarea
+                          value={writeOffReason}
+                          onChange={(e) => setWriteOffReason(e.target.value)}
+                          placeholder="Descreva o motivo (ex: Danificado, Obsolescência...)"
+                          rows={3}
+                        />
+                      </div>
+                      <Button onClick={submitWriteOffRequest} className="w-full gap-2">
+                        Enviar Solicitação
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
             </div>
           </div>
@@ -603,6 +701,11 @@ export default function PatrimonioPage() {
                             <div className="flex items-center gap-1">
                               <Button variant="ghost" size="sm" onClick={(e) => handleEdit(e, asset)} className="h-7 w-7 p-0"><Edit className="h-4 w-4" /></Button>
                               <Link href={`/patrimonio/detalhes?id=${asset.id}`}><ChevronRight className="h-4 w-4 text-muted-foreground hover:text-primary" /></Link>
+                              {(currentRole === 'gestor' || currentRole === 'manager') && (
+                                <Button variant="ghost" size="sm" onClick={(e) => handleOpenWriteOff(e, asset)} className="h-7 w-7 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50" title="Solicitar Baixa">
+                                  <FileWarning className="h-4 w-4" />
+                                </Button>
+                              )}
                             </div>
                           </div>
                         </div>

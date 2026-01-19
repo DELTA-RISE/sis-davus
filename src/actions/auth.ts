@@ -1,17 +1,11 @@
-
-// "use server"; // Disabled for Static Export compatibility
-// Server Actions are not supported in Next.js Static Export (Electron).
-// To restore this functionality, use Supabase Edge Functions.
-
 import { UserRole } from '@/lib/store';
-// import { supabaseAdmin } from '@/lib/supabase-admin';
-// import { revalidatePath } from 'next/cache';
 
 interface CreateUserData {
     name: string;
     email: string;
     role: UserRole;
     status: 'ativo' | 'inativo';
+    cost_center: string | null;
 }
 
 interface AuditContext {
@@ -22,26 +16,25 @@ interface AuditContext {
 }
 
 export async function createUserAction(data: CreateUserData, audit: AuditContext): Promise<{ success: boolean; error?: string; tempPassword?: string }> {
-    console.warn("createUserAction: Server Actions not supported in Static Export/Electron.");
+    console.warn("createUserAction called in client/static mode. This feature requires a backend.");
     return {
         success: false,
-        error: "Gerenciamento de usuários requer conexão direta com Backend/Edge Functions. Indisponível na versão Desktop Offline ou Static Export."
+        error: "A criação de usuários via Sincronização não é suportada na versão Local/Estática. Por favor use o painel do Supabase."
     };
 }
 
 export async function deleteUserAction(userId: string, audit: AuditContext) {
-    console.warn("deleteUserAction: Server Actions not supported in Static Export/Electron.");
+    console.warn("deleteUserAction called in client/static mode");
     return {
         success: false,
-        error: "Gerenciamento de usuários requer conexão direta com Backend/Edge Functions. Indisponível na versão Desktop Offline ou Static Export."
+        error: "A exclusão de usuários não é suportada na versão Local/Estática."
     };
 }
 
 export async function updateUserPasswordAction(userId: string, newPassword: string) {
-    console.warn("updateUserPasswordAction: Server Actions not supported in Static Export/Electron.");
+    console.warn("updateUserPasswordAction called in client/static mode");
     return {
         success: false,
-        error: "Alteração de senha requer conexão direta com Backend/Edge Functions. Indisponível na versão Desktop Offline ou Static Export."
+        error: "A alteração de senha de outros usuários não é suportada na versão Local/Estática."
     };
 }
-

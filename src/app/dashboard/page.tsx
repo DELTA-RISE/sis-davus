@@ -62,6 +62,17 @@ const COLORS = ["#0ea5e9", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
 
 export default function DashboardPage() {
   const { currentRole } = useAuth();
+  const [costCenters, setCostCenters] = useState<{ id: string, name: string }[]>([]);
+  const [selectedCostCenter, setSelectedCostCenter] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (currentRole === 'admin') {
+      import("@/lib/db").then(mod => {
+        mod.getCostCenters().then(setCostCenters);
+      });
+    }
+  }, [currentRole]);
+
   const {
     products,
     assets,
@@ -73,7 +84,7 @@ export default function DashboardPage() {
     recentMovements,
     stockByCategory,
     movementsData
-  } = useDashboardData();
+  } = useDashboardData({ role: currentRole || undefined, costCenterId: selectedCostCenter });
 
   const { isRefreshing, pullDistance, threshold } = usePullToRefresh({
     onRefresh: refreshData,
@@ -108,15 +119,30 @@ export default function DashboardPage() {
         <PullToRefresh isRefreshing={isRefreshing} pullDistance={pullDistance} threshold={threshold} />
 
         <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <h1 className="text-xl font-bold">Resumo Geral</h1>
               <p className="text-xs text-muted-foreground">Bem-vindo ao SIS DAVUS</p>
             </div>
-            <Badge variant="outline" className="gap-1.5 py-1 px-3">
-              <Zap className="h-3 w-3 text-primary animate-pulse" />
-              Sincronizado
-            </Badge>
+
+            <div className="flex items-center gap-2">
+              {currentRole === 'admin' && (
+                <select
+                  className="bg-background border border-border text-sm rounded-md px-3 py-1.5 focus:ring-2 focus:ring-primary h-9 outline-none"
+                  value={selectedCostCenter || ""}
+                  onChange={(e) => setSelectedCostCenter(e.target.value || null)}
+                >
+                  <option value="">Visão Global (Todos)</option>
+                  {costCenters.map(cc => (
+                    <option key={cc.id} value={cc.id}>{cc.name}</option>
+                  ))}
+                </select>
+              )}
+              <Badge variant="outline" className="gap-1.5 py-1 px-3 h-9 hidden md:flex">
+                <Zap className="h-3 w-3 text-primary animate-pulse" />
+                Sincronizado
+              </Badge>
+            </div>
           </div>
 
           <SlideUp>

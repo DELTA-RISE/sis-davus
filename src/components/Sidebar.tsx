@@ -15,6 +15,7 @@ import {
   ChevronRight,
   Briefcase,
   Settings,
+  Database,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
@@ -31,6 +32,7 @@ const adminItems = [
   { href: "/admin/logs", icon: FileText, label: "Logs de Auditoria" },
   { href: "/admin/usuarios", icon: Users, label: "Gestão de Usuários" },
   { href: "/admin/centros-custo", icon: Briefcase, label: "Centros de Custo" },
+  { href: "/admin/configuracoes/sincronizacao", icon: Database, label: "Diagnóstico de Sync" },
   { href: "/admin/configuracoes", icon: Settings, label: "Sistema & Dispositivos" },
 ];
 
