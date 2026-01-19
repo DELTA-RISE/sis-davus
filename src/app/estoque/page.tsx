@@ -10,6 +10,8 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useItemHistory } from "@/hooks/useItemHistory";
+import { useCostCenters } from "@/hooks/use-queries";
+import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -50,7 +52,23 @@ import {
   TrendingUp,
   CheckSquare,
   Square,
+  Check,
+  ChevronsUpDown,
+  Building2,
 } from "lucide-react";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
 import { motion, AnimatePresence } from "framer-motion";
@@ -68,8 +86,8 @@ const filterConfigs: FilterConfig[] = [
     ],
   },
   {
-    key: "location",
-    label: "Localização",
+    key: "cost_center",
+    label: "Centro de Custo",
     type: "text",
   },
   {
@@ -87,6 +105,7 @@ const filterConfigs: FilterConfig[] = [
 export default function EstoquePage() {
   const { userName, user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
+  const { costCenters } = useCostCenters();
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const debouncedSearch = useDebounce(searchTerm, 300);
@@ -99,6 +118,7 @@ export default function EstoquePage() {
   const [newProduct, setNewProduct] = useState<Partial<Product>>({
     category: "Escritório",
   });
+  const [openCostCenterSelect, setOpenCostCenterSelect] = useState(false);
   const { addHistoryEntry } = useItemHistory();
   const { isDemoMode } = useOnboarding();
   // Ensure isLoading is present if it was lost, but looking at file line 89 it exists in the OUTER function.
@@ -165,7 +185,15 @@ export default function EstoquePage() {
 
       const matchesFilters = activeFilters.every((filter) => {
         if (filter.key === "category") return category === filter.value;
-        if (filter.key === "location") return location.toLowerCase().includes(filter.value.toLowerCase());
+        if (filter.key === "cost_center") {
+          // We might want to match name if we have the list, or just check against ID if simple text
+          // But since filter type is text, user probably types name.
+          // Let's check against resolving the name if we can, or strict if assuming value is ID.
+          // Given type='text' in filter config, user types a string.
+          // So we check if cost_center ID resolves to a name that contains the string.
+          const ccName = costCenters.find(c => c.id === p.cost_center)?.name || "";
+          return ccName.toLowerCase().includes(filter.value.toLowerCase());
+        }
         if (filter.key === "stockStatus") return getStockStatus(p) === filter.value;
         return true;
       });
@@ -357,12 +385,51 @@ export default function EstoquePage() {
                             </SelectContent>
                           </Select>
                         </div>
-                        <div className="space-y-2">
-                          <Label>Localização</Label>
-                          <Input
-                            value={newProduct.location || ""}
-                            onChange={(e) => setNewProduct({ ...newProduct, location: e.target.value })}
-                          />
+                        <div className="space-y-2 text-left">
+                          <Label>Centro de Custo</Label>
+                          <Popover open={openCostCenterSelect} onOpenChange={setOpenCostCenterSelect}>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                role="combobox"
+                                aria-expanded={openCostCenterSelect}
+                                className="w-full justify-between font-normal"
+                              >
+                                {newProduct.cost_center
+                                  ? costCenters.find((cc) => cc.id === newProduct.cost_center)?.name || newProduct.cost_center
+                                  : "Selecione..."}
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[300px] p-0" align="start">
+                              <Command>
+                                <CommandInput placeholder="Buscar centro de custo..." />
+                                <CommandList>
+                                  <CommandEmpty>Nenhum centro de custo encontrado.</CommandEmpty>
+                                  <CommandGroup>
+                                    {costCenters.map((cc) => (
+                                      <CommandItem
+                                        key={cc.id}
+                                        value={cc.name}
+                                        onSelect={() => {
+                                          setNewProduct({ ...newProduct, cost_center: cc.id });
+                                          setOpenCostCenterSelect(false);
+                                        }}
+                                      >
+                                        <Check
+                                          className={cn(
+                                            "mr-2 h-4 w-4",
+                                            newProduct.cost_center === cc.id ? "opacity-100" : "opacity-0"
+                                          )}
+                                        />
+                                        {cc.name}
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
                         </div>
                       </div>
                       <div className="grid grid-cols-3 gap-4">
@@ -511,8 +578,8 @@ export default function EstoquePage() {
                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
                               <span className="font-mono">{product.sku}</span>
                               <span className="flex items-center gap-1">
-                                <MapPin className="h-3 w-3" />
-                                {product.location}
+                                <Building2 className="h-3 w-3" />
+                                {costCenters.find(c => c.id === product.cost_center)?.name || product.cost_center || "N/A"}
                               </span>
                             </div>
                             <div className="flex items-center gap-2 mt-2">

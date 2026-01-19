@@ -11,7 +11,8 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useItemHistory } from "@/hooks/useItemHistory";
-import { useAssets } from "@/hooks/use-queries";
+import { useAssets, useUsers, useCostCenters } from "@/hooks/use-queries";
+import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -57,7 +58,22 @@ import {
   Printer,
   RefreshCcw,
   FileWarning,
+  Check,
+  ChevronsUpDown,
 } from "lucide-react";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -113,6 +129,11 @@ export default function PatrimonioPage() {
 
   // Local-First Hook
   const { assets, isLoading: isLocalLoading } = useAssets();
+  const { users } = useUsers();
+  const { costCenters } = useCostCenters();
+
+  const [openUserSelect, setOpenUserSelect] = useState(false);
+  const [openCostCenterSelect, setOpenCostCenterSelect] = useState(false);
   // We can use isLocalLoading for the initial skeleton, or specific loading state.
   // Existing code uses 'isLoading'. Let's map it.
   const isLoading = isLocalLoading && assets.length === 0;
@@ -541,10 +562,99 @@ export default function PatrimonioPage() {
                           <Label>Localização</Label>
                           <Input value={newAsset.location || ""} onChange={(e) => setNewAsset({ ...newAsset, location: e.target.value })} />
                         </div>
-                        <div className="space-y-2">
-                          <Label>Responsável</Label>
-                          <Input value={newAsset.assigned_to || ""} onChange={(e) => setNewAsset({ ...newAsset, assigned_to: e.target.value })} />
+                        <div className="space-y-2 text-left">
+                          <Label>Centro de Custo</Label>
+                          <Popover open={openCostCenterSelect} onOpenChange={setOpenCostCenterSelect}>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                role="combobox"
+                                aria-expanded={openCostCenterSelect}
+                                className="w-full justify-between font-normal"
+                              >
+                                {newAsset.cost_center
+                                  ? costCenters.find((cc) => cc.id === newAsset.cost_center)?.name || newAsset.cost_center
+                                  : "Selecione..."}
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[300px] p-0" align="start">
+                              <Command>
+                                <CommandInput placeholder="Buscar centro de custo..." />
+                                <CommandList>
+                                  <CommandEmpty>Nenhum centro de custo encontrado.</CommandEmpty>
+                                  <CommandGroup>
+                                    {costCenters.map((cc) => (
+                                      <CommandItem
+                                        key={cc.id}
+                                        value={cc.name}
+                                        onSelect={() => {
+                                          setNewAsset({ ...newAsset, cost_center: cc.id });
+                                          setOpenCostCenterSelect(false);
+                                        }}
+                                      >
+                                        <Check
+                                          className={cn(
+                                            "mr-2 h-4 w-4",
+                                            newAsset.cost_center === cc.id ? "opacity-100" : "opacity-0"
+                                          )}
+                                        />
+                                        {cc.name}
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
                         </div>
+                      </div>
+                      <div className="space-y-2 flex flex-col items-start text-left">
+                        <Label>Responsável</Label>
+                        <Popover open={openUserSelect} onOpenChange={setOpenUserSelect}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              aria-expanded={openUserSelect}
+                              className="w-full justify-between font-normal"
+                            >
+                              {newAsset.assigned_to
+                                ? newAsset.assigned_to
+                                : "Selecione..."}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[300px] p-0" align="start">
+                            <Command>
+                              <CommandInput placeholder="Buscar responsável..." />
+                              <CommandList>
+                                <CommandEmpty>Nenhum usuário encontrado.</CommandEmpty>
+                                <CommandGroup>
+                                  {users.map((user) => (
+                                    <CommandItem
+                                      key={user.id}
+                                      value={user.name}
+                                      onSelect={() => {
+                                        // Store name to match existing behavior (preserve casing)
+                                        setNewAsset({ ...newAsset, assigned_to: user.name === newAsset.assigned_to ? "" : user.name });
+                                        setOpenUserSelect(false);
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          newAsset.assigned_to === user.name ? "opacity-100" : "opacity-0"
+                                        )}
+                                      />
+                                      {user.name}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">

@@ -30,7 +30,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { getReadNotifications, saveReadNotifications, getDismissedNotifications } from "@/lib/localStorage";
-import { getProducts, getAssets } from "@/lib/db";
+import { getProducts, getAssets, getWriteOffRequests, getMaintenanceTasks } from "@/lib/db";
 import { Product, Asset, mockProducts, mockAssets } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
@@ -88,46 +88,75 @@ export function DesktopTopBar() {
     const readIds = getReadNotifications();
     const dismissedIds = getDismissedNotifications();
 
-    if (!Array.isArray(products) || !Array.isArray(assets)) return;
+    const fetchRequests = async () => {
+      const [writeOffs, maintenanceTasks] = await Promise.all([
+        getWriteOffRequests(),
+        getMaintenanceTasks()
+      ]);
 
-    const lowStockNotifs: Notification[] = products
-      .filter(p => p.quantity < p.min_stock)
-      .filter(p => !dismissedIds.includes(`prod-${p.id}`))
-      .map(p => ({
-        id: `prod-${p.id}`,
-        title: "Estoque Baixo",
-        message: `${p.name} está com ${p.quantity} unidades`,
-        time: "Agora",
-        unread: !readIds.includes(`prod-${p.id}`)
-      }));
+      if (!Array.isArray(products) || !Array.isArray(assets)) return;
 
-    const maintenanceNotifs: Notification[] = assets
-      .filter(a => a.condition === "Manutenção")
-      .filter(a => !dismissedIds.includes(`asset-${a.id}`))
-      .map(a => ({
-        id: `asset-${a.id}`,
-        title: "Em Manutenção",
-        message: `${a.name} (${a.code}) está em manutenção`,
-        time: "Agora",
-        unread: !readIds.includes(`asset-${a.id}`)
-      }));
+      const lowStockNotifs: Notification[] = products
+        .filter(p => p.quantity < p.min_stock)
+        .filter(p => !dismissedIds.includes(`prod-${p.id}`))
+        .map(p => ({
+          id: `prod-${p.id}`,
+          title: "Estoque Baixo",
+          message: `${p.name} está com ${p.quantity} unidades`,
+          time: "Agora",
+          unread: !readIds.includes(`prod-${p.id}`)
+        }));
 
-    const allNotifs = [...lowStockNotifs, ...maintenanceNotifs];
-    setNotifications(allNotifs);
+      const maintenanceNotifs: Notification[] = assets
+        .filter(a => a.condition === "Manutenção")
+        .filter(a => !dismissedIds.includes(`asset-${a.id}`))
+        .map(a => ({
+          id: `asset-${a.id}`,
+          title: "Em Manutenção",
+          message: `${a.name} (${a.code}) está em manutenção`,
+          time: "Agora",
+          unread: !readIds.includes(`asset-${a.id}`)
+        }));
 
-    const unreadCount = allNotifs.filter(n => n.unread).length;
-    const hasNewUnread = unreadCount > prevUnreadCount;
+      const writeOffNotifs: Notification[] = writeOffs
+        .filter(r => r.status === 'pending')
+        .map(r => ({
+          id: `writeoff-${r.id}`,
+          title: "Solicitação de Baixa",
+          message: `Nova solicitação para ${r.asset_name || 'Patrimônio'}`,
+          time: new Date(r.created_at || "").toLocaleDateString(),
+          unread: !readIds.includes(`writeoff-${r.id}`)
+        }));
 
-    if (hasNewUnread) {
-      setIsBellAnimating(true);
-      const audio = new Audio("/notification.mp3");
-      audio.play().catch(e => console.log("Erro ao reproduzir som:", e));
-    } else if (unreadCount === 0) {
-      setIsBellAnimating(false);
-    }
+      const maintenanceRequestNotifs: Notification[] = maintenanceTasks
+        .filter(t => t.approval_status === 'pending')
+        .map(t => ({
+          id: `maint-req-${t.id}`,
+          title: "Solicitação de Manutenção",
+          message: `Solicitação para ${t.asset_name} (${t.priority})`,
+          time: new Date(t.created_at || "").toLocaleDateString(),
+          unread: !readIds.includes(`maint-req-${t.id}`)
+        }));
 
-    setHasUnread(unreadCount > 0);
-    setPrevUnreadCount(unreadCount);
+      const allNotifs = [...writeOffNotifs, ...maintenanceRequestNotifs, ...lowStockNotifs, ...maintenanceNotifs];
+      setNotifications(allNotifs);
+
+      const unreadCount = allNotifs.filter(n => n.unread).length;
+      const hasNewUnread = unreadCount > prevUnreadCount;
+
+      if (hasNewUnread) {
+        setIsBellAnimating(true);
+        const audio = new Audio("/notification.mp3");
+        audio.play().catch(e => console.log("Erro ao reproduzir som:", e));
+      } else if (unreadCount === 0) {
+        setIsBellAnimating(false);
+      }
+
+      setHasUnread(unreadCount > 0);
+      setPrevUnreadCount(unreadCount);
+    };
+
+    fetchRequests();
   }, [products, assets, prevUnreadCount]);
 
   const markAsRead = (id: string) => {

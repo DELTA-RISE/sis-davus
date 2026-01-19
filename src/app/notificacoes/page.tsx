@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { getProducts, getAssets, getCheckouts, getWriteOffRequests } from "@/lib/db";
+import { getProducts, getAssets, getCheckouts, getWriteOffRequests, getMaintenanceTasks, saveMaintenanceTask } from "@/lib/db";
 import { approveWriteOff, rejectWriteOff } from "@/actions/write-off";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
@@ -9,7 +9,7 @@ import { PageTransition, StaggerContainer, StaggerItem } from "@/components/Page
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Bell, CheckCheck, Package, Building2, ChevronLeft, Trash2, Calendar, FileWarning, CheckCircle, XCircle } from "lucide-react";
+import { Bell, CheckCheck, Package, Building2, ChevronLeft, Trash2, Calendar, FileWarning, CheckCircle, XCircle, HardHat } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
@@ -19,7 +19,7 @@ interface Notification {
   message: string;
   time: string;
   unread: boolean;
-  type: "low_stock" | "maintenance" | "overdue" | "write_off_request";
+  type: "low_stock" | "maintenance" | "overdue" | "write_off_request" | "maintenance_request";
   metadata?: any; // To store requestId, assetId for actions
 }
 
@@ -45,11 +45,12 @@ export default function NotificationsPage() {
 
   const loadNotifications = useCallback(async () => {
     setIsLoading(true);
-    const [products, assets, checkouts, writeOffRequests] = await Promise.all([
+    const [products, assets, checkouts, writeOffRequests, maintenanceTasks] = await Promise.all([
       getProducts(),
       getAssets(),
       getCheckouts(),
       getWriteOffRequests(),
+      getMaintenanceTasks(),
     ]);
 
     const lowStockNotifs: Notification[] = products
@@ -97,7 +98,19 @@ export default function NotificationsPage() {
         metadata: r
       }));
 
-    const allNotifs = [...writeOffNotifs, ...lowStockNotifs, ...maintenanceNotifs, ...overdueNotifs]
+    const maintenanceRequestNotifs: Notification[] = maintenanceTasks
+      .filter(t => t.approval_status === 'pending')
+      .map(t => ({
+        id: `maint-req-${t.id}`,
+        title: "Solicitação de Manutenção",
+        message: `Solicitado por ${t.created_by || 'Gestor'} para ${t.asset_name} (${t.priority}). ${t.title}`,
+        time: new Date(t.created_at || "").toLocaleDateString(),
+        unread: true,
+        type: "maintenance_request",
+        metadata: t
+      }));
+
+    const allNotifs = [...writeOffNotifs, ...maintenanceRequestNotifs, ...lowStockNotifs, ...maintenanceNotifs, ...overdueNotifs]
       .filter(n => !dismissedIds.includes(n.id));
 
     setNotifications(allNotifs);
@@ -137,39 +150,86 @@ export default function NotificationsPage() {
 
   const handleApprove = async (e: React.MouseEvent, notif: Notification) => {
     e.stopPropagation();
-    if (!user || notif.type !== 'write_off_request') return;
+    if (!user) return;
 
-    const request = notif.metadata;
-    try {
-      const result = await approveWriteOff(request.id, request.asset_id, user.id, userName);
-      if (result.success) {
-        toast.success("Solicitação aprovada e patrimônio baixado!");
-        loadNotifications();
-      } else {
-        toast.error("Erro ao aprovar: " + result.error);
+    if (notif.type === 'write_off_request') {
+      const request = notif.metadata;
+      try {
+        const result = await approveWriteOff(request.id, request.asset_id, user.id, userName);
+        if (result.success) {
+          toast.success("Solicitação aprovada e patrimônio baixado!");
+          loadNotifications();
+        } else {
+          toast.error("Erro ao aprovar: " + result.error);
+        }
+      } catch (error) {
+        console.error(error);
+        toast.error("Erro ao aprovar solicitação.");
       }
-    } catch (error) {
-      console.error(error);
-      toast.error("Erro ao aprovar solicitação.");
+    } else if (notif.type === 'maintenance_request') {
+      const task = notif.metadata;
+      try {
+        const updatedTask = {
+          ...task,
+          approval_status: 'approved',
+          status: 'Aprovado', // Updates main status
+          approved_by: user.id,
+          admin_signature: `APPROVED_${user.id}_${Date.now()}`,
+          admin_signed_at: new Date().toISOString(),
+          steps_data: task.steps_data?.map((step: any) =>
+            step.id === '2' ? { ...step, completed: true, completed_by: userName, completed_at: new Date().toISOString() } : step
+          )
+        };
+        await saveMaintenanceTask(updatedTask, { name: userName, id: user.id });
+        toast.success("Manutenção aprovada com sucesso!");
+        loadNotifications();
+      } catch (error) {
+        console.error(error);
+        toast.error("Erro ao aprovar manutenção.");
+      }
     }
   };
 
   const handleReject = async (e: React.MouseEvent, notif: Notification) => {
     e.stopPropagation();
-    if (!user || notif.type !== 'write_off_request') return;
+    if (!user) return;
 
-    const request = notif.metadata;
-    try {
-      const result = await rejectWriteOff(request.id, user.id);
-      if (result.success) {
-        toast.success("Solicitação rejeitada.");
-        loadNotifications();
-      } else {
-        toast.error("Erro ao rejeitar: " + result.error);
+    if (notif.type === 'write_off_request') {
+      const request = notif.metadata;
+      try {
+        const result = await rejectWriteOff(request.id, user.id);
+        if (result.success) {
+          toast.success("Solicitação rejeitada.");
+          loadNotifications();
+        } else {
+          toast.error("Erro ao rejeitar: " + result.error);
+        }
+      } catch (error) {
+        console.error(error);
+        toast.error("Erro ao rejeitar solicitação.");
       }
-    } catch (error) {
-      console.error(error);
-      toast.error("Erro ao rejeitar solicitação.");
+    } else if (notif.type === 'maintenance_request') {
+      // For maintenance rejection, we usually require a reason. 
+      // For quick action here, we'll provide a generic reason or simple rejection.
+      // Ideally we open a dialog, but for now let's just reject.
+      const task = notif.metadata;
+      try {
+        const updatedTask = {
+          ...task,
+          approval_status: 'rejected',
+          status: 'Rejeitado',
+          rejection_reason: 'Rejeitado via notificações rápidas',
+          steps_data: task.steps_data?.map((step: any) =>
+            step.id === '2' ? { ...step, completed: false, description: `Rejeitado: Rejeitado via notificações rápidas` } : step
+          )
+        };
+        await saveMaintenanceTask(updatedTask, { name: userName, id: user.id });
+        toast.success("Manutenção rejeitada.");
+        loadNotifications();
+      } catch (error) {
+        console.error(error);
+        toast.error("Erro ao rejeitar manutenção.");
+      }
     }
   };
 
@@ -229,7 +289,8 @@ export default function NotificationsPage() {
                         {notif.type === "low_stock" ? <Package className="h-5 w-5" /> :
                           notif.type === "overdue" ? <Calendar className="h-5 w-5" /> :
                             notif.type === "write_off_request" ? <FileWarning className="h-5 w-5" /> :
-                              <Building2 className="h-5 w-5" />}
+                              notif.type === "maintenance_request" ? <HardHat className="h-5 w-5" /> :
+                                <Building2 className="h-5 w-5" />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
@@ -247,7 +308,7 @@ export default function NotificationsPage() {
                           <Badge variant="outline" className="text-[10px] h-4 px-1.5 capitalize">
                             {notif.type.replace('_', ' ')}
                           </Badge>
-                          {notif.type === 'write_off_request' && (
+                          {(notif.type === 'write_off_request' || notif.type === 'maintenance_request') && (
                             <div className="flex items-center gap-2 ml-auto">
                               <Button size="sm" variant="outline" className="h-7 border-green-500/50 text-green-600 hover:bg-green-50" onClick={(e) => handleApprove(e, notif)}>
                                 <CheckCircle className="h-3.5 w-3.5 mr-1" /> Aprovar

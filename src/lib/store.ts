@@ -75,7 +75,8 @@ export interface Checkout {
 export interface CostCenter {
   id: string;
   name: string;
-  code: string;
+  // code removed
+  responsible_id?: string;
   responsible?: string;
   description?: string;
   status: 'ativo' | 'inativo';

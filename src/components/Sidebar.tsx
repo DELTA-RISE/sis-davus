@@ -47,7 +47,7 @@ const gestorItems = [
 export function Sidebar() {
   const pathname = usePathname();
   const { isCollapsed, setIsCollapsed } = useSidebar();
-  const { currentRole } = useAuth();
+  const { currentRole, costCenter } = useAuth();
 
   return (
     <aside
@@ -141,6 +141,27 @@ export function Sidebar() {
             </Link>
           );
         })}
+
+
+        {currentRole === 'gestor' && costCenter && (
+          <>
+            {isCollapsed && <div className="h-px bg-sidebar-border my-2" />}
+            <Link
+              href="/admin/meu-centro-custo"
+              className={cn(
+                "flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-200",
+                pathname === "/admin/meu-centro-custo"
+                  ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25"
+                  : "text-sidebar-foreground hover:bg-sidebar-accent",
+                isCollapsed && "justify-center"
+              )}
+              title={isCollapsed ? "Meu Centro de Custo" : ""}
+            >
+              <Briefcase className="h-5 w-5 flex-shrink-0" />
+              {!isCollapsed && <span className="font-medium">Meu Centro de Custo</span>}
+            </Link>
+          </>
+        )}
       </nav>
     </aside>
   );

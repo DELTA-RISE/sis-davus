@@ -299,26 +299,24 @@ export default function UsersPage() {
                     </div>
                   </div>
 
-                  {newUser.role === 'gestor' && (
-                    <div className="space-y-2">
-                      <Label>Centro de Custo (Vinculado)</Label>
-                      <Select
-                        value={(newUser as any).cost_center || "none"}
-                        onValueChange={(v) => setNewUser({ ...newUser, cost_center: v === "none" ? null : v } as any)}
-                      >
-                        <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Nenhum</SelectItem>
-                          {costCenters.map(cc => (
-                            <SelectItem key={cc.id} value={cc.id}>{cc.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <p className="text-[10px] text-muted-foreground">
-                        O gestor só poderá ver itens deste centro de custo.
-                      </p>
-                    </div>
-                  )}
+                  <div className="space-y-2">
+                    <Label>Centro de Custo (Vinculado)</Label>
+                    <Select
+                      value={(newUser as any).cost_center || "none"}
+                      onValueChange={(v) => setNewUser({ ...newUser, cost_center: v === "none" ? null : v } as any)}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Nenhum</SelectItem>
+                        {costCenters.map(cc => (
+                          <SelectItem key={cc.id} value={cc.id}>{cc.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[10px] text-muted-foreground">
+                      Vincula o usuário a um centro de custo específico.
+                    </p>
+                  </div>
 
                   {editingUser && (
                     <div className="space-y-2 pt-2 border-t border-border/50">
