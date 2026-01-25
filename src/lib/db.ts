@@ -189,8 +189,7 @@ async function upsert<T>(table: string, item: any): Promise<T | null> {
     // If item.id is missing, we might need to generate one if Supabase expects it, or let Supabase generate.
     // For offline, we MUST have an ID.
     if (!item.id) {
-      // Create a temp ID if needed, or handle in payload. 
-      // But usually we rely on Supabase returning the ID.
+      item.id = crypto.randomUUID();
     }
     await tableRef.put(item);
   } catch (e) {
@@ -544,16 +543,72 @@ export const saveMovement = async (movement: Partial<StockMovement>, userInfo?: 
 
 // Maintenance
 export const getMaintenanceTasks = async (assetId?: string, forceRefresh = false) => {
-  if (!assetId) {
-    return getAll<MaintenanceTask>('maintenance_tasks', 'due_date', true, forceRefresh);
+  const { data: { session } } = await supabase.auth.getSession();
+  let role = session?.user?.user_metadata?.role;
+  let costCenter = session?.user?.user_metadata?.cost_center;
+
+  if (session?.user?.id) {
+    // If getProfile is available in scope (it is exported below, but imported ones work too)
+    // Note: getProfile is defined below. To avoid issues, we can try to rely on session or just use supabase direct.
+    // getAssets uses getProfile so it should be fine if function hoisting works or if we are careful.
+    // However, to be safe and consistent with getAssets:
+    try {
+      const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+      if (data) {
+        role = data.role;
+        if (role === 'gestor') {
+          costCenter = (data as any).cost_center;
+        }
+      }
+    } catch (e) { /* ignore */ }
   }
-  let query = supabase.from('maintenance_tasks').select('*').order('due_date', { ascending: true });
-  query = query.eq('asset_id', assetId);
+
+  // Offline / Dexie
+  if (!isOnline()) {
+    const tasks = await getAll<MaintenanceTask>('maintenance_tasks', 'due_date', true, forceRefresh);
+
+    let filtered = tasks;
+    if (assetId) {
+      filtered = filtered.filter(t => t.asset_id === assetId);
+    }
+
+    if (role === 'gestor' && costCenter) {
+      try {
+        const myAssets = await db.assets.where('cost_center').equals(costCenter).toArray();
+        const myAssetIds = new Set(myAssets.map(a => a.id));
+        filtered = filtered.filter(t => myAssetIds.has(t.asset_id));
+      } catch (e) {
+        console.warn("Offline filtering failed", e);
+      }
+    }
+    return filtered;
+  }
+
+  // Online / Supabase
+  // We use !inner join to filter tasks ensuring the related asset belongs to the cost center.
+  let query = supabase.from('maintenance_tasks').select('*, assets!inner(cost_center)').order('due_date', { ascending: true });
+
+  if (assetId) {
+    query = query.eq('asset_id', assetId);
+  }
+
+  if (role === 'gestor' && costCenter) {
+    query = query.eq('assets.cost_center', costCenter);
+  }
+
   try {
     const { data, error } = await withTimeout(query);
-    if (error) return [];
-    return data as MaintenanceTask[];
+    if (error) {
+      console.error("Error fetching maintenance tasks:", error);
+      // Fallback or empty? 
+      // If error is PGRST204 (inner join failed?), it might be 406 or something.
+      // If we are strictly filtering for security/visibility, returning empty on error is safer.
+      return [];
+    }
+    // The data will contain `assets: { cost_center: ... }`. We cast it to clear that out.
+    return data as any as MaintenanceTask[];
   } catch (error) {
+    console.error("Exception fetching maintenance tasks:", error);
     return [];
   }
 };

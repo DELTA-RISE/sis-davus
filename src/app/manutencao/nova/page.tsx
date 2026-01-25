@@ -10,13 +10,29 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { Suspense } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { saveMaintenanceTask, getAssets } from "@/lib/db";
 import { Asset, MaintenanceTask, MaintenanceStep } from "@/lib/store";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, CheckCircle2, Circle, Upload, ArrowRight, ArrowLeft } from "lucide-react";
+import { Loader2, CheckCircle2, Circle, Upload, ArrowRight, ArrowLeft, Check, ChevronsUpDown } from "lucide-react";
 import { useEffect } from "react";
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from "@/components/ui/command";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 const steps = [
     { id: 1, title: "Identificação", description: "Selecione o patrimônio e prioridade" },
@@ -29,26 +45,30 @@ const maintenanceFormSchema = z.object({
     asset_id: z.string().min(1, "Selecione um patrimônio"),
     title: z.string().min(5, "Título deve ter no mínimo 5 caracteres"),
     description: z.string().min(20, "Descrição detalhada é obrigatória (min 20 caracteres)"),
-    priority: z.enum(["Baixa", "Média", "Alta"]),
+    priority: z.enum(["baixa", "media", "alta", "urgente"]),
     due_date: z.string().min(1, "Data prevista é obrigatória"),
     cost_estimate: z.number().min(0).optional(),
 });
 
-export default function NewMaintenancePage() {
+function NewMaintenanceContent() {
     const { user, userName } = useAuth();
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const preSelectedAssetId = searchParams.get("assetId");
+
     const [currentStep, setCurrentStep] = useState(1);
     const [assets, setAssets] = useState<Asset[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [evidenceFiles, setEvidenceFiles] = useState<File[]>([]);
+    const [openAssetSelect, setOpenAssetSelect] = useState(false);
 
     const form = useForm({
         resolver: zodResolver(maintenanceFormSchema),
         defaultValues: {
-            asset_id: "",
+            asset_id: preSelectedAssetId || "",
             title: "",
             description: "",
-            priority: "Média" as "Baixa" | "Média" | "Alta",
+            priority: "media" as "baixa" | "media" | "alta" | "urgente",
             due_date: "",
             cost_estimate: 0,
         },
@@ -147,21 +167,53 @@ export default function NewMaintenancePage() {
                             <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
                                 <div className="space-y-2">
                                     <Label>Patrimônio</Label>
-                                    <Select
-                                        onValueChange={(v) => form.setValue("asset_id", v)}
-                                        defaultValue={form.watch("asset_id")}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Selecione o item" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {assets.map(asset => (
-                                                <SelectItem key={asset.id} value={asset.id}>
-                                                    {asset.code} - {asset.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <Popover open={openAssetSelect} onOpenChange={setOpenAssetSelect}>
+                                        <PopoverTrigger asChild>
+                                            <Button
+                                                variant="outline"
+                                                role="combobox"
+                                                aria-expanded={openAssetSelect}
+                                                className={cn("w-full justify-between", form.formState.errors.asset_id ? "border-destructive" : "")}
+                                                disabled={!!preSelectedAssetId}
+                                            >
+                                                {form.watch("asset_id")
+                                                    ? (() => {
+                                                        const asset = assets.find((a) => a.id === form.watch("asset_id"));
+                                                        return asset ? `${asset.code} - ${asset.name}` : "Selecione o item";
+                                                    })()
+                                                    : "Selecione o item"}
+                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+                                            <Command>
+                                                <CommandInput placeholder="Buscar patrimônio..." />
+                                                <CommandList>
+                                                    <CommandEmpty>Nenhum patrimônio encontrado.</CommandEmpty>
+                                                    <CommandGroup>
+                                                        {assets.map((asset) => (
+                                                            <CommandItem
+                                                                key={asset.id}
+                                                                value={`${asset.code} ${asset.name}`}
+                                                                onSelect={() => {
+                                                                    form.setValue("asset_id", asset.id);
+                                                                    setOpenAssetSelect(false);
+                                                                }}
+                                                            >
+                                                                <Check
+                                                                    className={cn(
+                                                                        "mr-2 h-4 w-4",
+                                                                        form.watch("asset_id") === asset.id ? "opacity-100" : "opacity-0"
+                                                                    )}
+                                                                />
+                                                                {asset.code} - {asset.name}
+                                                            </CommandItem>
+                                                        ))}
+                                                    </CommandGroup>
+                                                </CommandList>
+                                            </Command>
+                                        </PopoverContent>
+                                    </Popover>
                                     {form.formState.errors.asset_id && <p className="text-sm text-destructive">{form.formState.errors.asset_id.message as string}</p>}
                                 </div>
 
@@ -170,15 +222,16 @@ export default function NewMaintenancePage() {
                                         <Label>Prioridade</Label>
                                         <Select
                                             onValueChange={(v: any) => form.setValue("priority", v)}
-                                            defaultValue={form.watch("priority")}
+                                            value={form.watch("priority")}
                                         >
                                             <SelectTrigger>
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="Baixa">Baixa</SelectItem>
-                                                <SelectItem value="Média">Média</SelectItem>
-                                                <SelectItem value="Alta">Alta</SelectItem>
+                                                <SelectItem value="baixa">Baixa</SelectItem>
+                                                <SelectItem value="media">Média</SelectItem>
+                                                <SelectItem value="alta">Alta</SelectItem>
+                                                <SelectItem value="urgente">Urgente</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -272,10 +325,17 @@ export default function NewMaintenancePage() {
                             </Button>
 
                             {currentStep < 4 ? (
-                                <Button type="button" onClick={nextStep}>
-                                    Próximo
-                                    <ArrowRight className="w-4 h-4 ml-2" />
-                                </Button>
+                                <div className="space-x-2">
+                                    <Link href={preSelectedAssetId ? `/patrimonio/detalhes?id=${preSelectedAssetId}` : "/patrimonio/manutencao"}>
+                                        <Button type="button" variant="ghost" className="text-muted-foreground hover:text-foreground">
+                                            Cancelar
+                                        </Button>
+                                    </Link>
+                                    <Button type="button" onClick={nextStep}>
+                                        Próximo
+                                        <ArrowRight className="w-4 h-4 ml-2" />
+                                    </Button>
+                                </div>
                             ) : (
                                 <Button type="submit" disabled={isLoading}>
                                     {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
@@ -287,5 +347,17 @@ export default function NewMaintenancePage() {
                 </CardContent>
             </Card>
         </div>
+    );
+}
+
+export default function NewMaintenancePage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+        }>
+            <NewMaintenanceContent />
+        </Suspense>
     );
 }

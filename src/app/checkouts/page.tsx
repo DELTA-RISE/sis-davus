@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Checkout, Product, Asset } from "@/lib/store";
-import { getCheckouts, saveCheckout, getProducts, getAssets } from "@/lib/db";
+import { Checkout, Product, Asset, User as AppUser } from "@/lib/store";
+import { getCheckouts, saveCheckout, getProducts, getAssets, getUsers } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -38,7 +38,23 @@ import {
   CheckCircle,
   AlertTriangle,
   Zap,
+  Check,
+  ChevronsUpDown,
 } from "lucide-react";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { PageTransition, StaggerContainer, StaggerItem } from "@/components/PageTransition";
 import { useAuth } from "@/lib/auth-context";
@@ -66,6 +82,7 @@ export default function CheckoutsPage() {
   const [checkouts, setCheckouts] = useState<Checkout[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
+  const [users, setUsers] = useState<AppUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -74,13 +91,16 @@ export default function CheckoutsPage() {
     item_type: "asset",
     quantity: 1,
   });
+  const [openItemSelect, setOpenItemSelect] = useState(false);
+  const [openUserSelect, setOpenUserSelect] = useState(false);
 
   const loadData = useCallback(async (silent = false) => {
     if (!silent) setIsLoading(true);
-    const [c, p, a] = await Promise.all([getCheckouts(), getProducts(), getAssets()]);
+    const [c, p, a, u] = await Promise.all([getCheckouts(), getProducts(), getAssets(), getUsers()]);
     setCheckouts(c);
     setProducts(p);
     setAssets(a);
+    setUsers(u);
     if (!silent) setIsLoading(false);
   }, []);
 
@@ -196,10 +216,49 @@ export default function CheckoutsPage() {
                     </div>
                     <div className="space-y-2">
                       <Label>Item</Label>
-                      <Select value={newCheckout.item_id} onValueChange={(v) => setNewCheckout({ ...newCheckout, item_id: v })}>
-                        <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                        <SelectContent>{currentItems.map(i => <SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>)}</SelectContent>
-                      </Select>
+                      <Popover open={openItemSelect} onOpenChange={setOpenItemSelect}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={openItemSelect}
+                            className="w-full justify-between"
+                          >
+                            {newCheckout.item_id
+                              ? currentItems.find((i) => i.id === newCheckout.item_id)?.name
+                              : "Selecione..."}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+                          <Command>
+                            <CommandInput placeholder="Buscar item..." />
+                            <CommandList>
+                              <CommandEmpty>Nenhum item encontrado.</CommandEmpty>
+                              <CommandGroup>
+                                {currentItems.map((i) => (
+                                  <CommandItem
+                                    key={i.id}
+                                    value={i.name}
+                                    onSelect={() => {
+                                      setNewCheckout({ ...newCheckout, item_id: i.id });
+                                      setOpenItemSelect(false);
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        newCheckout.item_id === i.id ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    {i.name}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
@@ -208,7 +267,47 @@ export default function CheckoutsPage() {
                       </div>
                       <div className="space-y-2">
                         <Label>Responsável</Label>
-                        <Input value={newCheckout.user_name ?? ""} onChange={e => setNewCheckout({ ...newCheckout, user_name: e.target.value })} />
+                        <Popover open={openUserSelect} onOpenChange={setOpenUserSelect}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              aria-expanded={openUserSelect}
+                              className="w-full justify-between"
+                            >
+                              {newCheckout.user_name || "Selecione..."}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+                            <Command>
+                              <CommandInput placeholder="Buscar usuário..." />
+                              <CommandList>
+                                <CommandEmpty>Nenhum usuário encontrado.</CommandEmpty>
+                                <CommandGroup>
+                                  {users.map((u) => (
+                                    <CommandItem
+                                      key={u.id}
+                                      value={u.name}
+                                      onSelect={() => {
+                                        setNewCheckout({ ...newCheckout, user_name: u.name });
+                                        setOpenUserSelect(false);
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          newCheckout.user_name === u.name ? "opacity-100" : "opacity-0"
+                                        )}
+                                      />
+                                      {u.name}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
                       </div>
                     </div>
                     <div className="space-y-2">

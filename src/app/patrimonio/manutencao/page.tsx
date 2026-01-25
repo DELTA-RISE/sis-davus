@@ -8,16 +8,6 @@ import { supabase } from "@/lib/supabase";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -47,15 +37,18 @@ import { useAuth } from "@/lib/auth-context";
 const statusConfig = {
   Pendente: { label: "Pendente", color: "bg-slate-500/20 text-slate-400 border-slate-500/30", icon: Clock, columnColor: "border-slate-500/50" },
   'Em Andamento': { label: "Em Andamento", color: "bg-blue-500/20 text-blue-500 border-blue-500/30", icon: PlayCircle, columnColor: "border-blue-500/50" },
+  'Aguardando Aprovação': { label: "Aguardando Aprovação", color: "bg-purple-500/20 text-purple-500 border-purple-500/30", icon: Clock, columnColor: "border-purple-500/50" },
+  Aprovado: { label: "Aprovado", color: "bg-emerald-500/20 text-emerald-500 border-emerald-500/30", icon: CheckCircle2, columnColor: "border-emerald-500/50" },
+  Rejeitado: { label: "Rejeitado", color: "bg-red-500/20 text-red-500 border-red-500/30", icon: AlertTriangle, columnColor: "border-red-500/50" },
   Atrasada: { label: "Atrasada", color: "bg-amber-500/20 text-amber-500 border-amber-500/30", icon: Pause, columnColor: "border-amber-500/50" },
   'Concluída': { label: "Concluído", color: "bg-green-500/20 text-green-500 border-green-500/30", icon: CheckCircle2, columnColor: "border-green-500/50" },
 };
 
 const priorityConfig = {
-  Baixa: { label: "Baixa", color: "bg-slate-500/20 text-slate-400" },
-  Média: { label: "Média", color: "bg-blue-500/20 text-blue-500" },
-  Alta: { label: "Alta", color: "bg-orange-500/20 text-orange-500" },
-  Urgente: { label: "Urgente", color: "bg-red-500/20 text-red-500" },
+  baixa: { label: "Baixa", color: "bg-slate-500/20 text-slate-400" },
+  media: { label: "Média", color: "bg-blue-500/20 text-blue-500" },
+  alta: { label: "Alta", color: "bg-orange-500/20 text-orange-500" },
+  urgente: { label: "Urgente", color: "bg-red-500/20 text-red-500" },
 };
 
 export default function ManutencaoKanbanPage() {
@@ -63,8 +56,6 @@ export default function ManutencaoKanbanPage() {
   const [tasks, setTasks] = useState<MaintenanceTask[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [newTask, setNewTask] = useState<Partial<MaintenanceTask>>({ status: "Pendente", priority: "Média" });
   const [viewMode, setViewMode] = useState<"kanban" | "list">("list");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
@@ -82,26 +73,7 @@ export default function ManutencaoKanbanPage() {
     return () => { supabase.removeChannel(channel); };
   }, [loadData]);
 
-  const handleCreateTask = async () => {
-    if (!newTask.asset_id || !newTask.title) return;
-    const asset = assets.find(a => a.id === newTask.asset_id);
-    if (!asset) return;
 
-    const payload: Partial<MaintenanceTask> = {
-      ...newTask,
-      asset_name: asset.name,
-      asset_code: asset.code,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-
-    const saved = await saveMaintenanceTask(payload, { name: userName, id: user?.id || "" });
-    if (saved) {
-      toast.success("Manutenção agendada!");
-      setIsDialogOpen(false);
-      setNewTask({ status: "Pendente", priority: "Média" });
-    }
-  };
 
   const handleUpdateStatus = async (task: MaintenanceTask, newStatus: MaintenanceTask["status"]) => {
     const updated = await saveMaintenanceTask({ ...task, status: newStatus, updated_at: new Date().toISOString() }, { name: userName, id: user?.id || "" });
@@ -111,6 +83,9 @@ export default function ManutencaoKanbanPage() {
   const columns: { status: MaintenanceTask["status"]; tasks: MaintenanceTask[] }[] = [
     { status: "Pendente", tasks: tasks.filter((t) => t.status === "Pendente") },
     { status: "Em Andamento", tasks: tasks.filter((t) => t.status === "Em Andamento") },
+    { status: "Aguardando Aprovação", tasks: tasks.filter((t) => t.status === "Aguardando Aprovação") },
+    { status: "Aprovado", tasks: tasks.filter((t) => t.status === "Aprovado") },
+    { status: "Rejeitado", tasks: tasks.filter((t) => t.status === "Rejeitado") },
     { status: "Atrasada", tasks: tasks.filter((t) => t.status === "Atrasada") },
     { status: "Concluída", tasks: tasks.filter((t) => t.status === "Concluída") },
   ];
@@ -170,39 +145,6 @@ export default function ManutencaoKanbanPage() {
               <Button variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="sm" className="h-7 px-2" onClick={() => setViewMode('list')}><List className="h-4 w-4" /></Button>
               <Button variant={viewMode === 'kanban' ? 'secondary' : 'ghost'} size="sm" className="h-7 px-2" onClick={() => setViewMode('kanban')}><LayoutGrid className="h-4 w-4" /></Button>
             </div>
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild><Button size="sm" className="h-9 gap-1"><Plus className="h-4 w-4" />Nova</Button></DialogTrigger>
-              <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto border-border">
-                <DialogHeader><DialogTitle>Agendar Manutenção</DialogTitle></DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label>Patrimônio</Label>
-                    <Select value={newTask.asset_id} onValueChange={v => setNewTask({ ...newTask, asset_id: v })}>
-                      <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                      <SelectContent>{assets.map(a => <SelectItem key={a.id} value={a.id}>{a.code} - {a.name}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Título</Label>
-                    <Input value={newTask.title || ""} onChange={e => setNewTask({ ...newTask, title: e.target.value })} />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Prioridade</Label>
-                      <Select value={newTask.priority} onValueChange={v => setNewTask({ ...newTask, priority: v as any })}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>{Object.entries(priorityConfig).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}</SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Prazo</Label>
-                      <Input type="date" value={newTask.due_date || ""} onChange={e => setNewTask({ ...newTask, due_date: e.target.value })} />
-                    </div>
-                  </div>
-                  <Button onClick={handleCreateTask} className="w-full">Registrar</Button>
-                </div>
-              </DialogContent>
-            </Dialog>
           </div>
         </div>
       </header>

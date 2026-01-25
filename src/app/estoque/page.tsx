@@ -72,6 +72,7 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
 import { motion, AnimatePresence } from "framer-motion";
+import { ImageUpload } from "@/components/ui/image-upload"; // Imported component
 
 const filterConfigs: FilterConfig[] = [
   {
@@ -346,6 +347,16 @@ export default function EstoquePage() {
                       <DialogTitle>{editingProduct ? "Editar Produto" : "Novo Produto"}</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
+                      {/* Image Upload Section */}
+                      <div className="flex justify-center">
+                        <ImageUpload
+                          bucket="public-assets"
+                          folder="products"
+                          defaultImage={newProduct.image_url}
+                          onImageChange={(url) => setNewProduct({ ...newProduct, image_url: url })}
+                        />
+                      </div>
+
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label>Nome</Label>

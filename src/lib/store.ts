@@ -11,7 +11,8 @@ export interface Product {
   location?: string;
   description?: string;
   supplier?: string;
-  cost_center?: string;
+  cost_center: string;
+  image_url?: string;
   created_at?: string;
   updated_at?: string;
   deleted_at?: string;
@@ -28,11 +29,11 @@ export interface Asset {
   value?: number;
   model?: string;
   serial_number?: string;
-  category?: string;
+  category: string;
   assigned_to?: string;
   image_url?: string;
   brand?: string;
-  cost_center?: string;
+  cost_center: string;
   description?: string;
   created_at?: string;
   updated_at?: string;
@@ -137,7 +138,7 @@ export interface MaintenanceTask {
   asset_code?: string;
   due_date: string;
   status: 'Pendente' | 'Em Andamento' | 'Aguardando Aprovação' | 'Aprovado' | 'Rejeitado' | 'Concluída' | 'Atrasada';
-  priority: 'Baixa' | 'Média' | 'Alta';
+  priority: 'baixa' | 'media' | 'alta' | 'urgente';
   assigned_to?: string;
   cost?: number;
   completed_date?: string;
@@ -195,7 +196,8 @@ export const mockProducts: Product[] = [
     quantity: 2,
     min_stock: 5,
     unit_price: 12000,
-    location: 'Depósito Central'
+    location: 'Depósito Central',
+    cost_center: 'TI - Geral'
   },
   {
     id: '2',
@@ -205,7 +207,8 @@ export const mockProducts: Product[] = [
     quantity: 1,
     min_stock: 3,
     unit_price: 1500,
-    location: 'Sala TI'
+    location: 'Sala TI',
+    cost_center: 'TI - Geral'
   },
   {
     id: '3',
@@ -215,7 +218,8 @@ export const mockProducts: Product[] = [
     quantity: 10,
     min_stock: 5,
     unit_price: 600,
-    location: 'Almoxarifado'
+    location: 'Almoxarifado',
+    cost_center: 'TI - Geral'
   }
 ];
 
@@ -229,7 +233,8 @@ export const mockAssets: Asset[] = [
     status: 'Em Uso',
     category: 'Infraestrutura',
     model: 'R750',
-    serial_number: 'SERV-001-X'
+    serial_number: 'SERV-001-X',
+    cost_center: 'TI - Infra'
   },
   {
     id: '2',
@@ -240,7 +245,8 @@ export const mockAssets: Asset[] = [
     status: 'Em Manutenção',
     category: 'Maquinário',
     model: 'Toyota 8FBE',
-    serial_number: 'EMP-2023-99'
+    serial_number: 'EMP-2023-99',
+    cost_center: 'Logística'
   },
   {
     id: '3',
@@ -251,7 +257,8 @@ export const mockAssets: Asset[] = [
     status: 'Disponível',
     category: 'Frota',
     model: 'Endurance 1.4',
-    serial_number: 'ABC-1234'
+    serial_number: 'ABC-1234',
+    cost_center: 'Transporte'
   }
 ];
 

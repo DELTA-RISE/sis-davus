@@ -27,16 +27,15 @@ export function SoundProvider({ children }: { children: React.ReactNode }) {
     const [isMuted, setIsMuted] = useState(false);
 
     useEffect(() => {
-        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        setAudioContext(ctx);
-
         const savedMute = localStorage.getItem("davus-sound-muted");
         if (savedMute) setIsMuted(savedMute === "true");
 
         return () => {
-            ctx.close();
+            if (audioContext) {
+                audioContext.close();
+            }
         };
-    }, []);
+    }, [audioContext]);
 
     const toggleMute = () => {
         const newState = !isMuted;
@@ -44,30 +43,46 @@ export function SoundProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem("davus-sound-muted", String(newState));
     };
 
+    const initAudioContext = () => {
+        if (!audioContext) {
+            const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+            setAudioContext(ctx);
+            return ctx;
+        }
+        if (audioContext.state === 'suspended') {
+            audioContext.resume();
+        }
+        return audioContext;
+    };
+
     const playTone = (freq: number, type: OscillatorType, duration: number, vol = 0.1) => {
-        if (!audioContext || isMuted) return;
-        const osc = audioContext.createOscillator();
-        const gain = audioContext.createGain();
+        if (isMuted) return;
+
+        const ctx = initAudioContext();
+        if (!ctx) return;
+
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
         osc.type = type;
-        osc.frequency.setValueAtTime(freq, audioContext.currentTime);
-        gain.gain.setValueAtTime(vol, audioContext.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + duration);
+        osc.frequency.setValueAtTime(freq, ctx.currentTime);
+        gain.gain.setValueAtTime(vol, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
         osc.connect(gain);
-        gain.connect(audioContext.destination);
+        gain.connect(ctx.destination);
         osc.start();
-        osc.stop(audioContext.currentTime + duration);
+        osc.stop(ctx.currentTime + duration);
     };
 
     const playClick = () => playTone(800, "sine", 0.05, 0.05); // High crisp tick
     const playHover = () => playTone(400, "sine", 0.03, 0.01); // Very subtle low tick
     const playSuccess = () => {
-        if (!audioContext || isMuted) return;
+        if (isMuted) return;
         // Chime
         playTone(500, "sine", 0.2);
         setTimeout(() => playTone(800, "sine", 0.4), 100);
     };
     const playError = () => {
-        if (!audioContext || isMuted) return;
+        if (isMuted) return;
         playTone(150, "sawtooth", 0.3, 0.1);
     };
 

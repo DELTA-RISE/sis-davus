@@ -7,6 +7,7 @@ import { saveAsset, deleteAsset, syncAssets } from "@/lib/db";
 import { requestWriteOff } from "@/actions/write-off";
 import { db } from "@/lib/dexie-db";
 import { supabase } from "@/lib/supabase";
+import { assetSchema } from "@/lib/validations";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
@@ -76,6 +77,7 @@ import {
 } from "@/components/ui/popover";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
+import { ImageUpload } from "@/components/ui/image-upload"; // Imported component
 
 const conditionColors: Record<string, string> = {
   Excelente: "bg-green-500/20 text-green-500 border-green-500/30",
@@ -145,6 +147,7 @@ export default function PatrimonioPage() {
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
   const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [newAsset, setNewAsset] = useState<Partial<Asset>>({
     category: "Informática",
@@ -181,6 +184,29 @@ export default function PatrimonioPage() {
       code: generateAssetId()
     });
     setIsDialogOpen(true);
+    setIsDialogOpen(true);
+  };
+
+  const validateForm = () => {
+    // Ensure all required fields for Zod are present or have defaults
+    const payload = {
+      ...newAsset,
+      value: newAsset.value ?? 0,
+      // Ensure strings that might be empty are treated correctly if optional in schema but required in form
+    };
+
+    const result = assetSchema.safeParse(payload);
+
+    if (!result.success) {
+      const fieldErrors: Record<string, string> = {};
+      (result.error as any).errors.forEach((err: any) => {
+        if (err.path[0]) fieldErrors[err.path[0] as string] = err.message;
+      });
+      setErrors(fieldErrors);
+      return false;
+    }
+    setErrors({});
+    return true;
   };
 
   // Bulk Print State
@@ -371,8 +397,8 @@ export default function PatrimonioPage() {
   });
 
   const handleSaveAsset = async () => {
-    if (!newAsset.name || !newAsset.code) {
-      toast.error("Preencha os campos obrigatórios");
+    if (!validateForm()) {
+      toast.error("Corrija os erros do formulário");
       return;
     }
 
@@ -401,7 +427,9 @@ export default function PatrimonioPage() {
     e.preventDefault();
     e.stopPropagation();
     setEditingAsset(asset);
+    setEditingAsset(asset);
     setNewAsset(asset);
+    setErrors({});
     setIsDialogOpen(true);
   };
 
@@ -513,19 +541,40 @@ export default function PatrimonioPage() {
                       <DialogTitle>{editingAsset ? "Editar Patrimônio" : "Novo Patrimônio"}</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
+                      {/* Image Upload Section */}
+                      <div className="flex justify-center">
+                        <ImageUpload
+                          bucket="public-assets"
+                          folder="assets"
+                          defaultImage={newAsset.image_url}
+                          onImageChange={(url) => setNewAsset({ ...newAsset, image_url: url })}
+                        />
+                      </div>
+
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label>Nome do Bem</Label>
-                          <Input value={newAsset.name || ""} onChange={(e) => setNewAsset({ ...newAsset, name: e.target.value })} />
+                          <Input
+                            value={newAsset.name || ""}
+                            onChange={(e) => setNewAsset({ ...newAsset, name: e.target.value })}
+                            className={errors.name ? "border-destructive" : ""}
+                          />
+                          {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
                         </div>
                         <div className="space-y-2">
                           <Label>Código</Label>
                           <div className="flex gap-2">
-                            <Input value={newAsset.code || ""} onChange={(e) => setNewAsset({ ...newAsset, code: e.target.value })} placeholder="Ex: DAV-X1Y2Z3" />
+                            <Input
+                              value={newAsset.code || ""}
+                              onChange={(e) => setNewAsset({ ...newAsset, code: e.target.value })}
+                              placeholder="Ex: DAV-X1Y2Z3"
+                              className={errors.code ? "border-destructive" : ""}
+                            />
                             <Button variant="outline" size="icon" onClick={() => setNewAsset({ ...newAsset, code: generateAssetId() })} title="Gerar Código">
                               <RefreshCcw className="h-4 w-4" />
                             </Button>
                           </div>
+                          {errors.code && <p className="text-xs text-destructive">{errors.code}</p>}
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
@@ -560,7 +609,12 @@ export default function PatrimonioPage() {
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label>Localização</Label>
-                          <Input value={newAsset.location || ""} onChange={(e) => setNewAsset({ ...newAsset, location: e.target.value })} />
+                          <Input
+                            value={newAsset.location || ""}
+                            onChange={(e) => setNewAsset({ ...newAsset, location: e.target.value })}
+                            className={errors.location ? "border-destructive" : ""}
+                          />
+                          {errors.location && <p className="text-xs text-destructive">{errors.location}</p>}
                         </div>
                         <div className="space-y-2 text-left">
                           <Label>Centro de Custo</Label>
@@ -607,6 +661,7 @@ export default function PatrimonioPage() {
                               </Command>
                             </PopoverContent>
                           </Popover>
+                          {errors.cost_center && <p className="text-xs text-destructive">{errors.cost_center}</p>}
                         </div>
                       </div>
                       <div className="space-y-2 flex flex-col items-start text-left">
@@ -655,15 +710,29 @@ export default function PatrimonioPage() {
                             </Command>
                           </PopoverContent>
                         </Popover>
+                        {errors.responsible && <p className="text-xs text-destructive">{errors.responsible}</p>}
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label>Data Aquisição</Label>
-                          <Input type="date" value={newAsset.purchase_date || ""} onChange={(e) => setNewAsset({ ...newAsset, purchase_date: e.target.value })} />
+                          <Input
+                            type="date"
+                            value={newAsset.purchase_date || ""}
+                            onChange={(e) => setNewAsset({ ...newAsset, purchase_date: e.target.value })}
+                            className={errors.purchase_date ? "border-destructive" : ""}
+                          />
+                          {errors.purchase_date && <p className="text-xs text-destructive">{errors.purchase_date}</p>}
                         </div>
                         <div className="space-y-2">
                           <Label>Valor (R$)</Label>
-                          <Input type="number" step="0.01" value={newAsset.value || ""} onChange={(e) => setNewAsset({ ...newAsset, value: parseFloat(e.target.value) || 0 })} />
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={newAsset.value || ""}
+                            onChange={(e) => setNewAsset({ ...newAsset, value: parseFloat(e.target.value) || 0 })}
+                            className={errors.value ? "border-destructive" : ""}
+                          />
+                          {errors.value && <p className="text-xs text-destructive">{errors.value}</p>}
                         </div>
                       </div>
                       <div className="space-y-2">

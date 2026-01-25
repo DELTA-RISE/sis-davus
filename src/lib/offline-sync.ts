@@ -57,11 +57,27 @@ export async function processSyncQueue() {
       // Remove from queue on success
       await db.sync_queue.delete(item.id!);
       successCount++;
-    } catch (err) {
+    } catch (err: any) {
       console.error(`Failed to sync item ${item.id}:`, err);
-      // Revert to pending (or maybe mark as failed if it's a permanent error?)
-      // For now, keep as pending to retry later
-      await db.sync_queue.update(item.id!, { status: 'failed' });
+
+      // Check for permanent errors that shouldn't be retried
+      const isPermanentError =
+        err.code === '23514' || // Check violation
+        err.code === '23505' || // Unique violation
+        err.code === 'PGRST204' || // Column not found
+        err.code === '42703' || // Undefined column
+        (err.code && err.code.startsWith('22')) || // Data exception
+        (err.status >= 400 && err.status < 500); // Client errors
+
+      if (isPermanentError) {
+        console.warn(`Cleaned up failing sync item ${item.id} due to permanent error:`, item.payload);
+        await db.sync_queue.delete(item.id!);
+        toast.error(`Erro de sincronização permanente removido: ${err.message}`);
+      } else {
+        // Revert to pending (or maybe mark as failed if it's a permanent error?)
+        // For now, keep as pending to retry later
+        await db.sync_queue.update(item.id!, { status: 'failed' });
+      }
     }
   }
 

@@ -50,7 +50,18 @@ import {
   Trash2,
   X,
   Zap,
+  Check,
+  ChevronsUpDown,
 } from "lucide-react";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { DateRange } from "react-day-picker";
 import { PageTransition, StaggerContainer, StaggerItem } from "@/components/PageTransition";
@@ -67,6 +78,7 @@ export default function MovementsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [deleteMovementId, setDeleteMovementId] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [openProductSelect, setOpenProductSelect] = useState(false);
   const [newMovement, setNewMovement] = useState<Partial<StockMovement>>({
     type: "entrada",
   });
@@ -232,16 +244,49 @@ export default function MovementsPage() {
                     </div>
                     <div className="space-y-2">
                       <Label>Produto</Label>
-                      <Select value={newMovement.product_id} onValueChange={(v) => setNewMovement({ ...newMovement, product_id: v })}>
-                        <SelectTrigger className={errors.product_id ? "border-destructive" : ""}>
-                          <SelectValue placeholder="Selecione o produto" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {products.map((p) => (
-                            <SelectItem key={p.id} value={p.id}>{p.name} ({p.quantity} un)</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Popover open={openProductSelect} onOpenChange={setOpenProductSelect}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={openProductSelect}
+                            className={cn("w-full justify-between", errors.product_id ? "border-destructive" : "")}
+                          >
+                            {newMovement.product_id
+                              ? products.find((p) => p.id === newMovement.product_id)?.name
+                              : "Selecione o produto"}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+                          <Command>
+                            <CommandInput placeholder="Buscar produto..." />
+                            <CommandList>
+                              <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
+                              <CommandGroup>
+                                {products.map((p) => (
+                                  <CommandItem
+                                    key={p.id}
+                                    value={p.name}
+                                    onSelect={() => {
+                                      setNewMovement({ ...newMovement, product_id: p.id });
+                                      setOpenProductSelect(false);
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        newMovement.product_id === p.id ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    {p.name} ({p.quantity} un)
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                     <div className="space-y-2">
                       <Label>Quantidade</Label>

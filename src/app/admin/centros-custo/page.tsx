@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { getCostCenters, saveCostCenter, getUsers, saveUser } from "@/lib/db";
 import { CostCenter, User } from "@/lib/store";
+import { costCenterSchema } from "@/lib/validations";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -51,6 +52,7 @@ export default function CostCentersPage() {
   const [newCenter, setNewCenter] = useState<Partial<CostCenter>>({
     status: "ativo",
   });
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [openCombobox, setOpenCombobox] = useState(false);
   const [selectedCenterForDetails, setSelectedCenterForDetails] = useState<CostCenter | null>(null);
 
@@ -86,9 +88,29 @@ export default function CostCentersPage() {
     return isUnassigned || isMemberOfCurrent || isCurrentResponsible;
   });
 
+
+  const validateForm = () => {
+    const payload = {
+      ...newCenter,
+      status: newCenter.status || 'ativo'
+    };
+
+    const result = costCenterSchema.safeParse(payload);
+    if (!result.success) {
+      const fieldErrors: Record<string, string> = {};
+      (result.error as any).errors.forEach((err: any) => {
+        if (err.path[0]) fieldErrors[err.path[0] as string] = err.message;
+      });
+      setErrors(fieldErrors);
+      return false;
+    }
+    setErrors({});
+    return true;
+  };
+
   const handleSaveCenter = async () => {
-    if (!newCenter.name) {
-      toast.error("Preencha o nome do centro de custo");
+    if (!validateForm()) {
+      toast.error("Corrija os erros do formulário");
       return;
     }
 
@@ -139,6 +161,7 @@ export default function CostCentersPage() {
 
   const handleEdit = (center: CostCenter) => {
     setEditingCenter(center);
+    setErrors({});
     setNewCenter({
       ...center,
       responsible_id: center.responsible_id, // Ensure these are carried over
@@ -150,6 +173,7 @@ export default function CostCentersPage() {
   const handleCreate = () => {
     setEditingCenter(null);
     setNewCenter({ status: "ativo" });
+    setErrors({});
     setIsDialogOpen(true);
   }
 
@@ -188,7 +212,9 @@ export default function CostCentersPage() {
                       value={newCenter.name || ""}
                       onChange={(e) => setNewCenter({ ...newCenter, name: e.target.value })}
                       placeholder="Nome do centro de custo"
+                      className={errors.name ? "border-destructive" : ""}
                     />
+                    {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
                   </div>
 
                   <div className="space-y-2 flex flex-col">

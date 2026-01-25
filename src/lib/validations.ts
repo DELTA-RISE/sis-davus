@@ -59,3 +59,22 @@ export type MovementFormData = z.infer<typeof movementSchema>;
 export type AssetFormData = z.infer<typeof assetSchema>;
 export type CheckoutFormData = z.infer<typeof checkoutSchema>;
 export type MaintenanceFormData = z.infer<typeof maintenanceSchema>;
+
+export const userSchema = z.object({
+  name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
+  email: z.string().email("Email inválido"),
+  role: z.enum(["admin", "gestor", "user", "manager"]),
+  status: z.enum(["ativo", "inativo"]),
+  cost_center: z.string().nullable().optional(), // Can be null for admins or if not assigned
+});
+
+export const costCenterSchema = z.object({
+  name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
+  responsible_id: z.string().optional(), // ID of the responsible user
+  responsible: z.string().optional(), // Name of the responsible user (legacy/denormalized)
+  status: z.enum(["ativo", "inativo"]),
+  description: z.string().optional(),
+});
+
+export type UserFormData = z.infer<typeof userSchema>;
+export type CostCenterFormData = z.infer<typeof costCenterSchema>;

@@ -6,6 +6,7 @@ import { createUserAction, deleteUserAction, updateUserPasswordAction } from "@/
 import { useAuth } from "@/lib/auth-context";
 import { useUsers, useCostCenters } from "@/hooks/use-queries";
 import { User, CostCenter } from "@/lib/store";
+import { userSchema } from "@/lib/validations";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -49,7 +50,23 @@ import {
   Lock,
   User as UserIcon,
   Copy,
+  Check,
+  ChevronsUpDown,
 } from "lucide-react";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 const roleLabels: Record<string, string> = {
@@ -84,6 +101,7 @@ export default function UsersPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [openCostCenterSelect, setOpenCostCenterSelect] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
@@ -92,6 +110,7 @@ export default function UsersPage() {
     role: "gestor",
     status: "ativo",
   });
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Background Sync on Mount
   useEffect(() => {
@@ -102,9 +121,31 @@ export default function UsersPage() {
   // No filteredUsers derived state needed, useUsers handles it.
   const filteredUsers = users; // Already filtered by hook
 
+
+  const validateForm = () => {
+    const payload = {
+      ...newUser,
+      // Handle defaults if missing from partial
+      role: newUser.role || 'user',
+      status: newUser.status || 'ativo'
+    } as any;
+
+    const result = userSchema.safeParse(payload);
+    if (!result.success) {
+      const fieldErrors: Record<string, string> = {};
+      (result.error as any).errors.forEach((err: any) => {
+        if (err.path[0]) fieldErrors[err.path[0] as string] = err.message;
+      });
+      setErrors(fieldErrors);
+      return false;
+    }
+    setErrors({});
+    return true;
+  };
+
   const handleSaveUser = async () => {
-    if (!newUser.name || !newUser.email) {
-      toast.error("Preencha o nome e o e-mail");
+    if (!validateForm()) {
+      toast.error("Corrija os erros do formulário");
       return;
     }
 
@@ -138,8 +179,8 @@ export default function UsersPage() {
         // createUserAction returns tempPassword.
 
         const result = await createUserAction({
-          name: newUser.name,
-          email: newUser.email,
+          name: newUser.name || "",
+          email: newUser.email || "",
           role: newUser.role || 'gestor',
           status: (newUser.status === 'ativo' || newUser.status === 'inativo') ? newUser.status : 'ativo',
           cost_center: newUser.role === 'gestor' ? (newUser as any).cost_center : null // Pass cost center
@@ -229,6 +270,7 @@ export default function UsersPage() {
                 setEditingUser(null);
                 setNewUser({ role: "gestor", status: "ativo" });
                 setNewPassword("");
+                setErrors({});
               }
             }}>
               <DialogTrigger asChild>
@@ -255,7 +297,9 @@ export default function UsersPage() {
                       value={newUser.name || ""}
                       onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
                       placeholder="Nome completo"
+                      className={errors.name ? "border-destructive" : ""}
                     />
+                    {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label>E-mail</Label>
@@ -264,7 +308,9 @@ export default function UsersPage() {
                       value={newUser.email || ""}
                       onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
                       placeholder="email@exemplo.com"
+                      className={errors.email ? "border-destructive" : ""}
                     />
+                    {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -301,18 +347,64 @@ export default function UsersPage() {
 
                   <div className="space-y-2">
                     <Label>Centro de Custo (Vinculado)</Label>
-                    <Select
-                      value={(newUser as any).cost_center || "none"}
-                      onValueChange={(v) => setNewUser({ ...newUser, cost_center: v === "none" ? null : v } as any)}
-                    >
-                      <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Nenhum</SelectItem>
-                        {costCenters.map(cc => (
-                          <SelectItem key={cc.id} value={cc.id}>{cc.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Popover open={openCostCenterSelect} onOpenChange={setOpenCostCenterSelect}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={openCostCenterSelect}
+                          className="w-full justify-between"
+                        >
+                          {(newUser as any).cost_center
+                            ? costCenters.find((cc) => cc.id === (newUser as any).cost_center)?.name || "Selecione..."
+                            : "Nenhum"}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+                        <Command>
+                          <CommandInput placeholder="Buscar centro de custo..." />
+                          <CommandList>
+                            <CommandEmpty>Nenhum centro de custo encontrado.</CommandEmpty>
+                            <CommandGroup>
+                              <CommandItem
+                                value="none"
+                                onSelect={() => {
+                                  setNewUser({ ...newUser, cost_center: null } as any);
+                                  setOpenCostCenterSelect(false);
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    !(newUser as any).cost_center ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                Nenhum
+                              </CommandItem>
+                              {costCenters.map((cc) => (
+                                <CommandItem
+                                  key={cc.id}
+                                  value={cc.name}
+                                  onSelect={() => {
+                                    setNewUser({ ...newUser, cost_center: cc.id } as any);
+                                    setOpenCostCenterSelect(false);
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      (newUser as any).cost_center === cc.id ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  {cc.name}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                     <p className="text-[10px] text-muted-foreground">
                       Vincula o usuário a um centro de custo específico.
                     </p>
