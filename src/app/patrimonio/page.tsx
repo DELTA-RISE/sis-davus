@@ -87,47 +87,53 @@ const conditionColors: Record<string, string> = {
   Manutenção: "bg-purple-500/20 text-purple-500 border-purple-500/30",
 };
 
-const filterConfigs: FilterConfig[] = [
-  {
-    key: "category",
-    label: "Categoria",
-    type: "select",
-    options: [
-      { value: "Informática", label: "Informática" },
-      { value: "Mobiliário", label: "Mobiliário" },
-      { value: "Climatização", label: "Climatização" },
-      { value: "Audiovisual", label: "Audiovisual" },
-      { value: "Veículos", label: "Veículos" },
-      { value: "Outros", label: "Outros" },
-    ],
-  },
-  {
-    key: "condition",
-    label: "Estado",
-    type: "select",
-    options: [
-      { value: "Excelente", label: "Excelente" },
-      { value: "Bom", label: "Bom" },
-      { value: "Regular", label: "Regular" },
-      { value: "Ruim", label: "Ruim" },
-      { value: "Manutenção", label: "Em Manutenção" },
-    ],
-  },
-  {
-    key: "location",
-    label: "Localização",
-    type: "text",
-  },
-];
+// Filter configs moved inside component to access dynamic categories
+
 
 import { useOnboarding } from "@/lib/onboarding-context";
 import { mockAssets } from "@/lib/store"; // Removed Asset (duplicate)
 
 // ... imports
 
+import { getPatrimoniosCategories } from "@/lib/actions/categories";
+import { PatrimonioCategory } from "@/lib/store";
+
 export default function PatrimonioPage() {
   const { userName, user, currentRole } = useAuth();
   const { isDemoMode } = useOnboarding();
+
+  // Categories State
+  const [categories, setCategories] = useState<PatrimonioCategory[]>([]);
+
+  useEffect(() => {
+    getPatrimoniosCategories().then(setCategories);
+  }, []);
+
+  const filterConfigs: FilterConfig[] = useMemo(() => [
+    {
+      key: "category",
+      label: "Categoria",
+      type: "select",
+      options: categories.map(c => ({ value: c.name, label: c.name })),
+    },
+    {
+      key: "condition",
+      label: "Estado",
+      type: "select",
+      options: [
+        { value: "Excelente", label: "Excelente" },
+        { value: "Bom", label: "Bom" },
+        { value: "Regular", label: "Regular" },
+        { value: "Ruim", label: "Ruim" },
+        { value: "Manutenção", label: "Em Manutenção" },
+      ],
+    },
+    {
+      key: "location",
+      label: "Localização",
+      type: "text",
+    },
+  ], [categories]);
 
   // Local-First Hook
   const { assets, isLoading: isLocalLoading } = useAssets();
@@ -583,12 +589,9 @@ export default function PatrimonioPage() {
                           <Select value={newAsset.category} onValueChange={(v) => setNewAsset({ ...newAsset, category: v })}>
                             <SelectTrigger><SelectValue /></SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="Informática">Informática</SelectItem>
-                              <SelectItem value="Mobiliário">Mobiliário</SelectItem>
-                              <SelectItem value="Climatização">Climatização</SelectItem>
-                              <SelectItem value="Audiovisual">Audiovisual</SelectItem>
-                              <SelectItem value="Veículos">Veículos</SelectItem>
-                              <SelectItem value="Outros">Outros</SelectItem>
+                              {categories.map((c) => (
+                                <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                         </div>

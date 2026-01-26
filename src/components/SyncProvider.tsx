@@ -9,7 +9,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const handleOnline = () => {
       toast.success("Conexão restaurada! Sincronizando dados...");
-      processSyncQueue(supabase);
+      processSyncQueue();
     };
 
     const handleOffline = () => {
@@ -21,7 +21,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
 
     // Initial check
     if (navigator.onLine) {
-      processSyncQueue(supabase);
+      processSyncQueue();
     }
 
     return () => {

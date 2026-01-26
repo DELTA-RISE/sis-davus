@@ -17,6 +17,7 @@ interface AuthContextType {
   gravatarEmail: string;
   gravatarUrl: string | null;
   costCenter?: string;
+  lockPin?: string | null;
   isLoading: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -35,6 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [gravatarEmail, setGravatarEmail] = useState("");
   const [gravatarUrl, setGravatarUrl] = useState<string | null>(null);
+  const [lockPin, setLockPin] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Use a ref to track the current user ID to avoid stale closures in the useEffect
@@ -87,6 +89,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               session.user.id,
               profile.name
             );
+
+            // Log de Acesso Simples (Para o Usuário ver)
+            try {
+              // Obter IP e Localização (Fallback simples, idealmente viria de um serviço ou edge function)
+              const userAgent = navigator.userAgent;
+
+              await supabase.from('access_logs').insert({
+                user_id: session.user.id,
+                user_agent: userAgent,
+                location: 'Detectando...', // Placeholder, real geoip needs API
+                ip_address: '0.0.0.0', // Client can't reliably get IP without server help/echo
+                device_info: getSimplePlatform(userAgent)
+              });
+            } catch (e) {
+              console.error("Erro ao registrar access_log", e);
+            }
           }
         }
       } else {
@@ -97,6 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setMustChangePassword(false);
         setGravatarEmail("");
         setGravatarUrl(null);
+        setLockPin(null);
         setIsLoading(false);
       }
     });
@@ -127,6 +146,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setMustChangePassword(false);
           setGravatarEmail("");
           setGravatarUrl(null);
+          setLockPin(null);
           setUser(null);
         } else {
           console.log("[AuthContext] Setting user data:", profile.name);
@@ -136,6 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setEmail(profile.email);
           setMustChangePassword(profile.must_change_password || false);
           setGravatarEmail(profile.gravatar_email || "");
+          setLockPin(profile.lock_pin || null);
           const url = await getGravatarUrl(profile.gravatar_email || profile.email);
           setGravatarUrl(url);
           return profile;
@@ -170,6 +191,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       mustChangePassword,
       gravatarEmail,
       gravatarUrl,
+      lockPin,
       isLoading,
       signOut,
       refreshProfile,
@@ -204,4 +226,13 @@ export function useAuth() {
     throw new Error("useAuth must be used within AuthProvider");
   }
   return context;
+}
+
+function getSimplePlatform(userAgent: string): string {
+  if (userAgent.includes("Win")) return "Windows PC";
+  if (userAgent.includes("Mac")) return "Macintosh";
+  if (userAgent.includes("Linux")) return "Linux PC";
+  if (userAgent.includes("Android")) return "Android";
+  if (userAgent.includes("iPhone")) return "iPhone";
+  return "Desconhecido";
 }

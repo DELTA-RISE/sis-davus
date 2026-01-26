@@ -117,6 +117,7 @@ export interface User {
   status: 'active' | 'inactive' | 'ativo' | 'inativo';
   created_at?: string;
   last_login?: string;
+  lock_pin?: string;
 }
 
 export interface MaintenanceStep {
@@ -184,6 +185,20 @@ export interface WriteOffRequest {
   asset_name?: string;
   asset_code?: string;
   user_name?: string;
+}
+
+export interface InsumoCategory {
+  id: string;
+  name: string;
+  description?: string;
+  created_at?: string;
+}
+
+export interface PatrimonioCategory {
+  id: string;
+  name: string;
+  description?: string;
+  created_at?: string;
 }
 
 // Mock Data

@@ -349,7 +349,7 @@ export default function LandingPage() {
 
                     <div className="space-y-4">
                       <Button asChild size="lg" className="w-full h-14 text-base gap-3 bg-white text-black hover:bg-gray-200 rounded-xl transition-all shadow-lg shadow-white/5">
-                        <a href="https://github.com/DELTA-RISE/sis-davus/releases/download/v0.1.0/SisDavus.Setup.0.1.0.exe" target="_blank" rel="noopener noreferrer">
+                        <a href="https://drive.google.com/file/d/1NJCFC9kasUy9r36VLA4YqpYN-EwMnCdC/view" target="_blank" rel="noopener noreferrer">
                           <AppWindow className="h-5 w-5" />
                           <span className="font-semibold">Download para Windows</span>
                         </a>

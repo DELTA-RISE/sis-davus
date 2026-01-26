@@ -1,8 +1,11 @@
-import { app, BrowserWindow, screen, Tray, Menu, nativeImage, ipcMain, globalShortcut } from "electron";
+import { app, BrowserWindow, screen, Tray, Menu, nativeImage, ipcMain, globalShortcut, nativeTheme, Notification, dialog, protocol, powerMonitor } from "electron";
 import { autoUpdater } from "electron-updater";
 import serve from "electron-serve";
 import path from "path";
 import fs from "fs";
+import { ScaleService } from "./services/scale";
+import { setupCacheProtocol } from "./services/cache-protocol";
+import { ScannerService } from "./services/scanner";
 
 
 const loadURL = serve({ directory: "out" });
@@ -11,6 +14,11 @@ let mainWindow: BrowserWindow | null;
 let splashWindow: BrowserWindow | null;
 let tray: Tray | null = null;
 let isQuitting = false;
+
+// Register Privileged Schemes
+protocol.registerSchemesAsPrivileged([
+    { scheme: 'media-cache', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } }
+]);
 
 // Deep Linking Protocol
 const PROTOCOL = 'sisdavus';
@@ -113,6 +121,139 @@ ipcMain.on("set-progress-bar", (_event, value) => {
     }
 });
 
+// Multi-Window Manager
+ipcMain.handle("open-child-window", (_event, { route, title, width, height }) => {
+    const child = new BrowserWindow({
+        width: width || 800,
+        height: height || 600,
+        parent: mainWindow || undefined,
+        modal: false,
+        show: false,
+        icon: path.join(app.getAppPath(), "public", "davus-logo.ico"),
+        webPreferences: {
+            nodeIntegration: false,
+            contextIsolation: true,
+            preload: path.join(__dirname, "preload.js")
+        }
+    });
+
+    child.setMenu(null);
+
+    // Determine Base URL
+    const isDev = !app.isPackaged;
+    const baseUrl = isDev ? "http://localhost:3000" : `app://./index.html`; // serve-electron usually serves index.html at root
+    // For serve-electron, we usually use loadURL(mainWindow).
+    // If we want a specific route, we might need to handle hash routing or clean history.
+    // Next.js with export usually uses .html files or hash. 
+    // Let's assume hash for simplicity if formatted that way, OR constructed URL.
+
+    // If dev: http://localhost:3000/route
+    // If prod: app://./route (if 'electron-serve' handles it) or app://./index.html#route
+
+    const targetUrl = isDev
+        ? `${baseUrl}${route}`
+        : `${baseUrl}${route}`; // electron-serve usually handles extensionless paths if configured right, or we use memory router.
+
+    // Let's rely on the main loadURL strategy but with different path
+    if (isDev) {
+        child.loadURL(targetUrl);
+    } else {
+        // In prod with Next.js export, usually strict paths
+        // e.g. /out/route.html
+        // We'll try loading the 'app' protocol
+        loadURL(child);
+        // Then navigate?
+        // Actually, electron-serve's 'loadURL' helper is for the main window index.
+        // It's safer to just load the index and inject a script to navigate, 
+        // OR if using HashRouter it's easy. 
+        // Assuming Next.js App Router, maybe difficult.
+        // Quick fix: Add a query param and handle it in layout?
+        // Or just try loading the URL.
+        child.loadURL(`${baseUrl}/${route}`);
+    }
+
+    child.once("ready-to-show", () => {
+        child.show();
+        if (title) child.setTitle(title);
+    });
+
+    return { success: true };
+});
+
+// Native Notification Handler
+ipcMain.on("show-notification", (_event, { title, body, silent }) => {
+    const notification = new Notification({
+        title,
+        body,
+        silent: silent || false,
+        icon: path.join(app.getAppPath(), "public", "davus-logo.ico"),
+    });
+
+    notification.show();
+
+    notification.on("click", () => {
+        if (mainWindow) {
+            if (mainWindow.isMinimized()) mainWindow.restore();
+            mainWindow.show();
+            mainWindow.focus();
+        }
+    });
+});
+
+// Auto-Launch Handler
+ipcMain.handle("set-auto-launch", (_event, enable: boolean) => {
+    app.setLoginItemSettings({
+        openAtLogin: enable,
+        path: process.execPath,
+        args: [
+            '--process-start-args', `"--hidden"`
+        ]
+    });
+    return app.getLoginItemSettings().openAtLogin;
+});
+
+ipcMain.handle("get-auto-launch", () => {
+    return app.getLoginItemSettings().openAtLogin;
+});
+
+// File System Handlers (Direct Export)
+ipcMain.handle("save-file", async (_event, { content, fileName, mimeType }) => {
+    try {
+        const { filePath } = await dialog.showSaveDialog(mainWindow!, {
+            defaultPath: fileName,
+            filters: [{ name: 'Arquivos', extensions: [mimeType ? mimeType.split('/')[1] : '*'] }]
+        });
+
+        if (filePath) {
+            let fileContent: Buffer | string = content;
+            // Handle Base64 content if needed (naive check)
+            if (typeof content === 'string' && content.startsWith('data:')) {
+                fileContent = Buffer.from(content.split(',')[1], 'base64');
+            }
+
+            fs.writeFileSync(filePath, fileContent);
+            return { success: true, path: filePath };
+        }
+        return { success: false, error: 'User cancelled' };
+    } catch (error) {
+        console.error("Save file error:", error);
+        // @ts-ignore
+        return { success: false, error: error.message };
+    }
+});
+
+// Shell Handlers
+ipcMain.on("open-external", (_event, url) => {
+    require("electron").shell.openExternal(url);
+});
+
+// Theme Listener
+nativeTheme.on("updated", () => {
+    if (mainWindow) {
+        mainWindow.webContents.send("theme-changed", nativeTheme.shouldUseDarkColors ? "dark" : "light");
+    }
+});
+
 function createTray() {
     const iconPath = path.join(app.getAppPath(), "public", "davus-logo.ico");
     const icon = nativeImage.createFromPath(iconPath);
@@ -186,6 +327,7 @@ function createWindow() {
             preload: path.join(__dirname, "preload.js"),
             nodeIntegration: false,
             contextIsolation: true,
+            backgroundThrottling: false // Keep sync running when minimized
         },
         icon: iconPath,
     });
@@ -206,6 +348,12 @@ function createWindow() {
 
     // Wait for the window to be ready before showing it and closing splash
     mainWindow.once("ready-to-show", () => {
+        // Sync initial theme
+        mainWindow?.webContents.send("theme-changed", nativeTheme.shouldUseDarkColors ? "dark" : "light");
+
+        // Initialize Scale Service
+        new ScaleService(mainWindow!);
+
         setTimeout(() => {
             splashWindow?.destroy();
             splashWindow = null;
@@ -272,6 +420,46 @@ app.on("ready", () => {
             }
         }
     });
+    // JumpList (Windows Actions)
+    if (process.platform === 'win32') {
+        app.setUserTasks([
+            {
+                program: process.execPath,
+                arguments: '--process-start-args "--new-order"',
+                iconPath: process.execPath,
+                iconIndex: 0,
+                title: 'Novo Pedido',
+                description: 'Criar um novo pedido de venda'
+            },
+            {
+                program: process.execPath,
+                arguments: '--process-start-args "--search"',
+                iconPath: process.execPath,
+                iconIndex: 0,
+                title: 'Consultar Produtos',
+                description: 'Pesquisar no catálogo'
+            }
+        ]);
+    }
+
+    // Setup Media Cache
+    setupCacheProtocol();
+
+    // Security: Lock Screen Monitoring
+    powerMonitor.on('lock-screen', () => {
+        mainWindow?.webContents.send('app-lock');
+    });
+
+    // Scanner
+    new ScannerService();
+
+    // Optional: Check for system idle (e.g., 5 minutes)
+    setInterval(() => {
+        const idleTime = powerMonitor.getSystemIdleTime(); // in seconds
+        if (idleTime > 300) { // 5 minutes
+            mainWindow?.webContents.send('app-lock');
+        }
+    }, 10000); // Check every 10 seconds
 });
 
 app.on("window-all-closed", () => {

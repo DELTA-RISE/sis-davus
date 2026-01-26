@@ -73,40 +73,45 @@ import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
 import { motion, AnimatePresence } from "framer-motion";
 import { ImageUpload } from "@/components/ui/image-upload"; // Imported component
+import { getInsumosCategories } from "@/lib/actions/categories";
+import { InsumoCategory } from "@/lib/store";
 
-const filterConfigs: FilterConfig[] = [
-  {
-    key: "category",
-    label: "Categoria",
-    type: "select",
-    options: [
-      { value: "Escritório", label: "Escritório" },
-      { value: "Informática", label: "Informática" },
-      { value: "Limpeza", label: "Limpeza" },
-      { value: "Outros", label: "Outros" },
-    ],
-  },
-  {
-    key: "cost_center",
-    label: "Centro de Custo",
-    type: "text",
-  },
-  {
-    key: "stockStatus",
-    label: "Status Estoque",
-    type: "select",
-    options: [
-      { value: "low", label: "Estoque Baixo" },
-      { value: "normal", label: "Normal" },
-      { value: "high", label: "Excesso" },
-    ],
-  },
-];
+// FilterConfigs moved inside component
 
 export default function EstoquePage() {
   const { userName, user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const { costCenters } = useCostCenters();
+  const [categories, setCategories] = useState<InsumoCategory[]>([]);
+
+  useEffect(() => {
+    getInsumosCategories().then(setCategories);
+  }, []);
+
+  const filterConfigs: FilterConfig[] = useMemo(() => [
+    {
+      key: "category",
+      label: "Categoria",
+      type: "select",
+      options: categories.map(c => ({ value: c.name, label: c.name })),
+    },
+    {
+      key: "cost_center",
+      label: "Centro de Custo",
+      type: "text",
+    },
+    {
+      key: "stockStatus",
+      label: "Status Estoque",
+      type: "select",
+      options: [
+        { value: "low", label: "Estoque Baixo" },
+        { value: "normal", label: "Normal" },
+        { value: "high", label: "Excesso" },
+      ],
+    },
+  ], [categories]);
+
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const debouncedSearch = useDebounce(searchTerm, 300);
@@ -389,10 +394,9 @@ export default function EstoquePage() {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="Escritório">Escritório</SelectItem>
-                              <SelectItem value="Informática">Informática</SelectItem>
-                              <SelectItem value="Limpeza">Limpeza</SelectItem>
-                              <SelectItem value="Outros">Outros</SelectItem>
+                              {categories.map((c) => (
+                                <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                         </div>

@@ -12,6 +12,9 @@ import { JsonLd } from "@/components/JsonLd";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "next-themes";
 import { DeepLinkListener } from "@/components/DeepLinkListener";
+import { ElectronThemeListener } from "@/components/ElectronThemeListener";
+import { GlobalDropZone } from "@/components/GlobalDropZone";
+import { LockScreen } from "@/components/LockScreen";
 
 const sora = Sora({
   variable: "--font-sora",
@@ -75,7 +78,10 @@ export default function RootLayout({
           <SoundProvider>
             <CustomCursor />
             <DeepLinkListener />
+            <ElectronThemeListener />
             <SyncProvider>
+              <GlobalDropZone />
+              <LockScreen />
               <LayoutWrapper>{children}</LayoutWrapper>
 
 

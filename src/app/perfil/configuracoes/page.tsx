@@ -26,6 +26,12 @@ import {
     Eye,
     EyeOff,
     Save,
+    Laptop,
+    Trash2,
+    QrCode,
+    Smartphone,
+    FileClock,
+    Download
 } from "lucide-react";
 import Link from "next/link";
 import { Separator } from "@/components/ui/separator";
@@ -33,13 +39,18 @@ import { Switch } from "@/components/ui/switch";
 
 export default function AccountSettingsPage() {
     const router = useRouter();
-    const { user, refreshProfile } = useAuth();
+    const { user, refreshProfile, lockPin } = useAuth();
+    //...
 
     // Password State
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
     const [isChangingPassword, setIsChangingPassword] = useState(false);
+
+    // 2FA Verification State for Sensitive Actions
+    const [is2FARequiredForAction, setIs2FARequiredForAction] = useState(false);
+    const [actionVerifyCode, setActionVerifyCode] = useState("");
 
     // Notification State
     const [emailNotifs, setEmailNotifs] = useState(false);
@@ -103,6 +114,44 @@ export default function AccountSettingsPage() {
         setIsChangingPassword(true);
 
         try {
+            // Check if 2FA is enabled before proceeding
+            if (!is2FARequiredForAction) {
+                const { data: factors } = await supabase.auth.mfa.listFactors();
+                const totpFactor = factors?.totp.find(f => f.status === 'verified');
+
+                if (totpFactor) {
+                    setIs2FARequiredForAction(true);
+                    setIsChangingPassword(false);
+                    toast.info("Por segurança, confirme seu código 2FA.");
+                    return;
+                }
+            }
+
+            // If required, verify the code
+            if (is2FARequiredForAction) {
+                if (!actionVerifyCode || actionVerifyCode.length < 6) {
+                    toast.error("Digite o código 2FA");
+                    setIsChangingPassword(false);
+                    return;
+                }
+
+                const { data: factors } = await supabase.auth.mfa.listFactors();
+                const totpFactor = factors?.totp.find(f => f.status === 'verified');
+
+                if (totpFactor) {
+                    const { error } = await supabase.auth.mfa.challengeAndVerify({
+                        factorId: totpFactor.id,
+                        code: actionVerifyCode
+                    });
+
+                    if (error) {
+                        toast.error("Código 2FA incorreto.");
+                        setIsChangingPassword(false);
+                        return;
+                    }
+                }
+            }
+
             const { error } = await supabase.auth.updateUser({
                 password: password,
             });
@@ -112,6 +161,8 @@ export default function AccountSettingsPage() {
             toast.success("Senha alterada com sucesso!");
             setPassword("");
             setConfirmPassword("");
+            setIs2FARequiredForAction(false);
+            setActionVerifyCode("");
 
             // Update DB to ensure must_change_password is false if it wasn't already
             if (user) {
@@ -207,6 +258,26 @@ export default function AccountSettingsPage() {
                                 </div>
                             </div>
 
+                            {is2FARequiredForAction && (
+                                <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
+                                    <Label className="text-orange-500">Confirmação 2FA Necessária</Label>
+                                    <div className="relative">
+                                        <QrCode className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-orange-500" />
+                                        <Input
+                                            value={actionVerifyCode}
+                                            onChange={(e) => setActionVerifyCode(e.target.value)}
+                                            placeholder="000 000"
+                                            maxLength={6}
+                                            className="pl-10 font-mono border-orange-200 focus-visible:ring-orange-500"
+                                            autoFocus
+                                        />
+                                    </div>
+                                    <p className="text-[10px] text-muted-foreground">
+                                        Para sua segurança, valide seu código authenticator para alterar a senha.
+                                    </p>
+                                </div>
+                            )}
+
                             <div className="pt-2">
                                 <Button
                                     type="submit"
@@ -227,7 +298,125 @@ export default function AccountSettingsPage() {
                     </CardContent>
                 </Card>
 
-                {/* Notifications */}
+                {/* PIN Lock */}
+                <Card className="border-border/50 bg-card/50">
+                    <CardHeader>
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-lg bg-blue-500/10">
+                                <Lock className="h-5 w-5 text-blue-500" />
+                            </div>
+                            <CardTitle className="text-lg">Bloqueio de Tela (AFK)</CardTitle>
+                        </div>
+                        <CardDescription>
+                            Defina um PIN numérico para desbloquear a tela após inatividade.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <PinSettings user={user} lockPin={lockPin} refreshProfile={refreshProfile} />
+                    </CardContent>
+                </Card>
+
+                {/* 2FA */}
+                <Card className="border-border/50 bg-card/50">
+                    <CardHeader>
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-lg bg-orange-500/10">
+                                <QrCode className="h-5 w-5 text-orange-500" />
+                            </div>
+                            <CardTitle className="text-lg">Autenticação em Dois Fatores (2FA)</CardTitle>
+                        </div>
+                        <CardDescription>
+                            Adicione uma camada extra de segurança à sua conta.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <TwoFactorAuth user={user} />
+                    </CardContent>
+                </Card>
+
+                {/* Active Sessions */}
+                <Card className="border-border/50 bg-card/50">
+                    <CardHeader>
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-lg bg-emerald-500/10">
+                                <Laptop className="h-5 w-5 text-emerald-500" />
+                            </div>
+                            <CardTitle className="text-lg">Sessões Ativas</CardTitle>
+                        </div>
+                        <CardDescription>
+                            Dispositivos onde você está conectado atualmente.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="flex items-center justify-between p-3 border rounded-xl bg-muted/30">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-background rounded-lg border">
+                                    <Laptop className="h-5 w-5 text-muted-foreground" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-medium">Este Dispositivo</p>
+                                    <p className="text-xs text-muted-foreground">{navigator.userAgent.includes("Win") ? "Windows PC" : "Dispositivo"} • Ativo agora</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Access Logs */}
+                <Card className="border-border/50 bg-card/50">
+                    <CardHeader>
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-lg bg-violet-500/10">
+                                <FileClock className="h-5 w-5 text-violet-500" />
+                            </div>
+                            <CardTitle className="text-lg">Logs de Acesso</CardTitle>
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="rounded-md border">
+                            <div className="grid grid-cols-3 gap-2 p-2 bg-muted/50 text-xs font-semibold text-muted-foreground">
+                                <div>Data</div>
+                                <div>Dispositivo</div>
+                                <div>IP</div>
+                            </div>
+                            <div className="text-sm max-h-60 overflow-y-auto">
+                                <AccessLogsList userId={user?.id} />
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Personal Data */}
+                <Card className="border-border/50 bg-card/50">
+                    <CardHeader>
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-lg bg-teal-500/10">
+                                <Download className="h-5 w-5 text-teal-500" />
+                            </div>
+                            <CardTitle className="text-lg">Meus Dados</CardTitle>
+                        </div>
+                        <CardDescription>
+                            Gerencie seus dados pessoais conforme a LGPD.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex items-center justify-between">
+                            <div className="space-y-1">
+                                <Label>Exportar Dados</Label>
+                                <p className="text-xs text-muted-foreground">Baixe uma cópia de todos os seus dados.</p>
+                            </div>
+                            <Button variant="outline" size="sm" onClick={() => handleExportData(user)}>
+                                <Download className="w-4 h-4 mr-2" />
+                                Baixar JSON
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Notifications Expanded */}
                 <Card className="border-border/50 bg-card/50">
                     <CardHeader>
                         <div className="flex items-center gap-3">
@@ -264,6 +453,34 @@ export default function AccountSettingsPage() {
                                 onCheckedChange={(val) => handleNotificationChange('push', val)}
                             />
                         </div>
+                        <Separator />
+                        <div className="space-y-3">
+                            <Label>Tipos de Alerta</Label>
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <Label htmlFor="notif-crit" className="font-normal text-xs">Críticos (Estoque Zero, Falhas)</Label>
+                                    <Switch id="notif-crit" defaultChecked disabled />
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <Label htmlFor="notif-warn" className="font-normal text-xs">Avisos (Estoque Baixo, Manutenção)</Label>
+                                    <Switch id="notif-warn" defaultChecked />
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <Label htmlFor="notif-info" className="font-normal text-xs">Informativos (Novos Usuários)</Label>
+                                    <Switch id="notif-info" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="grid gap-2 pt-2">
+                            <Label>Horário de Silêncio</Label>
+                            <div className="flex items-center gap-2">
+                                <Input type="time" className="w-24" defaultValue="22:00" />
+                                <span className="text-xs text-muted-foreground">até</span>
+                                <Input type="time" className="w-24" defaultValue="07:00" />
+                            </div>
+                            <p className="text-[10px] text-muted-foreground">Não enviar notificações push neste período.</p>
+                        </div>
                     </CardContent>
                     <CardFooter>
                         <p className="text-xs text-muted-foreground">
@@ -272,7 +489,391 @@ export default function AccountSettingsPage() {
                     </CardFooter>
                 </Card>
 
+                {/* Danger Zone */}
+                <div className="pt-6">
+                    <div className="rounded-xl border border-red-200 dark:border-red-900/30 bg-red-50/50 dark:bg-red-900/10 overflow-hidden">
+                        <div className="p-4 md:p-6 flex items-start gap-4">
+                            <div className="p-2 rounded-lg bg-red-100 dark:bg-red-900/30 shrink-0">
+                                <Trash2 className="h-5 w-5 text-red-600 dark:text-red-400" />
+                            </div>
+                            <div className="flex-1 space-y-1">
+                                <h3 className="text-lg font-semibold text-red-900 dark:text-red-200">Zona de Perigo</h3>
+                                <p className="text-sm text-red-700 dark:text-red-300">
+                                    Ações irreversíveis relacionadas à sua conta.
+                                </p>
+                            </div>
+                        </div>
+                        <div className="px-4 md:px-6 pb-6 pt-2">
+                            <div className="flex items-center justify-between p-4 bg-background/50 rounded-xl border border-red-100 dark:border-red-900/20">
+                                <div>
+                                    <p className="font-medium text-sm">Excluir minha conta</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        Todos os seus dados pessoais serão removidos permanentemente.
+                                    </p>
+                                </div>
+                                <Button variant="destructive" size="sm" onClick={() => toast.error("Entre em contato com o suporte para excluir sua conta (Restrição Admin).")}>
+                                    Excluir Conta
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     );
 }
+
+
+
+function PinSettings({ user, lockPin, refreshProfile }: { user: any, lockPin: string | null | undefined, refreshProfile: () => Promise<void> }) {
+    const [pin, setPin] = useState("");
+    const [confirmPin, setConfirmPin] = useState("");
+    const [isEditing, setIsEditing] = useState(false);
+    const [loading, setLoading] = useState(false);
+
+    const hasPin = !!lockPin;
+
+    const handleSavePin = async () => {
+        if (pin.length < 4 || pin.length > 6) {
+            toast.error("O PIN deve ter entre 4 e 6 dígitos.");
+            return;
+        }
+        if (pin !== confirmPin) {
+            toast.error("Os PINs não coincidem.");
+            return;
+        }
+
+        setLoading(true);
+        try {
+            await saveUser({ id: user.id, lock_pin: pin });
+            await refreshProfile();
+            toast.success("PIN de bloqueio salvo com sucesso!");
+            setIsEditing(false);
+            setPin("");
+            setConfirmPin("");
+        } catch (e) {
+            toast.error("Erro ao salvar PIN.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleRemovePin = async () => {
+        if (!confirm("Remover o bloqueio por PIN?")) return;
+        setLoading(true);
+        try {
+            await saveUser({ id: user.id, lock_pin: null } as any); // cast null for partial update
+            await refreshProfile();
+            toast.success("PIN removido.");
+        } catch (e) {
+            toast.error("Erro ao remover PIN.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (isEditing) {
+        return (
+            <div className="space-y-4 max-w-sm">
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label>Novo PIN</Label>
+                        <Input
+                            type="password"
+                            inputMode="numeric"
+                            value={pin}
+                            onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+                            placeholder="4-6 dígitos"
+                            maxLength={6}
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Confirmar</Label>
+                        <Input
+                            type="password"
+                            inputMode="numeric"
+                            value={confirmPin}
+                            onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ''))}
+                            placeholder="Repita o PIN"
+                            maxLength={6}
+                        />
+                    </div>
+                </div>
+                <div className="flex gap-2">
+                    <Button size="sm" onClick={handleSavePin} disabled={loading}>
+                        Salvar PIN
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>
+                        Cancelar
+                    </Button>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="flex items-center justify-between">
+            <div>
+                <p className="font-medium text-sm">Status: <span className={hasPin ? "text-emerald-500 font-bold" : "text-yellow-500"}>{hasPin ? "Configurado" : "Não Configurado"}</span></p>
+                <p className="text-xs text-muted-foreground">{hasPin ? "Sua tela será bloqueada com este PIN." : "Configure para proteger sua sessão."}</p>
+            </div>
+            <div className="flex gap-2">
+                {hasPin && (
+                    <Button variant="destructive" size="sm" onClick={handleRemovePin} disabled={loading}>
+                        Remover
+                    </Button>
+                )}
+                <Button variant="outline" size="sm" onClick={() => setIsEditing(true)} disabled={loading}>
+                    {hasPin ? "Alterar PIN" : "Configurar PIN"}
+                </Button>
+            </div>
+        </div>
+    );
+}
+
+import QRCode from 'qrcode';
+
+function TwoFactorAuth({ user }: { user: any }) {
+    const [factorId, setFactorId] = useState<string | null>(null);
+    const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
+    const [verifyCode, setVerifyCode] = useState("");
+    const [isEnabled, setIsEnabled] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [step, setStep] = useState<'idle' | 'enrolling' | 'verifying'>('idle');
+
+    useEffect(() => {
+        checkStatus();
+    }, [user]);
+
+    const checkStatus = async () => {
+        if (!user) return;
+        const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+        if (data) {
+            // Basic check if any TOTP factor exists would be better, but assurance level gives hint
+            // To strictly check if ENROLLED, we list factors
+            const { data: factors } = await supabase.auth.mfa.listFactors();
+            const totpFactor = factors?.totp.find(f => f.status === 'verified');
+            setIsEnabled(!!totpFactor);
+            if (totpFactor) setFactorId(totpFactor.id);
+        }
+    };
+
+    const startEnrollment = async () => {
+        setLoading(true);
+        try {
+            // Cleanup any unverified factors first to avoid collision
+            const { data: factors } = await supabase.auth.mfa.listFactors();
+            const unverifiedFactors = factors?.totp.filter((f: any) => f.status === 'unverified') || [];
+
+            for (const factor of unverifiedFactors) {
+                await supabase.auth.mfa.unenroll({ factorId: factor.id });
+            }
+
+            const { data, error } = await supabase.auth.mfa.enroll({
+                factorType: 'totp',
+            });
+            if (error) throw error;
+
+            setFactorId(data.id);
+
+            // Generate QR Code
+            const url = await QRCode.toDataURL(data.totp.uri);
+            setQrCodeUrl(url);
+            setStep('enrolling');
+        } catch (e: any) {
+            toast.error(e.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleCancel = async () => {
+        if (factorId) {
+            setLoading(true);
+            try {
+                // If we are canceling enrollment, we must clean up the factor we just created
+                // otherwise it stays as 'unverified' and blocks future attempts.
+                await supabase.auth.mfa.unenroll({ factorId });
+            } catch (e) {
+                console.error("Error cleaning up factor", e);
+            } finally {
+                setLoading(false);
+            }
+        }
+        setStep('idle');
+        setQrCodeUrl(null);
+        setFactorId(null);
+        setVerifyCode("");
+    };
+
+    const verifyEnrollment = async () => {
+        if (!factorId || !verifyCode) return;
+        setLoading(true);
+        try {
+            const { data, error } = await supabase.auth.mfa.challengeAndVerify({
+                factorId: factorId,
+                code: verifyCode,
+            });
+            if (error) throw error;
+
+            toast.success("2FA Ativado com sucesso!");
+            setIsEnabled(true);
+            setStep('idle');
+            setQrCodeUrl(null);
+            setVerifyCode("");
+        } catch (e: any) {
+            toast.error("Código inválido. Tente novamente.");
+        } finally {
+            setLoading(false);
+        }
+    }
+    const disable2FA = async () => {
+        if (!factorId) return;
+        if (!confirm("Tem certeza que deseja desativar o 2FA?")) return;
+
+        setLoading(true);
+        try {
+            const { error } = await supabase.auth.mfa.unenroll({ factorId });
+            if (error) throw error;
+
+            toast.success("2FA Desativado.");
+            setIsEnabled(false);
+            setFactorId(null);
+        } catch (e: any) {
+            toast.error("Erro ao desativar: " + e.message);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    if (isEnabled) {
+        return (
+            <div className="flex items-center justify-between">
+                <div>
+                    <p className="font-medium text-sm">Status: <span className="text-emerald-500 font-bold">Ativado</span></p>
+                    <p className="text-xs text-muted-foreground">Sua conta está mais segura.</p>
+                </div>
+                <Button variant="destructive" size="sm" onClick={disable2FA} disabled={loading}>
+                    Desativar 2FA
+                </Button>
+            </div>
+        );
+    }
+    if (step === 'enrolling') {
+        return (
+            <div className="space-y-4 border p-4 rounded-lg bg-muted/20">
+                <div className="text-center space-y-2">
+                    <p className="font-semibold text-sm">Escaneie o QR Code</p>
+                    {qrCodeUrl && (
+                        <div className="flex justify-center bg-white p-2 rounded-lg w-fit mx-auto">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={qrCodeUrl} alt="QR Code 2FA" className="w-40 h-40" />
+                        </div>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                        Use o Google Authenticator ou Authy.
+                    </p>
+                </div>
+                <div className="space-y-2">
+                    <Label>Código de Verificação</Label>
+                    <div className="flex gap-2">
+                        <Input
+                            value={verifyCode}
+                            onChange={(e) => setVerifyCode(e.target.value)}
+                            placeholder="000 000"
+                            className="text-center letter-spacing-2 font-mono"
+                            maxLength={6}
+                        />
+                        <Button onClick={verifyEnrollment} disabled={loading || verifyCode.length < 6}>
+                            {loading ? "..." : "Ativar"}
+                        </Button>
+                    </div>
+                </div>
+                <Button variant="ghost" size="sm" className="w-full text-xs" onClick={handleCancel} disabled={loading}>
+                    {loading ? "Limpando..." : "Cancelar"}
+                </Button>
+            </div>
+        );
+    }
+
+    return (
+        <div className="flex items-center justify-between">
+            <div>
+                <p className="font-medium text-sm">Status: <span className="text-red-500">Desativado</span></p>
+                <p className="text-xs text-muted-foreground">Recomendamos ativar para proteger seus dados.</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={startEnrollment} disabled={loading}>
+                Configurar 2FA
+            </Button>
+        </div>
+    );
+}
+
+function AccessLogsList({ userId }: { userId?: string }) {
+    const [logs, setLogs] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (!userId) return;
+
+        supabase
+            .from('access_logs')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(20)
+            .then(({ data }) => {
+                if (data) setLogs(data);
+                setLoading(false);
+            });
+    }, [userId]);
+
+    if (loading) return <div className="p-4 text-center text-xs text-muted-foreground">Carregando logs...</div>;
+
+    if (logs.length === 0) return <div className="p-4 text-center text-xs text-muted-foreground">Nenhum registro encontrado.</div>;
+
+    return (
+        <>
+            {logs.map((log) => (
+                <div key={log.id} className="grid grid-cols-3 gap-2 p-3 border-t hover:bg-muted/30 text-xs">
+                    <div>{new Date(log.created_at).toLocaleString()}</div>
+                    <div title={log.user_agent}>{log.device_info || "Navegador Web"}</div>
+                    <div className="font-mono text-muted-foreground">{log.ip_address}</div>
+                </div>
+            ))}
+        </>
+    );
+}
+
+const handleExportData = async (user: any) => {
+    if (!user) return;
+    toast.promise(
+        async () => {
+            const { data: profile } = await supabase.from('users').select('*').eq('id', user.id).single();
+            const { data: logs } = await supabase.from('access_logs').select('*').eq('user_id', user.id);
+            // Add more data queries here if needed
+
+            const exportData = {
+                user: user,
+                profile: profile,
+                access_logs: logs,
+                exported_at: new Date().toISOString()
+            };
+
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `sisdavus-data-${user.id}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        },
+        {
+            loading: 'Gerando arquivo de exportação...',
+            success: 'Dados exportados com sucesso!',
+            error: 'Erro ao exportar dados.'
+        }
+    );
+};

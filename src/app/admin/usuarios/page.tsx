@@ -52,6 +52,7 @@ import {
   Copy,
   Check,
   ChevronsUpDown,
+  RotateCcw,
 } from "lucide-react";
 import {
   Command,
@@ -89,6 +90,8 @@ const roleIcons: Record<string, any> = {
   user: UserIcon,
   manager: Shield,
 };
+
+import { supabase } from "@/lib/supabase";
 
 export default function UsersPage() {
   const { userName, user } = useAuth();
@@ -141,6 +144,38 @@ export default function UsersPage() {
     }
     setErrors({});
     return true;
+  };
+
+  const handleResetMFA = async () => {
+    if (!editingUser) return;
+    if (!confirm(`Desativar 2FA para o usuário ${editingUser.name}?`)) return;
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error("Sessão expirada");
+        return;
+      }
+
+      const response = await fetch('/api/admin/mfa/reset', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ userId: editingUser.id })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Erro ao resetar 2FA");
+      }
+
+      toast.success(`2FA resetado com sucesso.`);
+    } catch (error: any) {
+      toast.error(error.message);
+    }
   };
 
   const handleSaveUser = async () => {
@@ -429,6 +464,24 @@ export default function UsersPage() {
                     </div>
                   )}
 
+                  {editingUser && (
+                    <div className="space-y-2 pt-2 border-t border-border/50">
+                      <Label>Segurança</Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full justify-start text-orange-600 border-orange-200 hover:bg-orange-50 dark:hover:bg-orange-950/30"
+                        onClick={handleResetMFA}
+                      >
+                        <RotateCcw className="h-4 w-4 mr-2" />
+                        Redefinir 2FA (Desabilitar)
+                      </Button>
+                      <p className="text-xs text-muted-foreground">
+                        Remove a proteção de dois fatores deste usuário (caso tenha perdido o acesso).
+                      </p>
+                    </div>
+                  )}
+
                   <div className="flex gap-2 pt-2">
                     {editingUser && (
                       <Button
@@ -477,74 +530,99 @@ export default function UsersPage() {
             </AlertDialog>
           </div>
         </div>
+      </header >
 
-        <Dialog open={!!createdCredentials} onOpenChange={(open) => !open && setCreatedCredentials(null)}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle className="text-center text-xl text-green-500">
-                Usuário Criado com Sucesso!
-              </DialogTitle>
-              <DialogDescription className="text-center">
-                As credenciais abaixo foram geradas. Copie-as e envie para o usuário, pois a senha não poderá ser visualizada novamente.
-              </DialogDescription>
-            </DialogHeader>
+      <Dialog open={!!createdCredentials} onOpenChange={(open) => !open && setCreatedCredentials(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center text-xl text-green-500">
+              Usuário Criado com Sucesso!
+            </DialogTitle>
+            <DialogDescription className="text-center">
+              As credenciais abaixo foram geradas. Copie-as e envie para o usuário, pois a senha não poderá ser visualizada novamente.
+            </DialogDescription>
+          </DialogHeader>
 
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label>E-mail de Acesso</Label>
-                <div className="relative">
-                  <Input value={createdCredentials?.email || ''} readOnly className="pr-10 bg-muted/50" />
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="absolute right-0 top-0 h-full px-3 text-muted-foreground hover:text-foreground"
-                    onClick={() => {
-                      navigator.clipboard.writeText(createdCredentials?.email || '');
-                      toast.success("E-mail copiado!");
-                    }}
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Senha Temporária</Label>
-                <div className="relative">
-                  <Input value={createdCredentials?.password || ''} readOnly className="pr-10 font-mono bg-muted/50" />
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="absolute right-0 top-0 h-full px-3 text-muted-foreground hover:text-foreground"
-                    onClick={() => {
-                      navigator.clipboard.writeText(createdCredentials?.password || '');
-                      toast.success("Senha copiada!");
-                    }}
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3 text-sm text-yellow-600 dark:text-yellow-400">
-                <p className="flex gap-2">
-                  <Shield className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                  <span>
-                    O usuário será solicitado a redefinir esta senha no primeiro acesso.
-                  </span>
-                </p>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>E-mail de Acesso</Label>
+              <div className="relative">
+                <Input value={createdCredentials?.email || ''} readOnly className="pr-10 bg-muted/50" />
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="absolute right-0 top-0 h-full px-3 text-muted-foreground hover:text-foreground"
+                  onClick={() => {
+                    navigator.clipboard.writeText(createdCredentials?.email || '');
+                    toast.success("E-mail copiado!");
+                  }}
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
               </div>
             </div>
 
-            <div className="flex justify-end">
-              <Button onClick={() => setCreatedCredentials(null)} className="w-full sm:w-auto">
-                Concluir
-              </Button>
+            <div className="space-y-2">
+              <Label>Senha Temporária</Label>
+              <div className="relative">
+                <Input value={createdCredentials?.password || ''} readOnly className="pr-10 font-mono bg-muted/50" />
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="absolute right-0 top-0 h-full px-3 text-muted-foreground hover:text-foreground"
+                  onClick={() => {
+                    navigator.clipboard.writeText(createdCredentials?.password || '');
+                    toast.success("Senha copiada!");
+                  }}
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
-          </DialogContent>
-        </Dialog>
-      </header>
 
+            <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3 text-sm text-yellow-600 dark:text-yellow-400">
+              <p className="flex gap-2">
+                <Shield className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                <span>
+                  O usuário será solicitado a redefinir esta senha no primeiro acesso.
+                </span>
+              </p>
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button onClick={() => setCreatedCredentials(null)} className="w-full sm:w-auto">
+              Concluir
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Tem certeza absoluta?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. Isso excluirá permanentemente o usuário
+              <span className="font-semibold text-foreground"> {editingUser?.name} </span>
+              e todos os dados associados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                executeDeleteUser();
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isDeleting}
+            >
+              {isDeleting ? "Excluindo..." : "Sim, excluir usuário"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <div className="p-4 md:p-6 lg:p-8 space-y-4 max-w-7xl mx-auto">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -608,6 +686,6 @@ export default function UsersPage() {
           })}
         </div>
       </div>
-    </div>
+    </div >
   );
 }
