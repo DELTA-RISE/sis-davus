@@ -1,12 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 
-// Create a Supabase client with the SERVICE ROLE key to perform admin actions
-// This MUST NOT be exposed to the client
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+
 
 export async function POST(req: NextRequest) {
     try {
@@ -16,6 +11,13 @@ export async function POST(req: NextRequest) {
         if (!authHeader) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
+
+        // Create a Supabase client with the SERVICE ROLE key to perform admin actions
+        // This MUST NOT be exposed to the client
+        const supabaseAdmin = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!
+        );
 
         const token = authHeader.replace('Bearer ', '');
         const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
