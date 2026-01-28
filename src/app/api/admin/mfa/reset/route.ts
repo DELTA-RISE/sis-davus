@@ -3,12 +3,18 @@ import { NextRequest, NextResponse } from 'next/server';
 
 // Create a Supabase client with the SERVICE ROLE key to perform admin actions
 // This MUST NOT be exposed to the client
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+
 
 export async function POST(req: NextRequest) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+        console.error('Missing Supabase environment variables');
+        return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+    }
+
+    const supabaseAdmin = createClient(supabaseUrl, supabaseKey);
     try {
         // 1. Check if the requester is an admin
         // We need to verify the user's session token from the request headers
