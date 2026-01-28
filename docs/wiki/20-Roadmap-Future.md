@@ -16,9 +16,10 @@ Items que foram postergados para garantir a entrega do MVP:
 - Cálculo automático de depreciação linear.
 - Relatórios de valor residual de ativos.
 
-### Q3 2026 - App Mobile Nativo
-- Desenvolvimento de versões React Native para Android/iOS (substituindo o uso de PWA em coletores dedicados).
-- Leitura de Códigos de Barras via Câmera Nativa otimizada.
+### Q3 2026 - App Mobile & Desktop Unificado (Tauri 2.0)
+- Específico: Migração da codebase Next.js para dentro do contêiner Tauri 2.0.
+- Entregáveis: Apps para Android (.apk), iOS (.ipa), Windows (.msi) e Linux (.deb).
+- Leitura de QR Code com APIs Nativas (Rust/Swift/Kotlin).
 
 ### Q4 2026 - Integrações
 - Webhook API para integração com ERPs (SAP, Totvs).

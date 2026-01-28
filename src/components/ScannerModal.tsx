@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Scan, FileText, Loader2, Download, Upload, Type } from "lucide-react";
-import { useElectron } from "@/hooks/use-electron";
+// import { useElectron } from "@/hooks/use-electron";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,7 +18,8 @@ interface ScannerModalProps {
 }
 
 export function ScannerModal({ isOpen, onClose, onScanComplete }: ScannerModalProps) {
-    const { scanDocument, openExternal, isElectron, importDocument, performOCR } = useElectron();
+    // Electron functionality removed
+    // const { scanDocument, openExternal, isElectron, importDocument, performOCR } = useElectron();
     const [fileName, setFileName] = useState("");
     const [scanning, setScanning] = useState(false);
     const [ocrProcessing, setOcrProcessing] = useState(false);
@@ -38,14 +39,15 @@ export function ScannerModal({ isOpen, onClose, onScanComplete }: ScannerModalPr
         // Actually, 'file.path' is exposed in Electron renderer for File objects!
 
         const path = (file as any).path;
-        if (!path) {
-            toast.error("Não foi possível ler o caminho do arquivo.");
-            return;
-        }
+        // In Web, path is undefined. We pass the file object directly.
 
         setScanning(true);
         try {
-            const res = await importDocument(path);
+            // Cast as any or update hook type to avoid compat issues if TS complains about string vs File depending on how it's typed elsewhere
+            // But we just updated the hook to accept File | string.
+            // Electron import removed.
+            // const res = await importDocument(path || file);
+            const res = { success: false, error: "Tauri update pending.", path: "" };
             if (res.success && res.path) {
                 setResultPath(res.path);
                 toast.success("Imagem importada com sucesso!");
@@ -62,7 +64,8 @@ export function ScannerModal({ isOpen, onClose, onScanComplete }: ScannerModalPr
         if (!resultPath) return;
         setOcrProcessing(true);
         try {
-            const res = await performOCR(resultPath);
+            // const res = await performOCR(resultPath);
+            const res = { success: false, text: "", error: "Tauri update pending." };
             if (res.success && res.text) {
                 setOcrText(res.text);
                 toast.success("Texto extraído com sucesso!");
@@ -86,7 +89,8 @@ export function ScannerModal({ isOpen, onClose, onScanComplete }: ScannerModalPr
         setResultPath(null);
 
         try {
-            const res = await scanDocument(fileName);
+            // const res = await scanDocument(fileName);
+            const res = { success: false, error: "Tauri update pending.", path: "" };
             if (res.success && res.path) {
                 setResultPath(res.path);
                 toast.success("Documento digitalizado com sucesso!");
@@ -103,7 +107,8 @@ export function ScannerModal({ isOpen, onClose, onScanComplete }: ScannerModalPr
     };
 
     const handleOpen = () => {
-        if (resultPath) openExternal(resultPath);
+        // if (resultPath) openExternal(resultPath);
+        if (resultPath) window.open(resultPath, '_blank');
     };
 
     return (
@@ -118,100 +123,95 @@ export function ScannerModal({ isOpen, onClose, onScanComplete }: ScannerModalPr
                     </DialogDescription>
                 </DialogHeader>
 
-                {!isElectron ? (
-                    <div className="p-4 bg-yellow-50 text-yellow-800 rounded-md text-sm">
-                        Funcionalidade disponível apenas no App Desktop.
-                    </div>
-                ) : (
-                    <div className="py-2">
-                        <Tabs defaultValue="scan" value={activeTab} onValueChange={setActiveTab}>
-                            <TabsList className="grid w-full grid-cols-2">
-                                <TabsTrigger value="scan">Scanner</TabsTrigger>
-                                <TabsTrigger value="import">Importar Imagem</TabsTrigger>
-                            </TabsList>
+                <div className="py-2">
+                    <Tabs defaultValue="scan" value={activeTab} onValueChange={setActiveTab}>
+                        <TabsList className="grid w-full grid-cols-2">
+                            <TabsTrigger value="scan">Scanner</TabsTrigger>
+                            <TabsTrigger value="import">Importar Imagem</TabsTrigger>
+                        </TabsList>
 
-                            <TabsContent value="scan" className="space-y-4 py-4">
-                                <div className="grid gap-2">
-                                    <Label htmlFor="filename">Nome do Arquivo</Label>
-                                    <Input
-                                        id="filename"
-                                        placeholder="Ex: Contrato_Fornecedor_001"
-                                        value={fileName}
-                                        onChange={(e) => setFileName(e.target.value)}
-                                        disabled={scanning}
-                                    />
-                                </div>
-                                <Button onClick={handleScan} disabled={scanning || !fileName} className="w-full">
-                                    {scanning ? (
-                                        <>
-                                            <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Digitalizando...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Scan className="w-4 h-4 mr-2" /> Iniciar Digitalização
-                                        </>
-                                    )}
-                                </Button>
-                            </TabsContent>
-
-                            <TabsContent value="import" className="space-y-4 py-4">
-                                <div className="grid gap-2">
-                                    <Label htmlFor="file-upload">Selecione arquivo (Imagem, PDF, Excel, Word)</Label>
-                                    <Input
-                                        id="file-upload"
-                                        type="file"
-                                        accept=".png,.jpg,.jpeg,.pdf,.docx,.doc,.xlsx,.xls"
-                                        onChange={handleImport}
-                                        disabled={scanning}
-                                    />
-                                    <p className="text-xs text-muted-foreground">O arquivo será copiado para a galeria de documentos.</p>
-                                </div>
-                            </TabsContent>
-                        </Tabs>
-
-                        {resultPath && (
-                            <div className="bg-muted p-3 rounded-md space-y-3 mt-4 animate-in fade-in slide-in-from-bottom-2">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2 text-sm truncate max-w-[200px]">
-                                        <FileText className="w-4 h-4" />
-                                        <span className="truncate">{resultPath}</span>
-                                    </div>
-                                    <Button size="sm" variant="ghost" onClick={handleOpen}>
-                                        <Download className="w-4 h-4" /> Abrir
-                                    </Button>
-                                </div>
-
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={handleOCR}
-                                    className="w-full gap-2"
-                                    disabled={ocrProcessing}
-                                >
-                                    {ocrProcessing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Type className="w-3 h-3" />}
-                                    Extrair Texto (OCR)
-                                </Button>
-
-                                {ocrText && (
-                                    <div className="space-y-1">
-                                        <Label className="text-xs">Texto Extraído:</Label>
-                                        <Textarea
-                                            value={ocrText}
-                                            readOnly
-                                            className="h-24 text-xs font-mono bg-background"
-                                        />
-                                    </div>
-                                )}
+                        <TabsContent value="scan" className="space-y-4 py-4">
+                            <div className="grid gap-2">
+                                <Label htmlFor="filename">Nome do Arquivo</Label>
+                                <Input
+                                    id="filename"
+                                    placeholder="Ex: Contrato_Fornecedor_001"
+                                    value={fileName}
+                                    onChange={(e) => setFileName(e.target.value)}
+                                    disabled={scanning}
+                                />
                             </div>
-                        )}
-
-                        <div className="flex justify-end pt-2">
-                            <Button variant="ghost" onClick={onClose}>
-                                Fechar
+                            <Button onClick={handleScan} disabled={scanning || !fileName} className="w-full">
+                                {scanning ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Digitalizando...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Scan className="w-4 h-4 mr-2" /> Iniciar Digitalização
+                                    </>
+                                )}
                             </Button>
+                        </TabsContent>
+
+                        <TabsContent value="import" className="space-y-4 py-4">
+                            <div className="grid gap-2">
+                                <Label htmlFor="file-upload">Selecione arquivo (Imagem, PDF, Excel, Word)</Label>
+                                <Input
+                                    id="file-upload"
+                                    type="file"
+                                    accept=".png,.jpg,.jpeg,.pdf,.docx,.doc,.xlsx,.xls"
+                                    onChange={handleImport}
+                                    disabled={scanning}
+                                />
+                                <p className="text-xs text-muted-foreground">O arquivo será copiado para a galeria de documentos.</p>
+                            </div>
+                        </TabsContent>
+                    </Tabs>
+
+                    {resultPath && (
+                        <div className="bg-muted p-3 rounded-md space-y-3 mt-4 animate-in fade-in slide-in-from-bottom-2">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2 text-sm truncate max-w-[200px]">
+                                    <FileText className="w-4 h-4" />
+                                    <span className="truncate">{resultPath}</span>
+                                </div>
+                                <Button size="sm" variant="ghost" onClick={handleOpen}>
+                                    <Download className="w-4 h-4" /> Abrir
+                                </Button>
+                            </div>
+
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={handleOCR}
+                                className="w-full gap-2"
+                                disabled={ocrProcessing}
+                            >
+                                {ocrProcessing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Type className="w-3 h-3" />}
+                                Extrair Texto (OCR)
+                            </Button>
+
+                            {ocrText && (
+                                <div className="space-y-1">
+                                    <Label className="text-xs">Texto Extraído:</Label>
+                                    <Textarea
+                                        value={ocrText}
+                                        readOnly
+                                        className="h-24 text-xs font-mono bg-background"
+                                    />
+                                </div>
+                            )}
                         </div>
+                    )}
+
+                    <div className="flex justify-end pt-2">
+                        <Button variant="ghost" onClick={onClose}>
+                            Fechar
+                        </Button>
                     </div>
-                )}
+                </div>
+
             </DialogContent>
         </Dialog>
     );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useIdle } from "@/hooks/use-idle";
 import { Lock, Fingerprint } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,17 +12,13 @@ export function LockScreen() {
     const [pin, setPin] = useState("");
     const [error, setError] = useState(false);
 
+    const [isIdle] = [useIdle(15 * 60 * 1000)]; // Wrapped to match hook signature import if needed or just use hook directly
+
     useEffect(() => {
-        if (window.electron) {
-            // Listen for lock event from Main process (OS Lock or Idle)
-            const removeListener = window.electron.on('app-lock', () => {
-                setIsLocked(true);
-            });
-            return () => {
-                if (removeListener) removeListener();
-            }
+        if (isIdle) {
+            setIsLocked(true);
         }
-    }, []);
+    }, [isIdle]);
 
     const handleUnlock = (e?: React.FormEvent) => {
         e?.preventDefault();

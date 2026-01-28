@@ -335,44 +335,30 @@ export default function LandingPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Desktop Downloads */}
-                <SpotlightCard className="rounded-[2.5rem] border-white/10 bg-black/40 backdrop-blur-xl p-12 flex flex-col justify-between group overflow-hidden">
+                <SpotlightCard className="rounded-[2.5rem] border-white/10 bg-black/40 backdrop-blur-xl p-12 flex flex-col justify-between group overflow-hidden opacity-80">
                   <div className="relative z-10 space-y-8">
                     <div>
-                      <div className="w-16 h-16 rounded-2xl bg-blue-500/10 flex items-center justify-center mb-6 border border-blue-500/20">
+                      <div className="w-16 h-16 rounded-2xl bg-blue-500/10 flex items-center justify-center mb-6 border border-blue-500/20 grayscale">
                         <AppWindow className="h-8 w-8 text-blue-500" />
                       </div>
-                      <h3 className="text-3xl font-bold text-white mb-2">Desktop App</h3>
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="text-3xl font-bold text-white">Desktop App</h3>
+                        <span className="px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-xs font-semibold border border-blue-500/20">EM BREVE</span>
+                      </div>
                       <p className="text-white/60 text-lg leading-relaxed">
-                        Acesso offline, atalhos de sistema e notificações nativas.
+                        A versão desktop nativa está sendo otimizada e chegará em breve para Windows, macOS e Linux.
                       </p>
                     </div>
 
                     <div className="space-y-4">
-                      <Button asChild size="lg" className="w-full h-14 text-base gap-3 bg-white text-black hover:bg-gray-200 rounded-xl transition-all shadow-lg shadow-white/5">
-                        <a href="https://drive.google.com/file/d/1NJCFC9kasUy9r36VLA4YqpYN-EwMnCdC/view" target="_blank" rel="noopener noreferrer">
-                          <AppWindow className="h-5 w-5" />
-                          <span className="font-semibold">Download para Windows</span>
-                        </a>
+                      <Button disabled size="lg" className="w-full h-14 text-base gap-3 bg-white/5 text-white/40 rounded-xl transition-all shadow-none cursor-not-allowed border border-white/5">
+                        <AppWindow className="h-5 w-5" />
+                        <span className="font-semibold">Download Indisponível</span>
                       </Button>
 
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" size="lg" className="w-full h-12 border-white/10 text-white hover:bg-white/5 hover:text-white rounded-xl gap-2">
-                            <MoreVertical className="h-5 w-5" />
-                            <span className="text-sm">Outras Versões</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)] bg-zinc-950 border-white/10 text-white">
-                          <DropdownMenuItem disabled className="gap-2 focus:bg-white/10 focus:text-white cursor-not-allowed opacity-70">
-                            <Apple className="h-4 w-4" />
-                            <span>macOS (Em breve)</span>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem disabled className="gap-2 focus:bg-white/10 focus:text-white cursor-not-allowed opacity-70">
-                            <TerminalIcon className="h-4 w-4" />
-                            <span>Linux (Em breve)</span>
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <p className="text-center text-sm text-white/30">
+                        Use a versão Web ou PWA enquanto isso.
+                      </p>
                     </div>
                   </div>
                 </SpotlightCard>

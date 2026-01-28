@@ -2,7 +2,7 @@
 
 import { Asset } from "@/lib/store";
 import { Button } from "@/components/ui/button";
-import { useElectron } from "@/hooks/use-electron";
+// import { useElectron } from "@/hooks/use-electron";
 import { Printer } from "lucide-react";
 import { toast } from "sonner";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -69,7 +69,9 @@ interface PrintAssetButtonProps {
 }
 
 export function PrintAssetButton({ asset, variant = "outline", size = "sm", className }: PrintAssetButtonProps) {
-    const { isElectron, print } = useElectron();
+    // const { isElectron, print } = useElectron();
+    const isElectron = false;
+    const print = async (html: string, printer: string) => ({ success: false, error: "Unavailable" });
 
     const handlePrint = async () => {
         if (!isElectron) {

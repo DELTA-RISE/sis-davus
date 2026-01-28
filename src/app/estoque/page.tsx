@@ -73,7 +73,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
 import { motion, AnimatePresence } from "framer-motion";
 import { ImageUpload } from "@/components/ui/image-upload"; // Imported component
-import { getInsumosCategories } from "@/lib/actions/categories";
+import { getInsumosCategories } from "@/app/actions/categories";
 import { InsumoCategory } from "@/lib/store";
 
 // FilterConfigs moved inside component

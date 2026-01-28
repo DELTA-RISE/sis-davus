@@ -12,24 +12,23 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { useElectron } from "@/hooks/use-electron";
+// import { useElectron } from "@/hooks/use-electron";
 import { ScannerModal } from "@/components/ScannerModal";
 
 export default function AppSettingsPage() {
     const router = useRouter();
     const [mounted, setMounted] = useState(false);
 
-    const {
-        isElectron,
-        getPrinters,
-        print,
-        getAutoLaunch,
-        setAutoLaunch,
-        getSerialPorts,
-        connectScale,
-        disconnectScale,
-        onScaleData
-    } = useElectron();
+    // Electron hooks removed
+    const isElectron = false;
+    const getPrinters = async (): Promise<any[]> => [];
+    const print = async (_: string, __: string) => ({ success: false, error: "Not supported in web" });
+    const getAutoLaunch = async () => false;
+    const setAutoLaunch = async (_: boolean) => false;
+    const getSerialPorts = async (): Promise<any[]> => [];
+    const connectScale = async (_: string) => ({ success: false, error: "Not supported in web" });
+    const disconnectScale = async () => { };
+    const onScaleData = (_: (data: string) => void) => { };
 
     // Preferences State
     const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system');
@@ -392,22 +391,10 @@ export default function AppSettingsPage() {
                         <div className="h-px bg-border flex-1" />
                     </div>
 
-                    {!isElectron && (
-                        <Card className="border-yellow-200 bg-yellow-50/50 dark:bg-yellow-900/10 dark:border-yellow-900/30">
-                            <CardContent className="p-4 flex items-center gap-3">
-                                <div className="p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-full">
-                                    <Monitor className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
-                                </div>
-                                <div className="text-sm text-yellow-800 dark:text-yellow-200">
-                                    <span className="font-semibold block">Acesso Limitado</span>
-                                    Configure impressoras e balanças através do App Desktop.
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )}
+
 
                     {/* Printer Settings */}
-                    <Card className={cn("border-border/50 bg-card/50", !isElectron && "opacity-60 pointer-events-none")}>
+                    <Card className="border-border/50 bg-card/50">
                         <CardHeader>
                             <div className="flex items-center gap-3">
                                 <div className="p-2 rounded-lg bg-orange-500/10">
@@ -482,7 +469,7 @@ export default function AppSettingsPage() {
                     </Card>
 
                     {/* Scale Settings */}
-                    <Card className={cn("border-border/50 bg-card/50", !isElectron && "opacity-60 pointer-events-none")}>
+                    <Card className="border-border/50 bg-card/50">
                         <CardHeader>
                             <div className="flex items-center gap-3">
                                 <div className="p-2 rounded-lg bg-blue-500/10">
@@ -538,7 +525,7 @@ export default function AppSettingsPage() {
                     </Card>
 
                     {/* Scanner */}
-                    <Card className={cn("border-border/50 bg-card/50", !isElectron && "opacity-60 pointer-events-none")}>
+                    <Card className="border-border/50 bg-card/50">
                         <CardHeader>
                             <div className="flex items-center gap-3">
                                 <div className="p-2 rounded-lg bg-purple-500/10">
@@ -564,34 +551,7 @@ export default function AppSettingsPage() {
                         </CardContent>
                     </Card>
 
-                    {/* Auto Launch */}
-                    <Card className={cn("border-border/50 bg-card/50", !isElectron && "opacity-60 pointer-events-none")}>
-                        <CardHeader>
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 rounded-lg bg-red-500/10">
-                                    <Power className="h-5 w-5 text-red-500" />
-                                </div>
-                                <CardTitle className="text-lg">Inicialização</CardTitle>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="flex items-center justify-between">
-                                <Label htmlFor="auto-launch" className="flex flex-col">
-                                    <span>Iniciar junto com o Windows</span>
-                                    <span className="text-xs font-normal text-muted-foreground">Abrir o SisDavus automaticamente.</span>
-                                </Label>
-                                <Switch
-                                    id="auto-launch"
-                                    checked={autoLaunch}
-                                    onCheckedChange={async (checked) => {
-                                        await setAutoLaunch(checked);
-                                        setAutoLaunchState(checked);
-                                        toast.success(`Inicialização automática ${checked ? 'ativada' : 'desativada'}`);
-                                    }}
-                                />
-                            </div>
-                        </CardContent>
-                    </Card>
+
                 </div>
 
                 <div className="flex items-center gap-2 px-1 pt-6">
@@ -657,6 +617,7 @@ export default function AppSettingsPage() {
                     onClose={() => setScannerOpen(false)}
                 />
             </div>
+
         </div>
     );
 }

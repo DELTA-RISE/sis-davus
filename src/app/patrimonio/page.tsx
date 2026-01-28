@@ -95,7 +95,7 @@ import { mockAssets } from "@/lib/store"; // Removed Asset (duplicate)
 
 // ... imports
 
-import { getPatrimoniosCategories } from "@/lib/actions/categories";
+import { getPatrimoniosCategories } from "@/app/actions/categories";
 import { PatrimonioCategory } from "@/lib/store";
 
 export default function PatrimonioPage() {

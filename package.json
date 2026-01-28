@@ -1,17 +1,14 @@
 {
-  "name": "nextjs-new",
+  "name": "sis-davus",
   "version": "0.1.0",
   "description": "Sistema de Gestão Patrimonial e Estoque",
   "author": "SisDavus Team",
-  "main": "dist/electron/main.js",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
-    "dev:electron": "concurrently -k \"bun run dev\" \"wait-on tcp:3000 && tsc -p electron/tsconfig.json && electron .\"",
-    "build:electron": "next build && tsc -p electron/tsconfig.json && electron-builder"
+    "lint": "eslint"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
@@ -55,9 +52,6 @@
     "dexie": "^4.2.1",
     "dexie-react-hooks": "^4.2.0",
     "driver.js": "^1.4.0",
-    "electron-serve": "^3.0.0",
-    "electron-store": "^11.0.2",
-    "electron-updater": "^6.7.3",
     "embla-carousel-react": "^8.6.0",
     "exceljs": "^4.4.0",
     "file-saver": "^2.0.5",
@@ -66,9 +60,8 @@
     "gsap": "^3.14.2",
     "html-to-image": "^1.11.13",
     "html2canvas": "^1.4.1",
-    "html5-qrcode": "^2.3.8",
     "input-otp": "^1.4.2",
-    "jspdf": "^3.0.0",
+    "jspdf": "^4.0.0",
     "jspdf-autotable": "^5.0.2",
     "lenis": "^1.3.17",
     "lucide-react": "^0.554.0",
@@ -110,31 +103,12 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "concurrently": "^9.2.1",
-    "electron": "^40.0.0",
-    "electron-builder": "^26.4.0",
+    "cross-env": "^10.1.0",
     "eslint": "^9",
     "eslint-config-next": "^15.5.7",
     "tailwindcss": "^4",
     "tw-animate-css": "^1.4.0",
     "typescript": "^5",
     "wait-on": "^9.0.3"
-  },
-  "build": {
-    "appId": "com.sisdavus.app",
-    "productName": "SisDavus",
-    "directories": {
-      "output": "release"
-    },
-    "win": {
-      "icon": "public/davus-logo.ico",
-      "target": [
-        "nsis"
-      ]
-    },
-    "publish": {
-      "provider": "github",
-      "owner": "DELTA-RISE",
-      "repo": "sis-davus"
-    }
   }
 }

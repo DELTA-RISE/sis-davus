@@ -6,13 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Package, Laptop, File, Loader2, CheckCircle, AlertCircle } from "lucide-react";
-import { useElectron } from "@/hooks/use-electron";
 import { getAssets, getProducts } from "@/lib/db";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
 interface FileDropWizardProps {
-    file: { name: string; path: string } | null;
+    file: File | null;
     isOpen: boolean;
     onClose: () => void;
 }
@@ -21,7 +20,6 @@ type WizardStep = 'type-selection' | 'code-entry' | 'processing' | 'success';
 type FileCategory = 'asset' | 'input' | 'other';
 
 export function FileDropWizard({ file, isOpen, onClose }: FileDropWizardProps) {
-    const { importDocument } = useElectron();
     const router = useRouter();
 
     const [step, setStep] = useState<WizardStep>('type-selection');
@@ -121,7 +119,10 @@ export function FileDropWizard({ file, isOpen, onClose }: FileDropWizardProps) {
                 customName = `[SKU-${validCode}] ${file.name}`; // Distinct prefix for products
             }
 
-            const res = await importDocument(file.path, customName);
+            // support file object
+            // Electron import removed.
+            // const res = await importDocument(file, customName);
+            const res = { success: false, error: "Recurso descontinuado (Electron removido)" };
 
             if (res.success) {
                 setStep('success');

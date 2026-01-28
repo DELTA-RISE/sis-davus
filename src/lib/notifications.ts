@@ -1,9 +1,6 @@
 export async function sendNotification(title: string, body: string, silent = false) {
-    if (typeof window !== "undefined" && window.electron) {
-        // Electron Native Notification
-        window.electron.showNotification(title, body, silent);
-    } else if ("Notification" in window) {
-        // Browser Web Notification
+    // Browser Web Notification
+    if (typeof window !== "undefined" && "Notification" in window) {
         if (Notification.permission === "granted") {
             new Notification(title, { body, silent });
         } else if (Notification.permission !== "denied") {

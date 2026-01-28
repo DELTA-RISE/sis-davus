@@ -93,6 +93,11 @@ O projeto prioriza uma experiência **Premium** e **Fluida**, utilizando as melh
 
 ---
 
+### 📱 Roadmap (Futuro)
+O sistema está sendo preparado para se tornar **Cross-platform** (Windows, macOS, Linux, Android e iOS) através da migração futura para **Tauri 2.0**, unificando a experiência mobile e desktop em uma única base de código performática.
+
+---
+
 ## 🏗️ Arquitetura
 
 O sistema segue uma arquitetura moderna e desacoplada, garantindo escalabilidade e facilidade de manutenção.
@@ -243,15 +248,15 @@ src/
 
 ## 🚢 Deploy
 
-O projeto conta com **CI/CD Integrado** na Netlify.
+O projeto conta com **CI/CD Integrado** na Vercel (Recomendado).
 
 **Passos para Deploy Manual:**
-1. Importe o repositório na [Netlify](https://www.netlify.com).
-2. O Netlify detectará automaticamente o framework Next.js.
-3. Configure as variáveis de ambiente (mesmas do `.env.local`) nas configurações do site (`Site settings > Environment variables`).
+1. Importe o repositório na [Vercel](https://vercel.com).
+2. A Vercel detectará automaticamente o framework Next.js.
+3. Configure as variáveis de ambiente (mesmas do `.env.local`) nas configurações de projeto.
 4. Deploy!
 
-A plataforma oferece suporte nativo ao Next.js Runtime, garantindo que Server Actions e API Routes funcionem perfeitamente.
+A plataforma oferece suporte nativo e otimizado ao Next.js, com Edge Functions e ISR.
 
 ---
 

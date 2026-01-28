@@ -11,8 +11,6 @@ import { SoundProvider } from "@/components/SoundProvider";
 import { JsonLd } from "@/components/JsonLd";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "next-themes";
-import { DeepLinkListener } from "@/components/DeepLinkListener";
-import { ElectronThemeListener } from "@/components/ElectronThemeListener";
 import { GlobalDropZone } from "@/components/GlobalDropZone";
 import { LockScreen } from "@/components/LockScreen";
 
@@ -77,8 +75,6 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
           <SoundProvider>
             <CustomCursor />
-            <DeepLinkListener />
-            <ElectronThemeListener />
             <SyncProvider>
               <GlobalDropZone />
               <LockScreen />

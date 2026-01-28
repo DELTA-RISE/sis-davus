@@ -1,8 +1,8 @@
 # 01. Visão e Escopo do Projeto
 
 **Identificação do Projeto**: SisDavus - Sistema de Gestão Inteligente de Ativos e Estoque
-**Versão do Documento**: 1.0.0
-**Status**: Versão Preliminar para Engenharia
+**Versão do Documento**: 4.2.0
+**Status**: Produção / Estável
 
 ---
 
@@ -59,6 +59,6 @@ Muitas organizações ainda utilizam planilhas descentralizadas ou sistemas lega
 
 ---
 
-**Aprovado por:**
+**Aprovado por: Charlles Augusto**
 __________________________
 Engenheiro Chefe

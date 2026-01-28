@@ -28,10 +28,7 @@ O arquivo `.github/workflows/main.yml` (conceitual) define a esteira de automaç
 ### Stage 2: Release (Push to Main/Tag)
 - **Trigger**: Tag `v*` criada.
 - **Jobs**:
-  1. Build Web (`next build`) -> Deploy para Vercel (Produção).
-  2. Build Desktop (`electron-builder`) ->
-     - Assinatura de Código (Se certs presentes).
-     - Upload de artefatos (.exe/.dmg) para GitHub Releases.
+  1. Build Web (`next build`) -> Deploy para Vercel (Produção/Preview).
 
 ## 3. Checklist de Deploy Manual
 

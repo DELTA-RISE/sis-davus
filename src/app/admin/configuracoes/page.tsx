@@ -3,7 +3,7 @@
 import Link from "next/link";
 
 import { useEffect, useState } from "react";
-import { useElectron } from "@/hooks/use-electron";
+// import { useElectron } from "@/hooks/use-electron";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -15,17 +15,16 @@ import { Badge } from "@/components/ui/badge";
 import { ScannerModal } from "@/components/ScannerModal";
 
 export default function SettingsPage() {
-    const {
-        isElectron,
-        getPrinters,
-        print,
-        getAutoLaunch,
-        setAutoLaunch,
-        getSerialPorts,
-        connectScale,
-        disconnectScale,
-        onScaleData
-    } = useElectron();
+    // Electron hooks removed
+    const isElectron = false;
+    const getPrinters = async (): Promise<any[]> => [];
+    const print = async (_: string, __: string) => ({ success: false, error: "Not supported in web" });
+    const getAutoLaunch = async () => false;
+    const setAutoLaunch = async (_: boolean) => false;
+    const getSerialPorts = async (): Promise<any[]> => [];
+    const connectScale = async (_: string) => ({ success: false, error: "Not supported in web" });
+    const disconnectScale = async () => { };
+    const onScaleData = (_: (data: string) => void) => { };
 
     // Printer State
     const [printers, setPrinters] = useState<any[]>([]);
@@ -149,26 +148,7 @@ export default function SettingsPage() {
         }
     };
 
-    if (!isElectron) {
-        return (
-            <div className="p-6">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Integração de Hardware</CardTitle>
-                        <CardDescription>Configurações de dispositivos e impressoras.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="bg-yellow-50 text-yellow-800 p-4 rounded-md border border-yellow-200">
-                            <p className="font-medium">Modo Web Detectado</p>
-                            <p className="text-sm mt-1">
-                                As configurações de impressão direta, leitura de balança e inicialização estão disponíveis apenas na versão Desktop (Electron).
-                            </p>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-        );
-    }
+
 
     return (
         <div className="p-6 max-w-4xl mx-auto space-y-6">
@@ -300,31 +280,7 @@ export default function SettingsPage() {
                 </CardContent>
             </Card>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Power className="w-5 h-5" />
-                        Inicialização do Sistema
-                    </CardTitle>
-                    <CardDescription>
-                        Configure como o SisDavus se comporta ao iniciar o Windows.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="flex items-center space-x-2">
-                        <Switch
-                            id="auto-launch"
-                            checked={autoLaunch}
-                            onCheckedChange={async (checked) => {
-                                await setAutoLaunch(checked);
-                                setAutoLaunchState(checked);
-                                toast.success(`Inicialização automática ${checked ? 'ativada' : 'desativada'}`);
-                            }}
-                        />
-                        <Label htmlFor="auto-launch">Iniciar SisDavus ao ligar o computador</Label>
-                    </div>
-                </CardContent>
-            </Card>
+
 
             <ScannerModal
                 isOpen={scannerOpen}

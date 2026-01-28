@@ -5,7 +5,7 @@ import path from "node:path";
 const loaderPath = require.resolve('orchids-visual-edits/loader.js');
 
 const nextConfig: NextConfig = {
-  output: 'export',
+  output: process.env.NEXT_PUBLIC_IS_ELECTRON === 'true' ? 'export' : undefined,
   images: {
     unoptimized: true,
     remotePatterns: [

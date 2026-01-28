@@ -38,8 +38,7 @@ Detalhamento das unidades de implantação.
 ```mermaid
 graph TB
     subgraph "Cliente (Dispositivo Usuário)"
-        Electron[Wrapper Electron]
-        WebApp[Next.js SPA]
+        WebApp[Next.js PWA]
         LocalDB[(Dexie.js / IndexedDB)]
     end
     
@@ -49,7 +48,6 @@ graph TB
         RemoteDB[(PostgreSQL)]
     end
 
-    Electron -->|Envolve| WebApp
     WebApp -->|Leitura/Escrita Rápida| LocalDB
     WebApp -->|Sync em Background| API
     WebApp -->|Autenticação| Auth
@@ -69,13 +67,13 @@ graph TB
     - (-) Complexidade aumentada para gerenciar conflitos de dados.
     - (-) Necessidade de duplicar lógica de validação (Front e Back).
 
-### ADR-002: Electron vs PWA
-- **Contexto**: Necessidade de acesso a hardware (impressoras térmicas, scanners USB no futuro) e percepção de "software robusto" pelo cliente.
-- **Decisão**: Encapsular a aplicação Web em Electron.
+### ADR-002: Estratégia Cross-Platform (Tauri 2.0)
+- **Contexto**: Necessidade futura de apps nativos para Mobile (Android/iOS) e Desktop com acesso a hardware.
+- **Decisão**: Migrar para **Tauri 2.0** em vez de Electron.
 - **Consequências**:
-    - (+) Acesso a APIs nativas do SO.
-    - (+) Instalação via `.exe` simplifica deployment corporativo via GPO.
-    - (-) Tamanho do executável maior (~100MB).
+    - (+) Suporte unificado a Desktop e Mobile na mesma base.
+    - (+) Binários muito menores (<10MB) comparado ao Electron (~100MB).
+    - (+) Maior segurança e performance (Rust backend).
 
 ### ADR-003: Backend-as-a-Service (Supabase)
 - **Contexto**: Prazo curto de entrega e necessidade de Realtime.

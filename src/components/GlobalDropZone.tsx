@@ -4,21 +4,19 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { UploadCloud } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import { useElectron } from "@/hooks/use-electron";
+// import { useElectron } from "@/hooks/use-electron";
 import { FileDropWizard } from "@/components/FileDropWizard";
 
 export function GlobalDropZone() {
     const [isDragging, setIsDragging] = useState(false);
     const router = useRouter();
-    const { isElectron, getFilePath } = useElectron();
+    // const { isElectron, getFilePath } = useElectron(); // Removed
 
     // Wizard State
-    const [droppedFile, setDroppedFile] = useState<{ name: string, path: string } | null>(null);
+    const [droppedFile, setDroppedFile] = useState<File | null>(null);
     const [wizardOpen, setWizardOpen] = useState(false);
 
     useEffect(() => {
-        if (!isElectron) return;
-
         const handleDragOver = (e: DragEvent) => {
             e.preventDefault();
             e.stopPropagation();
@@ -41,23 +39,8 @@ export function GlobalDropZone() {
 
             if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
                 const file = e.dataTransfer.files[0];
-                let path = (file as any).path;
-
-                // Try to resolve path if missing (Electron security)
-                if (!path && isElectron) {
-                    try {
-                        path = getFilePath(file);
-                    } catch (err) {
-                        console.error("Failed to resolve path via webUtils", err);
-                    }
-                }
-
-                if (path) {
-                    processFileDrop(path, file.name);
-                } else {
-                    console.error("File path missing", file);
-                    toast.error("Não foi possível ler o caminho do arquivo (Context Isolation). Tente reiniciar o app.");
-                }
+                // Web: We use the File object directly. Path is empty or fake.
+                processFileDrop(file);
             }
         };
 
@@ -70,9 +53,10 @@ export function GlobalDropZone() {
             window.removeEventListener("dragleave", handleDragLeave);
             window.removeEventListener("drop", handleDrop);
         };
-    }, [isDragging, isElectron]);
+    }, [isDragging]);
 
-    const processFileDrop = (path: string, name: string) => {
+    const processFileDrop = (file: File) => {
+        const name = file.name;
         const extension = name.split(".").pop()?.toLowerCase();
 
         // Allowed Extensions
@@ -85,28 +69,18 @@ export function GlobalDropZone() {
 
         if (extension === "xml") {
             // XML NFe Flow - Redirect to import (Assuming we will create this page or it exists)
-            // Using current logic
-            toast.info("Nota Fiscal detectada", {
-                description: "Redirecionando para importação...",
-                action: {
-                    label: "Importar",
-                    onClick: () => router.push(`/estoque/importar?path=${encodeURIComponent(path)}`)
-                }
-            });
+            // Ideally we should pass the file object or read content here.
+            // For now, let's just warn as we can't easily pass file objects via URL
+            toast.info("Nota Fiscal detectada. Utilize a página de importação.");
+            router.push('/estoque/importar');
             return;
         }
 
-        // For all other docs (Assets/Inputs/Gallery)
-        if (!isElectron) {
-            toast.error("Funcionalidades de arquivo disponíveis apenas no Desktop.");
-            return;
-        }
-
-        setDroppedFile({ name, path });
+        setDroppedFile(file);
         setWizardOpen(true);
     };
 
-    if (!isElectron) return null;
+    // Removed strict isElectron check return null
 
     return (
         <>

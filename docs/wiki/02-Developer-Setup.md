@@ -19,10 +19,7 @@ Antes de iniciar, certifique-se de ter as seguintes ferramentas instaladas em se
    ```
 
 2. **Instale as Dependências**
-   Utilize o `bun` para uma instalação rápida:
-   ```bash
-   bun install
-   ```
+   Utilize o `bun` para uma instalação rápida:   `bun install`
    > Caso não tenha o Bun instalado, você pode usar `npm install` ou `yarn`, mas os scripts do projeto estão otimizados para Bun.
 
 3. **Variáveis de Ambiente**

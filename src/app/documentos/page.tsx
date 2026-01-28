@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useElectron } from "@/hooks/use-electron";
+// import { useElectron } from "@/hooks/use-electron";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FileText, Scan, RefreshCw, FolderOpen, Search, Download, Trash2, Link as LinkIcon, SortAsc, SortDesc, FileSpreadsheet, File } from "lucide-react";
@@ -31,7 +31,12 @@ type SortOption = "date" | "name" | "size";
 type SortDirection = "asc" | "desc";
 
 export default function DocumentsPage() {
-    const { isElectron, listScannedDocuments, openExternal, renameDocument, deleteDocument } = useElectron();
+    // Electron hooks removed
+    const isElectron = false;
+    const listScannedDocuments = async (): Promise<ScannedDoc[]> => [];
+    const openExternal = (_: string) => { };
+    const renameDocument = async (_: string, __: string) => ({ success: false, error: "Not supported in web" });
+    const deleteDocument = async (_: string) => ({ success: false, error: "Not supported in web" });
     const [documents, setDocuments] = useState<ScannedDoc[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
