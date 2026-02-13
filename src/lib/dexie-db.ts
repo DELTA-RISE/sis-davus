@@ -2,7 +2,7 @@ import Dexie, { Table } from 'dexie';
 import {
     Product, Asset, StockMovement, MaintenanceTask,
     Checkout, CostCenter, AuditLog,
-    User, AssetTimeline, WriteOffRequest
+    User, AssetTimeline, WriteOffRequest, Category
 } from './store';
 
 export class SisDavusDB extends Dexie {
@@ -12,6 +12,7 @@ export class SisDavusDB extends Dexie {
     maintenance_tasks!: Table<MaintenanceTask>;
     checkouts!: Table<Checkout>;
     cost_centers!: Table<CostCenter>;
+    categories!: Table<Category>;
 
     admin_audit_logs!: Table<AuditLog>;
     profiles!: Table<User>;
@@ -40,7 +41,8 @@ export class SisDavusDB extends Dexie {
             profiles: 'id, name, email, role',
             asset_timelines: 'id, asset_id, type',
             write_off_requests: 'id, asset_id, user_id, status',
-            sync_queue: '++id, table, status'
+            sync_queue: '++id, table, status',
+            categories: 'id, name, type'
         });
         this.version(2).stores({
             maintenance_tasks: 'id, status, priority, due_date, asset_id, approval_status',

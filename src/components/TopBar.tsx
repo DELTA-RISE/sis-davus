@@ -13,7 +13,8 @@ import {
   saveReadNotifications,
   getDismissedNotifications
 } from "@/lib/localStorage";
-import { getProducts, getAssets, getWriteOffRequests, getMaintenanceTasks } from "@/lib/db";
+// import { getProducts, getAssets, getWriteOffRequests, getMaintenanceTasks } from "@/lib/db";
+import { useNotifications } from "@/hooks/use-queries";
 import { Product, Asset } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { CheckCheck } from "lucide-react";
@@ -56,98 +57,77 @@ export function TopBar() {
   const [isBellAnimating, setIsBellAnimating] = useState(false);
   const [prevUnreadCount, setPrevUnreadCount] = useState(0);
 
-  const [products, setProducts] = useState<Product[]>([]);
-  const [assets, setAssets] = useState<Asset[]>([]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      const [p, a] = await Promise.all([getProducts(), getAssets()]);
-      setProducts(p);
-      setAssets(a);
-    };
-    fetchData();
-  }, []);
+
+  // Reactive Hooks
+  const { data: { products, assets, writeOffs, maintenanceTasks }, isLoading } = useNotifications();
 
   useEffect(() => {
     const readIds = getReadNotifications();
     const dismissedIds = getDismissedNotifications();
 
-    // We need to fetch requests as well, which are not currently in the state
-    // Ideally these would be passed in props or fetched in the same effect if we want to add them to TopBar
-    // For now, let's trigger a fetch here. 
-    // Optimization: Depending on how often TopBar re-renders, this might be heavy. 
-    // But since it's a "local first" app using Dexie, it's fast.
-    const fetchRequests = async () => {
-      const [writeOffs, maintenanceTasks] = await Promise.all([
-        getWriteOffRequests(),
-        getMaintenanceTasks()
-      ]);
+    if (isLoading) return; // Wait for Dexie
 
-      if (!Array.isArray(products) || !Array.isArray(assets)) return;
+    const lowStockNotifs: Notification[] = products
+      .filter(p => p.quantity < p.min_stock)
+      .filter(p => !dismissedIds.includes(`prod-${p.id}`))
+      .map(p => ({
+        id: `prod-${p.id}`,
+        title: "Estoque Baixo",
+        message: `${p.name} está com ${p.quantity} unidades`,
+        time: "Agora",
+        unread: !readIds.includes(`prod-${p.id}`)
+      }));
 
-      const lowStockNotifs: Notification[] = products
-        .filter(p => p.quantity < p.min_stock)
-        .filter(p => !dismissedIds.includes(`prod-${p.id}`))
-        .map(p => ({
-          id: `prod-${p.id}`,
-          title: "Estoque Baixo",
-          message: `${p.name} está com ${p.quantity} unidades`,
-          time: "Agora",
-          unread: !readIds.includes(`prod-${p.id}`)
-        }));
+    const maintenanceNotifs: Notification[] = assets
+      .filter(a => a.condition === "Manutenção")
+      .filter(a => !dismissedIds.includes(`asset-${a.id}`))
+      .map(a => ({
+        id: `asset-${a.id}`,
+        title: "Em Manutenção",
+        message: `${a.name} (${a.code}) está em manutenção`,
+        time: "Agora",
+        unread: !readIds.includes(`asset-${a.id}`)
+      }));
 
-      const maintenanceNotifs: Notification[] = assets
-        .filter(a => a.condition === "Manutenção")
-        .filter(a => !dismissedIds.includes(`asset-${a.id}`))
-        .map(a => ({
-          id: `asset-${a.id}`,
-          title: "Em Manutenção",
-          message: `${a.name} (${a.code}) está em manutenção`,
-          time: "Agora",
-          unread: !readIds.includes(`asset-${a.id}`)
-        }));
+    const writeOffNotifs: Notification[] = writeOffs
+      .filter(r => r.status === 'pending')
+      .map(r => ({
+        id: `writeoff-${r.id}`,
+        title: "Solicitação de Baixa",
+        message: `Nova solicitação para ${r.asset_name || 'Patrimônio'}`,
+        time: new Date(r.created_at || "").toLocaleDateString(),
+        unread: !readIds.includes(`writeoff-${r.id}`)
+      }));
 
-      const writeOffNotifs: Notification[] = writeOffs
-        .filter(r => r.status === 'pending')
-        .map(r => ({
-          id: `writeoff-${r.id}`,
-          title: "Solicitação de Baixa",
-          message: `Nova solicitação para ${r.asset_name || 'Patrimônio'}`,
-          time: new Date(r.created_at || "").toLocaleDateString(),
-          unread: !readIds.includes(`writeoff-${r.id}`)
-        }));
+    const maintenanceRequestNotifs: Notification[] = maintenanceTasks
+      .filter(t => t.approval_status === 'pending')
+      .map(t => ({
+        id: `maint-req-${t.id}`,
+        title: "Solicitação de Manutenção",
+        message: `Solicitação para ${t.asset_name} (${t.priority})`,
+        time: new Date(t.created_at || "").toLocaleDateString(),
+        unread: !readIds.includes(`maint-req-${t.id}`)
+      }));
 
-      const maintenanceRequestNotifs: Notification[] = maintenanceTasks
-        .filter(t => t.approval_status === 'pending')
-        .map(t => ({
-          id: `maint-req-${t.id}`,
-          title: "Solicitação de Manutenção",
-          message: `Solicitação para ${t.asset_name} (${t.priority})`,
-          time: new Date(t.created_at || "").toLocaleDateString(),
-          unread: !readIds.includes(`maint-req-${t.id}`)
-        }));
+    const allNotifs = [...writeOffNotifs, ...maintenanceRequestNotifs, ...lowStockNotifs, ...maintenanceNotifs];
+    setNotifications(allNotifs);
 
-      const allNotifs = [...writeOffNotifs, ...maintenanceRequestNotifs, ...lowStockNotifs, ...maintenanceNotifs];
-      setNotifications(allNotifs);
+    const unreadCount = allNotifs.filter(n => n.unread).length;
+    const hasNewUnread = unreadCount > prevUnreadCount;
 
-      const unreadCount = allNotifs.filter(n => n.unread).length;
-      const hasNewUnread = unreadCount > prevUnreadCount;
+    if (hasNewUnread) {
+      setIsBellAnimating(true);
+      const audio = new Audio("/notification.mp3");
+      audio.play().catch(e => console.log("Erro ao reproduzir som:", e));
+    } else if (unreadCount === 0) {
+      setIsBellAnimating(false);
+    }
 
-      if (hasNewUnread) {
-        setIsBellAnimating(true);
-        const audio = new Audio("/notification.mp3");
-        audio.play().catch(e => console.log("Erro ao reproduzir som:", e));
-      } else if (unreadCount === 0) {
-        setIsBellAnimating(false);
-      }
+    setHasUnread(unreadCount > 0);
+    setPrevUnreadCount(unreadCount);
 
-      setHasUnread(unreadCount > 0);
-      setPrevUnreadCount(unreadCount);
-    };
-
-    fetchRequests();
-
-  }, [products, assets, prevUnreadCount]);
+  }, [products, assets, writeOffs, maintenanceTasks, isLoading, prevUnreadCount]);
 
   const markAsRead = (id: string) => {
     const readIds = getReadNotifications();

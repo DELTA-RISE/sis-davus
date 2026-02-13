@@ -12,7 +12,8 @@ import {
   AuditLog,
   User,
   AssetTimeline,
-  WriteOffRequest
+  WriteOffRequest,
+  Category
 } from './store';
 
 // Helper to parse User Agent
@@ -670,6 +671,15 @@ export const saveCheckout = async (checkout: Partial<Checkout>, userInfo?: { nam
 export const getCostCenters = (forceRefresh = false) => getAll<CostCenter>('cost_centers', 'name', true, forceRefresh);
 export const syncCostCenters = () => syncTable('cost_centers', 'name', true);
 export const saveCostCenter = (cc: Partial<CostCenter>) => upsert<CostCenter>('cost_centers', cc);
+
+// Categories
+export const getCategories = (type: 'insumo' | 'patrimonio', forceRefresh = false) => {
+  return getAll<Category>('categories', 'name', true, forceRefresh)
+    .then(cats => cats.filter(c => c.type === type));
+};
+export const syncCategories = () => syncTable('categories', 'name', true);
+export const saveCategory = (category: Partial<Category>) => upsert<Category>('categories', category);
+export const deleteCategory = (id: string) => remove('categories', id);
 
 
 

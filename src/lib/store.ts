@@ -201,6 +201,14 @@ export interface PatrimonioCategory {
   created_at?: string;
 }
 
+export interface Category {
+  id: string;
+  name: string;
+  description?: string;
+  type: 'insumo' | 'patrimonio';
+  created_at?: string;
+}
+
 // Mock Data
 export const mockProducts: Product[] = [
   {

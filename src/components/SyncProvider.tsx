@@ -5,6 +5,8 @@ import { supabase } from "@/lib/supabase";
 import { processSyncQueue } from "@/lib/offline-sync";
 import { toast } from "sonner";
 
+import { RealtimeManager } from "@/components/RealtimeManager";
+
 export function SyncProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const handleOnline = () => {
@@ -30,5 +32,10 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  return <>{children}</>;
+  return (
+    <>
+      <RealtimeManager />
+      {children}
+    </>
+  );
 }

@@ -107,3 +107,34 @@ export function useCostCenters() {
     });
     return { costCenters: list || [], isLoading: list === undefined };
 }
+
+export function useCategories(type: 'insumo' | 'patrimonio') {
+    const list = useLiveQuery(async () => {
+        return await db.categories.where('type').equals(type).sortBy('name');
+    }, [type]);
+    return { categories: list || [], isLoading: list === undefined };
+}
+
+export function useNotifications() {
+    // Aggregates data for notifications
+    const data = useLiveQuery(async () => {
+        const [products, assets, writeOffs, maintenanceTasks] = await Promise.all([
+            db.products.toArray(),
+            db.assets.toArray(),
+            db.write_off_requests.toArray(),
+            db.maintenance_tasks.toArray()
+        ]);
+
+        return {
+            products: products.filter(p => !p.deleted_at),
+            assets: assets.filter(a => !a.deleted_at),
+            writeOffs,
+            maintenanceTasks
+        };
+    });
+
+    return {
+        data: data || { products: [], assets: [], writeOffs: [], maintenanceTasks: [] },
+        isLoading: data === undefined
+    };
+}
