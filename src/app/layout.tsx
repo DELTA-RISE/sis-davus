@@ -24,11 +24,11 @@ const sora = Sora({
 export const metadata: Metadata = {
   title: "SIS DAVUS - Controle de Estoque e Patrimônio",
   description: "Otimize a gestão do seu patrimônio e estoque com o SIS DAVUS. Controle total, do físico ao digital.",
-  metadataBase: new URL("https://sis-davus.netlify.app"),
+  metadataBase: new URL("https://app-davus.vercel.app"),
   openGraph: {
     type: "website",
     locale: "pt_BR",
-    url: "https://sis-davus.netlify.app/",
+    url: "https://app-davus.vercel.app/",
     title: "SIS DAVUS - Controle de Estoque e Patrimônio",
     description: "Otimize a gestão do seu patrimônio e estoque com o SIS DAVUS. Controle total, do físico ao digital.",
     siteName: "SIS DAVUS",
@@ -77,8 +77,10 @@ export default function RootLayout({
             <CustomCursor />
             <SyncProvider>
               <GlobalDropZone />
-              <LockScreen />
-              <LayoutWrapper>{children}</LayoutWrapper>
+              <LayoutWrapper>
+                <LockScreen />
+                {children}
+              </LayoutWrapper>
 
 
               <JsonLd />
