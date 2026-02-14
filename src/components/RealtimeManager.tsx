@@ -2,68 +2,71 @@
 
 import { useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import {
-    syncTable,
-    syncAssets,
-    syncCategories,
-    syncCostCenters,
-    syncUsers
-} from "@/lib/db";
+import { db } from "@/lib/dexie-db";
 import { toast } from "sonner";
+import { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 
 export function RealtimeManager() {
     useEffect(() => {
-        // We can group subscriptions or have separate channels.
-        // A single channel for everything is often simpler if volume is low.
+        // Function to handle granular updates
+        const handleRealtimeEvent = async (table: string, payload: RealtimePostgresChangesPayload<any>) => {
+            const { eventType, new: newRecord, old: oldRecord } = payload;
+
+            console.log(`Realtime event [${table}]: ${eventType}`, payload);
+
+            try {
+                if (eventType === 'INSERT' || eventType === 'UPDATE') {
+                    // Update Dexie with the new record
+                    // We trust Supabase RLS; if we receive it, we should see it.
+                    if (newRecord) {
+                        await db.table(table).put(newRecord);
+                        // Optional: logic to notify UI if not using useLiveQuery
+                    }
+                } else if (eventType === 'DELETE') {
+                    // Remove from Dexie
+                    if (oldRecord && oldRecord.id) {
+                        await db.table(table).delete(oldRecord.id);
+                    }
+                }
+            } catch (error) {
+                console.error(`Error handling realtime event for ${table}:`, error);
+            }
+        };
+
         const channel = supabase.channel('global-changes');
 
         channel
             // Users / Profiles
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
-                console.log('Realtime: profiles updated');
-                syncUsers();
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, (payload) => {
+                handleRealtimeEvent('profiles', payload);
             })
             // Categories
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, () => {
-                console.log('Realtime: categories updated');
-                syncCategories();
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, (payload) => {
+                handleRealtimeEvent('categories', payload);
             })
             // Cost Centers
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'cost_centers' }, () => {
-                console.log('Realtime: cost_centers updated');
-                syncCostCenters();
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'cost_centers' }, (payload) => {
+                handleRealtimeEvent('cost_centers', payload);
             })
-            // Products (Global sync for low stock alerts etc, though pages usually have their own)
-            // It's safe to sync again or rely on this global one.
-            // If pages also subscribe, we might get double syncs.
-            // But `syncTable` is relatively cheap if data hasn't changed much (but it does clear/fill).
-            // Optimization: Only sync if not on a specific page? Or let the pages handle their own?
-            // The request is "Full System Realtime".
-            // TopBar needs product updates even if not on /estoque.
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => {
-                console.log('Realtime: products updated');
-                // We use the generic syncTable here.
-                // NOTE: `getProducts` in db.ts uses specific filtering. `syncTable` pulls ALL (active?).
-                // Check db.ts: `syncTable` pulls `select *`.
-                // If the user is a manager, they might pull data they shouldn't see?
-                // RLS on Supabase should prevent fetching restricted row.
-                // So `syncTable` is safe IF RLS is set up correctly.
-                syncTable('products', 'name', true);
+            // Products
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, (payload) => {
+                handleRealtimeEvent('products', payload);
             })
             // Assets
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'assets' }, () => {
-                console.log('Realtime: assets updated');
-                syncAssets();
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'assets' }, (payload) => {
+                handleRealtimeEvent('assets', payload);
             })
-            // Write Off Requests (for notifications)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'write_off_requests' }, () => {
-                console.log('Realtime: write_off_requests updated');
-                syncTable('write_off_requests');
+            // Write Off Requests
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'write_off_requests' }, (payload) => {
+                 handleRealtimeEvent('write_off_requests', payload);
             })
-            // Maintenance Tasks (for notifications)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'maintenance_tasks' }, () => {
-                console.log('Realtime: maintenance_tasks updated');
-                syncTable('maintenance_tasks'); // We might need a syncMaintenanceTasks if filtering is complex
+            // Maintenance Tasks
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'maintenance_tasks' }, (payload) => {
+                 handleRealtimeEvent('maintenance_tasks', payload);
+            })
+            // Stock Movements
+             .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_movements' }, (payload) => {
+                 handleRealtimeEvent('stock_movements', payload);
             })
             .subscribe((status) => {
                 if (status === 'SUBSCRIBED') {
@@ -76,5 +79,5 @@ export function RealtimeManager() {
         };
     }, []);
 
-    return null; // Headless component
+    return null;
 }

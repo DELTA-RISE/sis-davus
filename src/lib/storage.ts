@@ -71,3 +71,26 @@ export const getSignedUrl = async (bucket: StorageBucket, path: string, expiresI
 
     return data.signedUrl;
 };
+
+/**
+ * Gets an optimized URL for an image using Supabase Image Transformations.
+ * @param bucket - The storage bucket.
+ * @param path - The file path.
+ * @param options - Transformation options (width, height, quality, resize).
+ * @returns The optimized public URL.
+ */
+export const getOptimizedImageUrl = (
+    bucket: StorageBucket,
+    path: string,
+    options: { width?: number; height?: number; quality?: number; resize?: 'cover' | 'contain' | 'fill' } = {}
+) => {
+    const { data } = supabase.storage.from(bucket).getPublicUrl(path, {
+        transform: {
+            width: options.width,
+            height: options.height,
+            quality: options.quality || 80,
+            resize: options.resize || 'cover',
+        },
+    });
+    return data.publicUrl;
+};
