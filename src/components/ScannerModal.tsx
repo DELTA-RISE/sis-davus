@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Scan, FileText, Loader2, Download, Upload, Type } from "lucide-react";
+import { Scan, FileText, Loader2, Download, Type } from "lucide-react";
 // import { useElectron } from "@/hooks/use-electron";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -38,7 +38,7 @@ export function ScannerModal({ isOpen, onClose, onScanComplete }: ScannerModalPr
         // OR we can just rely on the API. 
         // Actually, 'file.path' is exposed in Electron renderer for File objects!
 
-        const path = (file as any).path;
+        // const path = (file as any).path;
         // In Web, path is undefined. We pass the file object directly.
 
         setScanning(true);

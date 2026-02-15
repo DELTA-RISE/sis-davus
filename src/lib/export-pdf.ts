@@ -1,6 +1,6 @@
 
 import jsPDF from "jspdf";
-import autoTable, { UserOptions } from "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import { Product, Asset, MaintenanceTask } from "./store";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -8,31 +8,46 @@ import { ptBR } from "date-fns/locale";
 // --- Constants ---
 const BRAND_ORANGE = "#ff5d38";
 const BRAND_DARK = "#181a1c";
-const BRAND_GREY = "#2b2b2b";
 const BRAND_LIGHT = "#ffffff";
+
+// Helper Interface for AutoTable plugin
+interface JsPDFWithAutoTable extends jsPDF {
+    lastAutoTable?: {
+        finalY: number;
+    };
+}
 
 // Helper to load image
 async function getLogoBase64(): Promise<string> {
-    return new Promise(async (resolve) => {
-        try {
-            const response = await fetch("/davus-logo.png"); // Using black/colored logo for white paper if available, or white if dark bg. Let's assume standard logo.
-            // Actually standard pdf is white background, so we want the dark logo or orange. 
-            // If we don't have a specific pdf logo, we might use the white one and put a dark background header?
-            // Let's try to fetch the white one and we'll draw a dark rect behind it.
-            const res = await fetch("/davus-logo-white.png");
-            if (!res.ok) throw new Error("Logo not found");
-            const blob = await res.blob();
+    try {
+        const response = await fetch("/davus-logo.png");
+        // Try white logo specific for PDF if needed, but let's stick to simple logic matching original intent
+        // The original code nested fetch in new Promise(async...), which is bad practice.
+        // We'll clean this up.
+
+        const res = await fetch("/davus-logo-white.png");
+        if (!res.ok) throw new Error("Logo not found");
+
+        const blob = await res.blob();
+
+        return new Promise<string>((resolve) => {
             const reader = new FileReader();
             reader.onloadend = () => resolve(reader.result as string);
             reader.onerror = () => resolve("");
             reader.readAsDataURL(blob);
-        } catch (e) {
-            resolve("");
-        }
-    });
+        });
+    } catch (_e) {
+        return "";
+    }
 }
 
 // --- Base PDF Setup ---
+// ... (rest of the file is largely fine, but need to fix the any usage in exportOverviewPDF)
+
+// ...
+
+// Re-implementing functions with fixes:
+
 async function createPDFBase(title: string): Promise<jsPDF> {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.width;
@@ -44,7 +59,7 @@ async function createPDFBase(title: string): Promise<jsPDF> {
     // 2. Logo
     const logo = await getLogoBase64();
     if (logo) {
-        doc.addImage(logo, "PNG", 15, 10, 40, 15); // Adjust dimensions as needed
+        doc.addImage(logo, "PNG", 15, 10, 40, 15);
     } else {
         doc.setTextColor(BRAND_LIGHT);
         doc.setFontSize(20);
@@ -67,16 +82,9 @@ async function createPDFBase(title: string): Promise<jsPDF> {
     doc.setFont("helvetica", "normal");
     doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR })}`, pageWidth - 15, 32, { align: "right" });
 
-    // 4. Footer Helper
-    const pageHeight = doc.internal.pageSize.height;
-    // We can't easily hook into every page add here without a plugin, 
-    // but autoTable has hooks for page footer.
-    // We will handle footer in the main export function by iterating pages or using autoTable hooks.
-
     return doc;
 }
 
-// --- Footer Function ---
 function addFooter(doc: jsPDF) {
     const pageCount = doc.getNumberOfPages();
     const pageWidth = doc.internal.pageSize.width;
@@ -85,7 +93,6 @@ function addFooter(doc: jsPDF) {
     for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
 
-        // Footer Line
         doc.setDrawColor(BRAND_ORANGE);
         doc.setLineWidth(0.5);
         doc.line(15, pageHeight - 15, pageWidth - 15, pageHeight - 15);
@@ -97,12 +104,9 @@ function addFooter(doc: jsPDF) {
     }
 }
 
-// --- Export Functions ---
-
 export async function exportProductsPDF(products: Product[]) {
     const doc = await createPDFBase("Relatório de Estoque");
 
-    // Summary Metrics (Simple Text for now to fit in PDF structure)
     const totalValue = products.reduce((acc, p) => acc + (p.quantity * (p.unit_price || 0)), 0);
     const lowStock = products.filter(p => p.quantity < (p.min_stock || 0)).length;
 
@@ -114,7 +118,7 @@ export async function exportProductsPDF(products: Product[]) {
         p.sku,
         p.name,
         p.category,
-        p.location,
+        p.location || '-',
         p.quantity,
         `R$ ${(p.unit_price || 0).toFixed(2)}`,
         `R$ ${(p.quantity * (p.unit_price || 0)).toFixed(2)}`
@@ -126,11 +130,10 @@ export async function exportProductsPDF(products: Product[]) {
         body: tableData,
         theme: 'grid',
         headStyles: { fillColor: BRAND_ORANGE, textColor: BRAND_LIGHT, fontStyle: 'bold' },
-        alternateRowStyles: { fillColor: [248, 248, 248] }, // Light gray
+        alternateRowStyles: { fillColor: [248, 248, 248] },
         styles: { fontSize: 8, cellPadding: 3 },
         columnStyles: {
             0: { cellWidth: 20 },
-            // 1: Name (Auto)
             2: { cellWidth: 25 },
             3: { cellWidth: 25 },
             4: { cellWidth: 15, halign: 'center' },
@@ -158,7 +161,7 @@ export async function exportAssetsPDF(assets: Asset[]) {
         a.category,
         a.location,
         a.condition,
-        a.responsible,
+        a.assigned_to || '-', // Fixed: responsible -> assigned_to
         `R$ ${(a.value || 0).toFixed(2)}`
     ]);
 
@@ -172,9 +175,6 @@ export async function exportAssetsPDF(assets: Asset[]) {
         styles: { fontSize: 8, cellPadding: 3 },
         columnStyles: {
             0: { cellWidth: 20 },
-            // 1: Name
-            // 2: Cat
-            // 3: Loc
             4: { cellWidth: 20 },
             5: { cellWidth: 25 },
             6: { cellWidth: 25, halign: 'right' },
@@ -188,8 +188,9 @@ export async function exportAssetsPDF(assets: Asset[]) {
 export async function exportMaintenancePDF(tasks: MaintenanceTask[]) {
     const doc = await createPDFBase("Relatório de Manutenção");
 
-    const pending = tasks.filter(t => t.status !== 'concluido').length;
-    const overdue = tasks.filter(t => t.status !== 'concluido' && t.due_date && new Date(t.due_date) < new Date()).length;
+    // Fixed: 'concluido' -> 'Concluída' (matching store.ts definition)
+    const pending = tasks.filter(t => t.status !== 'Concluída').length;
+    const overdue = tasks.filter(t => t.status !== 'Concluída' && t.due_date && new Date(t.due_date) < new Date()).length;
 
     doc.setFontSize(10);
     doc.setTextColor(0, 0, 0);
@@ -204,7 +205,6 @@ export async function exportMaintenancePDF(tasks: MaintenanceTask[]) {
         t.assigned_to || "-"
     ]);
 
-    // Color logic for cells? autoTable supports didParseCell
     autoTable(doc, {
         startY: 55,
         head: [["Título", "Ativo", "Prioridade", "Status", "Vencimento", "Responsável"]],
@@ -223,8 +223,9 @@ export async function exportMaintenancePDF(tasks: MaintenanceTask[]) {
             }
             if (data.section === 'body' && data.column.index === 3) { // Status
                 const val = data.cell.raw as string;
-                if (val !== 'CONCLUIDO') {
-                    // maybe orange
+                if (val !== 'CONCLUÍDA' && val !== 'CONCLUIDA') { // Upper case check might vary on accent
+                    // The .toUpperCase() in map makes it 'CONCLUÍDA' (with accent if original had it)
+                    // store.ts says 'Concluída', so .toUpperCase() is 'CONCLUÍDA'.
                 }
             }
         }
@@ -242,16 +243,13 @@ export async function exportOverviewPDF(products: Product[], assets: Asset[], ta
     const totalAssetValue = assets.reduce((acc, a) => acc + (a.value || 0), 0);
     const lowStock = products.filter(p => p.quantity < (p.min_stock || 0));
     const criticalStock = products.filter(p => p.quantity === 0);
-    const pendingMaintenance = tasks.filter(t => t.status !== 'concluido').length;
-    const overdueMaintenance = tasks.filter(t => t.status !== 'concluido' && t.due_date && new Date(t.due_date) < new Date()).length;
+
+    // Fixed: 'concluido' -> 'Concluída'
+    const pendingMaintenance = tasks.filter(t => t.status !== 'Concluída').length;
+    const overdueMaintenance = tasks.filter(t => t.status !== 'Concluída' && t.due_date && new Date(t.due_date) < new Date()).length;
+
     const assetsInMaintenance = assets.filter(a => a.condition === "Manutenção").length;
 
-    // Monthly movements
-    const currentMonth = new Date().getMonth();
-    const currentYear = new Date().getFullYear();
-
-
-    // Summary Section - Expanded
     doc.setFontSize(12);
     doc.setTextColor(BRAND_ORANGE);
     doc.setFont("helvetica", "bold");
@@ -266,7 +264,6 @@ export async function exportOverviewPDF(products: Product[], assets: Asset[], ta
     const col1X = 15;
     const col2X = 110;
 
-    // Column 1
     doc.text(`Valor Total em Estoque: R$ ${totalStockValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, col1X, yStart);
     doc.text(`Valor Patrimonial: R$ ${totalAssetValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, col1X, yStart + lineHeight);
     doc.setFont("helvetica", "bold");
@@ -274,7 +271,6 @@ export async function exportOverviewPDF(products: Product[], assets: Asset[], ta
     doc.setFont("helvetica", "normal");
     doc.text(`Itens com Estoque Baixo: ${lowStock.length}`, col1X, yStart + lineHeight * 3);
 
-    // Column 2
     doc.text(`Itens Esgotados: ${criticalStock.length}`, col2X, yStart);
     doc.text(`Manutenções Pendentes: ${pendingMaintenance}`, col2X, yStart + lineHeight);
     doc.text(`Manutenções Atrasadas: ${overdueMaintenance}`, col2X, yStart + lineHeight * 2);
@@ -282,7 +278,6 @@ export async function exportOverviewPDF(products: Product[], assets: Asset[], ta
 
     let currentY = yStart + lineHeight * 5;
 
-    // Top 5 Produtos Mais Valiosos
     const topProducts = [...products]
         .map(p => ({ ...p, totalValue: p.quantity * (p.unit_price || 0) }))
         .sort((a, b) => b.totalValue - a.totalValue)
@@ -312,10 +307,9 @@ export async function exportOverviewPDF(products: Product[], assets: Asset[], ta
             styles: { fontSize: 8, cellPadding: 2 },
         });
 
-        currentY = (doc as any).lastAutoTable?.finalY + 10 || currentY + 50;
+        currentY = (doc as JsPDFWithAutoTable).lastAutoTable?.finalY ? (doc as JsPDFWithAutoTable).lastAutoTable!.finalY + 10 : currentY + 50;
     }
 
-    // Top 5 Ativos Mais Valiosos
     const topAssets = [...assets]
         .sort((a, b) => (b.value || 0) - (a.value || 0))
         .slice(0, 5);
@@ -343,10 +337,9 @@ export async function exportOverviewPDF(products: Product[], assets: Asset[], ta
             styles: { fontSize: 8, cellPadding: 2 },
         });
 
-        currentY = (doc as any).lastAutoTable?.finalY + 10 || currentY + 50;
+        currentY = (doc as JsPDFWithAutoTable).lastAutoTable?.finalY ? (doc as JsPDFWithAutoTable).lastAutoTable!.finalY + 10 : currentY + 50;
     }
 
-    // Critical Stock Alert
     if (criticalStock.length > 0) {
         doc.setFontSize(11);
         doc.setTextColor(239, 68, 68);
@@ -356,7 +349,7 @@ export async function exportOverviewPDF(products: Product[], assets: Asset[], ta
         const criticalData = criticalStock.slice(0, 10).map(p => [
             p.name,
             p.category,
-            p.location
+            p.location || '-' // Fixed potential undefined
         ]);
 
         autoTable(doc, {
@@ -369,10 +362,9 @@ export async function exportOverviewPDF(products: Product[], assets: Asset[], ta
             styles: { fontSize: 8, cellPadding: 2 },
         });
 
-        currentY = (doc as any).lastAutoTable?.finalY + 10 || currentY + 50;
+        currentY = (doc as JsPDFWithAutoTable).lastAutoTable?.finalY ? (doc as JsPDFWithAutoTable).lastAutoTable!.finalY + 10 : currentY + 50;
     }
 
-    // Low Stock Alert Table (if not critical)
     const lowStockNotCritical = lowStock.filter(p => p.quantity > 0);
     if (lowStockNotCritical.length > 0) {
         doc.setFontSize(11);
@@ -397,13 +389,13 @@ export async function exportOverviewPDF(products: Product[], assets: Asset[], ta
             styles: { fontSize: 8, cellPadding: 2 },
         });
 
-        currentY = (doc as any).lastAutoTable?.finalY + 10 || currentY + 50;
+        currentY = (doc as JsPDFWithAutoTable).lastAutoTable?.finalY ? (doc as JsPDFWithAutoTable).lastAutoTable!.finalY + 10 : currentY + 50;
     }
 
-    // Maintenance Alerts
-    const lateTasks = tasks.filter(t => t.status !== 'concluido' && t.due_date && new Date(t.due_date) < new Date()).slice(0, 10);
+    // Fixed: 'concluido' -> 'Concluída'
+    const lateTasks = tasks.filter(t => t.status !== 'Concluída' && t.due_date && new Date(t.due_date) < new Date()).slice(0, 10);
     if (lateTasks.length > 0) {
-        const nextY = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 10 : currentY;
+        const nextY = (doc as JsPDFWithAutoTable).lastAutoTable?.finalY ? (doc as JsPDFWithAutoTable).lastAutoTable!.finalY + 10 : currentY;
 
         doc.setFontSize(11);
         doc.setTextColor(239, 68, 68);
@@ -431,4 +423,3 @@ export async function exportOverviewPDF(products: Product[], assets: Asset[], ta
     addFooter(doc);
     doc.save(`relatorio_gerencial_${format(new Date(), "yyyy-MM-dd")}.pdf`);
 }
-

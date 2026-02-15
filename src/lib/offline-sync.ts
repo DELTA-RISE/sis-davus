@@ -7,7 +7,7 @@ import { supabase } from "./supabase";
 export async function addToSyncQueue(action: {
   table: string;
   action: 'upsert' | 'delete';
-  payload: any;
+  payload: Record<string, unknown>;
 }) {
   try {
     await db.sync_queue.add({
@@ -57,22 +57,24 @@ export async function processSyncQueue() {
       // Remove from queue on success
       await db.sync_queue.delete(item.id!);
       successCount++;
-    } catch (err: any) {
-      console.error(`Failed to sync item ${item.id}:`, err);
+    } catch (err: unknown) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const error = err as any;
+      console.error(`Failed to sync item ${item.id}:`, error);
 
       // Check for permanent errors that shouldn't be retried
       const isPermanentError =
-        err.code === '23514' || // Check violation
-        err.code === '23505' || // Unique violation
-        err.code === 'PGRST204' || // Column not found
-        err.code === '42703' || // Undefined column
-        (err.code && err.code.startsWith('22')) || // Data exception
-        (err.status >= 400 && err.status < 500); // Client errors
+        error.code === '23514' || // Check violation
+        error.code === '23505' || // Unique violation
+        error.code === 'PGRST204' || // Column not found
+        error.code === '42703' || // Undefined column
+        (error.code && error.code.startsWith('22')) || // Data exception
+        (error.status >= 400 && error.status < 500); // Client errors
 
       if (isPermanentError) {
         console.warn(`Cleaned up failing sync item ${item.id} due to permanent error:`, item.payload);
         await db.sync_queue.delete(item.id!);
-        toast.error(`Erro de sincronização permanente removido: ${err.message}`);
+        toast.error(`Erro de sincronização permanente removido: ${error.message}`);
       } else {
         // Revert to pending (or maybe mark as failed if it's a permanent error?)
         // For now, keep as pending to retry later

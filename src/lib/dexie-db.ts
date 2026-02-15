@@ -22,7 +22,7 @@ export class SisDavusDB extends Dexie {
         id?: number;
         table: string;
         action: 'upsert' | 'delete';
-        payload: any;
+        payload: Record<string, unknown>;
         timestamp: number;
         status: 'pending' | 'syncing' | 'failed';
     }>;

@@ -45,7 +45,12 @@ export function FAQ() {
     );
 }
 
-function AccordionItem({ faq, index }: { faq: any, index: number }) {
+interface FAQItem {
+    question: string;
+    answer: string;
+}
+
+function AccordionItem({ faq, index }: { faq: FAQItem, index: number }) {
     const [isOpen, setIsOpen] = useState(false);
 
     return (

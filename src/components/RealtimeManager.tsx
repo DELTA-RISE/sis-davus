@@ -9,7 +9,7 @@ import { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 export function RealtimeManager() {
     useEffect(() => {
         // Function to handle granular updates
-        const handleRealtimeEvent = async (table: string, payload: RealtimePostgresChangesPayload<any>) => {
+        const handleRealtimeEvent = async (table: string, payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
             const { eventType, new: newRecord, old: oldRecord } = payload;
 
             console.log(`Realtime event [${table}]: ${eventType}`, payload);
@@ -25,7 +25,7 @@ export function RealtimeManager() {
                 } else if (eventType === 'DELETE') {
                     // Remove from Dexie
                     if (oldRecord && oldRecord.id) {
-                        await db.table(table).delete(oldRecord.id);
+                        await db.table(table).delete(oldRecord.id as string);
                     }
                 }
             } catch (error) {
@@ -58,15 +58,15 @@ export function RealtimeManager() {
             })
             // Write Off Requests
             .on('postgres_changes', { event: '*', schema: 'public', table: 'write_off_requests' }, (payload) => {
-                 handleRealtimeEvent('write_off_requests', payload);
+                handleRealtimeEvent('write_off_requests', payload);
             })
             // Maintenance Tasks
             .on('postgres_changes', { event: '*', schema: 'public', table: 'maintenance_tasks' }, (payload) => {
-                 handleRealtimeEvent('maintenance_tasks', payload);
+                handleRealtimeEvent('maintenance_tasks', payload);
             })
             // Stock Movements
-             .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_movements' }, (payload) => {
-                 handleRealtimeEvent('stock_movements', payload);
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_movements' }, (payload) => {
+                handleRealtimeEvent('stock_movements', payload);
             })
             .subscribe((status) => {
                 if (status === 'SUBSCRIBED') {

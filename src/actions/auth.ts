@@ -12,11 +12,11 @@ interface CreateUserData {
 interface AuditContext {
     userName: string;
     userId: string;
-    deviceInfo?: any;
+    deviceInfo?: Record<string, unknown>;
     ip?: string;
 }
 
-export async function createUserAction(data: CreateUserData, audit: AuditContext): Promise<{ success: boolean; error?: string; tempPassword?: string }> {
+export async function createUserAction(data: CreateUserData, _audit: AuditContext): Promise<{ success: boolean; error?: string; tempPassword?: string }> {
     try {
         if (!supabaseAdmin || !supabaseAdmin.auth) {
             return { success: false, error: "Administrative actions are not configured in this environment (Service Role Key missing)." };
@@ -25,7 +25,7 @@ export async function createUserAction(data: CreateUserData, audit: AuditContext
         // Generate a random temporary password
         const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
 
-        const { data: user, error } = await supabaseAdmin.auth.admin.createUser({
+        const { error } = await supabaseAdmin.auth.admin.createUser({
             email: data.email,
             password: tempPassword,
             email_confirm: true,
@@ -50,13 +50,14 @@ export async function createUserAction(data: CreateUserData, audit: AuditContext
             success: true,
             tempPassword
         };
-    } catch (e: any) {
+    } catch (e: unknown) {
         console.error("Unexpected error in createUserAction:", e);
-        return { success: false, error: e.message || "Unknown error" };
+        const errorMessage = e instanceof Error ? e.message : "Unknown error";
+        return { success: false, error: errorMessage };
     }
 }
 
-export async function deleteUserAction(userId: string, audit: AuditContext) {
+export async function deleteUserAction(userId: string, _audit: AuditContext) {
     try {
         if (!supabaseAdmin || !supabaseAdmin.auth) {
             return { success: false, error: "Administrative actions are not configured in this environment." };
@@ -70,9 +71,10 @@ export async function deleteUserAction(userId: string, audit: AuditContext) {
         }
 
         return { success: true };
-    } catch (e: any) {
+    } catch (e: unknown) {
         console.error("Unexpected error in deleteUserAction:", e);
-        return { success: false, error: e.message || "Unknown error" };
+        const errorMessage = e instanceof Error ? e.message : "Unknown error";
+        return { success: false, error: errorMessage };
     }
 }
 
@@ -92,8 +94,9 @@ export async function updateUserPasswordAction(userId: string, newPassword: stri
         }
 
         return { success: true };
-    } catch (e: any) {
+    } catch (e: unknown) {
         console.error("Unexpected error in updateUserPasswordAction:", e);
-        return { success: false, error: e.message || "Unknown error" };
+        const errorMessage = e instanceof Error ? e.message : "Unknown error";
+        return { success: false, error: errorMessage };
     }
 }

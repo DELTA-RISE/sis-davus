@@ -1,8 +1,8 @@
 "use client";
 
-import { useRef, useMemo } from "react";
+import { useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { Float, MeshTransmissionMaterial, Text, Trail } from "@react-three/drei";
+import { Float, MeshTransmissionMaterial } from "@react-three/drei";
 import * as THREE from "three";
 import { useScrollStore } from "@/lib/landing-store";
 import { MorphingSphere } from "./MorphingSphere";
@@ -21,7 +21,6 @@ export function Scene() {
     const shieldRef = useRef<THREE.Mesh>(null);
     const ring1Ref = useRef<THREE.Mesh>(null);
     const ring2Ref = useRef<THREE.Mesh>(null);
-    const ring3Ref = useRef<THREE.Mesh>(null);
 
 
 
@@ -35,16 +34,7 @@ export function Scene() {
         // 0.6 - 1.0: SECURITY (Icosahedron/Shield + Stability)
 
         // Helper for smooth opacity/scale transitions
-        const getPhaseIntensity = (start: number, end: number) => {
-            // 0.1 buffer for transition
-            if (scrollProgress < start) return 0;
-            if (scrollProgress > end) return 0;
-            // Fade in
-            if (scrollProgress < start + 0.1) return (scrollProgress - start) * 10;
-            // Fade out
-            if (scrollProgress > end - 0.1) return (end - scrollProgress) * 10;
-            return 1;
-        };
+
 
         // Phase 1: Data Core (Default) - Fades out as we scroll deep
         const phase1 = 1 - THREE.MathUtils.smoothstep(scrollProgress, 0.1, 0.3);

@@ -14,8 +14,14 @@ const logs = [
     { text: "System ready. Welcome, Operator.", delay: 2000, type: "success" },
 ];
 
+interface LogLine {
+    text: string;
+    delay?: number;
+    type?: string;
+}
+
 export function TypingTerminal() {
-    const [lines, setLines] = useState<any[]>([]);
+    const [lines, setLines] = useState<LogLine[]>([]);
     const [currentLineIndex, setCurrentLineIndex] = useState(0);
     const scrollRef = useRef<HTMLDivElement>(null);
 

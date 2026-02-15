@@ -94,7 +94,7 @@ export interface AuditLog {
   action: string;
   resource: string; // Was entity
   resource_id?: string; // Was entity_id
-  details: any; // JSONB
+  details: Record<string, unknown>; // JSONB
   ip_address?: string; // Was ip
   user_agent?: string;
   // Deprecated/Converted fields helper
@@ -127,7 +127,7 @@ export interface MaintenanceStep {
   completed: boolean;
   completed_by?: string;
   completed_at?: string;
-  data?: any; // Form data for this step
+  data?: Record<string, unknown>; // Form data for this step
 }
 
 export interface MaintenanceTask {

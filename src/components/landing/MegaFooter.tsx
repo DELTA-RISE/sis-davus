@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Github, Twitter, Linkedin, Instagram, ArrowUpRight } from "lucide-react";
+import { Github, Twitter, Linkedin, Instagram, ArrowUpRight, LucideIcon } from "lucide-react";
 
 export function MegaFooter() {
     return (
@@ -80,7 +80,7 @@ export function MegaFooter() {
     );
 }
 
-function SocialLink({ icon: Icon, href }: { icon: any, href: string }) {
+function SocialLink({ icon: Icon, href }: { icon: LucideIcon, href: string }) {
     return (
         <Link
             href={href}

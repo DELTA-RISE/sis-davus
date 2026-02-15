@@ -1,8 +1,8 @@
 "use client";
 
-import { useScroll, useTransform, motion, useMotionValueEvent } from "framer-motion";
+import { useScroll, motion, useMotionValueEvent } from "framer-motion";
 import { useRef } from "react";
-import { Database, ArrowLeftRight, BarChart3, CheckCircle2 } from "lucide-react";
+import { Database, ArrowLeftRight, BarChart3, LucideIcon } from "lucide-react";
 import { useScrollStore } from "@/lib/landing-store";
 
 const steps = [
@@ -50,7 +50,14 @@ export function StickyScrollGuide() {
     );
 }
 
-function ScrollStep({ step, index, total }: any) {
+interface Step {
+    title: string;
+    description: string;
+    icon: LucideIcon;
+    color: string;
+}
+
+function ScrollStep({ step, index, total }: { step: Step, index: number, total: number }) {
     return (
         <motion.div
             initial={{ opacity: 0, y: 50 }}

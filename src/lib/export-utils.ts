@@ -280,7 +280,7 @@ async function exportProductsXLSX(products: Product[], filename: string) {
   worksheet.autoFilter = { from: { row: 5, column: 1 }, to: { row: 5, column: columns.length } };
 
   // Data
-  products.forEach((p: any, i) => {
+  products.forEach((p, i) => {
     const rowIdx = 6 + i;
     const row = worksheet.getRow(rowIdx);
 
@@ -365,7 +365,7 @@ async function exportAssetsXLSX(assets: Asset[], filename: string) {
   const maintenanceCount = assets.filter(a => a.condition === "Manutenção").length;
 
   // New Metrics
-  const unassignedAssets = assets.filter(a => !a.responsible || a.responsible === "N/A" || a.responsible === "").length;
+  const unassignedAssets = assets.filter(a => !a.assigned_to || a.assigned_to === "N/A" || a.assigned_to === "").length;
   const uniqueCategories = new Set(assets.map(a => a.category)).size;
   const avgAssetValue = totalAssets > 0 ? totalValue / totalAssets : 0;
 
@@ -449,7 +449,7 @@ async function exportAssetsXLSX(assets: Asset[], filename: string) {
   // --- Breakdown by Condition (Row 13) ---
   // Count stats
   const conditions = {
-    excellent: assets.filter(a => a.condition === "Excelente").length,
+    excellent: assets.filter(a => a.condition === "Novo").length,
     good: assets.filter(a => a.condition === "Bom").length,
     bad: assets.filter(a => a.condition === "Ruim").length,
   };
@@ -480,7 +480,7 @@ async function exportAssetsXLSX(assets: Asset[], filename: string) {
     };
   };
 
-  createMiniCard('B', 14, "Excelente", conditions.excellent, 'FF16A34A');
+  createMiniCard('B', 14, "Novo", conditions.excellent, 'FF16A34A');
   createMiniCard('C', 14, "Bom", conditions.good, BRAND_PRIMARY);
   createMiniCard('D', 14, "Ruim", conditions.bad, 'FFDC2626');
 
@@ -643,7 +643,7 @@ async function exportAssetsXLSX(assets: Asset[], filename: string) {
 
   worksheet.autoFilter = { from: { row: 5, column: 1 }, to: { row: 5, column: columns.length } };
 
-  assets.forEach((item: any, i) => {
+  assets.forEach((item, i) => {
     const rowIdx = 6 + i;
     const row = worksheet.getRow(rowIdx);
     row.getCell(1).value = item.code;
@@ -651,9 +651,9 @@ async function exportAssetsXLSX(assets: Asset[], filename: string) {
     row.getCell(3).value = item.category;
     row.getCell(4).value = item.condition;
     row.getCell(5).value = item.location;
-    row.getCell(6).value = item.responsible;
+    row.getCell(6).value = item.assigned_to;
     row.getCell(7).value = item.value;
-    row.getCell(8).value = item.acquisition_date;
+    row.getCell(8).value = item.purchase_date;
 
     row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
       cell.style = { ...styles.cell };
@@ -698,10 +698,10 @@ async function exportMaintenanceXLSX(tasks: MaintenanceTask[], filename: string)
   const summarySheet = workbook.addWorksheet("Resumo", { views: [{ showGridLines: false }] });
 
   const totalTasks = tasks.length;
-  const pendingTasks = tasks.filter(t => t.status !== 'concluido').length;
+  const pendingTasks = tasks.filter(t => t.status !== 'Concluída').length;
   // Check if due_date is valid and < today
-  const overdueTasks = tasks.filter(t => t.status !== 'concluido' && t.due_date && new Date(t.due_date) < today).length;
-  const completedTasks = tasks.filter(t => t.status === 'concluido').length;
+  const overdueTasks = tasks.filter(t => t.status !== 'Concluída' && t.due_date && new Date(t.due_date) < today).length;
+  const completedTasks = tasks.filter(t => t.status === 'Concluída').length;
 
   // High Priority
   const highPriority = tasks.filter(t => t.priority === 'alta' || t.priority === 'urgente').length;
@@ -768,7 +768,7 @@ async function exportMaintenanceXLSX(tasks: MaintenanceTask[], filename: string)
   // Row 9
   createCard('B', 9, "Atrasadas", overdueTasks, 'red');
   createCard('D', 9, "Alta Prioridade", highPriority, 'red');
-  createCard('F', 9, "Em Andamento", tasks.filter(t => t.status === 'em_andamento').length, 'FFFFD700'); // Gold
+  createCard('F', 9, "Em Andamento", tasks.filter(t => t.status === 'Em Andamento').length, 'FFFFD700'); // Gold
 
   // --- 2. Data Sheet (Relatório) ---
   const worksheet = workbook.addWorksheet("Relatório");
@@ -815,7 +815,7 @@ async function exportMaintenanceXLSX(tasks: MaintenanceTask[], filename: string)
 
   worksheet.autoFilter = { from: { row: 5, column: 1 }, to: { row: 5, column: columns.length } };
 
-  tasks.forEach((item: any, i) => {
+  tasks.forEach((item, i) => {
     const rowIdx = 6 + i;
     const row = worksheet.getRow(rowIdx);
     row.getCell(1).value = item.title;
@@ -824,7 +824,7 @@ async function exportMaintenanceXLSX(tasks: MaintenanceTask[], filename: string)
     row.getCell(4).value = item.status;
     row.getCell(5).value = item.due_date ? new Date(item.due_date).toLocaleDateString('pt-BR') : "";
     row.getCell(6).value = item.assigned_to;
-    row.getCell(7).value = new Date(item.created_at).toLocaleDateString('pt-BR');
+    row.getCell(7).value = item.created_at ? new Date(item.created_at).toLocaleDateString('pt-BR') : "";
 
     row.eachCell({ includeEmpty: true }, (cell) => {
       cell.style = { ...styles.cell };
@@ -862,12 +862,9 @@ async function exportOverviewXLSX(products: Product[], assets: Asset[], tasks: M
   const totalAssetValue = assets.reduce((acc, a) => acc + (a.value || 0), 0);
   const lowStockItems = products.filter(p => p.quantity < (p.min_stock || 0));
   const criticalStock = products.filter(p => p.quantity === 0);
-  const pendingMaintenance = tasks.filter(t => t.status !== 'concluido').length;
-  const overdueMaintenance = tasks.filter(t => t.status !== 'concluido' && t.due_date && new Date(t.due_date) < today).length;
+  const pendingMaintenance = tasks.filter(t => t.status !== 'Concluída').length;
   const assetsInMaintenance = assets.filter(a => a.condition === "Manutenção").length;
 
-  const currentMonth = new Date().getMonth();
-  const currentYear = new Date().getFullYear();
   const monthlyMovements = 0; // Would need movements data
 
   const topProducts = [...products]
@@ -1142,7 +1139,7 @@ async function exportOverviewXLSX(products: Product[], assets: Asset[], tasks: M
     cell.style = { ...styles.header };
   });
 
-  const overdueTasks = tasks.filter(t => t.status !== 'concluido' && t.due_date && new Date(t.due_date) < today);
+  const overdueTasks = tasks.filter(t => t.status !== 'Concluída' && t.due_date && new Date(t.due_date) < today);
   overdueTasks.forEach((t, i) => {
     const rowIdx = maintenanceStartRow + 2 + i;
     const row = alertsSheet.getRow(rowIdx);
@@ -1163,6 +1160,8 @@ async function exportOverviewXLSX(products: Product[], assets: Asset[], tasks: M
   // Add Metadata
   addMetadataSheet(workbook, "Gestor Executivo");
 
+
+
   const buffer = await workbook.xlsx.writeBuffer();
   saveAs(new Blob([buffer]), `${filename}.xlsx`);
 }
@@ -1182,7 +1181,7 @@ export function exportProducts(products: Product[], format: "csv" | "json" | "xl
     { key: "max_stock", label: "Estoque Máx" },
     { key: "location", label: "Local" },
     { key: "unit_price", label: "Preço Unit." },
-    { key: "last_updated", label: "Atualização" },
+    { key: "updated_at", label: "Atualização" },
   ]);
 }
 
@@ -1196,9 +1195,9 @@ export function exportAssets(assets: Asset[], format: "csv" | "json" | "xlsx"): 
     { key: "category", label: "Categoria" },
     { key: "location", label: "Local" },
     { key: "condition", label: "Estado" },
-    { key: "responsible", label: "Responsável" },
+    { key: "assigned_to", label: "Responsável" },
     { key: "value", label: "Valor" },
-    { key: "acquisition_date", label: "Data Aquisição" },
+    { key: "purchase_date", label: "Data Aquisição" },
   ]);
 }
 
@@ -1245,7 +1244,7 @@ export function exportToCSV<T extends object>(data: T[], filename: string, heade
   const headerRow = headers.map((h) => h.label).join(",");
   const rows = data.map((item) =>
     headers.map((h) => {
-      const value = (item as any)[h.key];
+      const value = item[h.key];
       if (value === null || value === undefined) return "";
       if (typeof value === "string" && value.includes(",")) return `"${value}"`;
       return String(value);
@@ -1280,7 +1279,7 @@ export function exportCheckouts(checkouts: Checkout[], format: "csv" | "json"): 
     { key: "quantity", label: "Quantidade" },
     { key: "user_name", label: "Usuário" },
     { key: "status", label: "Status" },
-    { key: "expected_return", label: "Previsão Devolução" },
+    { key: "expected_return_date", label: "Previsão Devolução" },
     { key: "return_date", label: "Data Devolução" },
   ]);
 }

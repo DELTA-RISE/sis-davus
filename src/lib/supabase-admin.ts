@@ -17,5 +17,6 @@ export const supabaseAdmin = (supabaseUrl && supabaseServiceRoleKey)
             persistSession: false,
         },
     })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     : {} as any; // Fallback to avoid crash on client, but will fail if used.
 

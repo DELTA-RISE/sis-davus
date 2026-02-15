@@ -29,7 +29,6 @@ export function useIdle(timeout: number) {
         if (typeof window === 'undefined') return;
 
         let timer: NodeJS.Timeout;
-        let saveInterval: NodeJS.Timeout;
 
         const startTimer = () => {
             if (timer) clearTimeout(timer);
@@ -66,7 +65,7 @@ export function useIdle(timeout: number) {
 
         // Save to storage periodically (every 10s) to keep it relatively fresh
         // but avoid disk IO on every mouse move
-        saveInterval = setInterval(saveTimestamp, 10000);
+        const saveInterval = setInterval(saveTimestamp, 10000);
 
         // Save immediately on visibility change (tab switch/close)
         const handleVisibilityChange = () => {

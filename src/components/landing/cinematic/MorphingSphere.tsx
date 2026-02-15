@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { shaderMaterial } from "@react-three/drei";
@@ -131,54 +131,51 @@ const FragmentShader = `
 
 // Create the declarative material
 const MorphingMaterial = shaderMaterial(
-    {
-        uTime: 0,
-        uDistort: 0.4,
-        uFrequency: 1.5,
-        uColorA: new THREE.Color("#7c2d12"), // Orange 900 (Dark Base)
-        uColorB: new THREE.Color("#ff5d38"), // Brand Primary (Highlight)
-    },
-    VertexShader,
-    FragmentShader
+  {
+    uTime: 0,
+    uDistort: 0.4,
+    uFrequency: 1.5,
+    uColorA: new THREE.Color("#7c2d12"), // Orange 900 (Dark Base)
+    uColorB: new THREE.Color("#ff5d38"), // Brand Primary (Highlight)
+  },
+  VertexShader,
+  FragmentShader
 );
 
 // Register with R3F
 // Register with R3F
 extend({ MorphingMaterial });
 
-/* eslint-disable @typescript-eslint/no-empty-interface */
 declare module "@react-three/fiber" {
-    interface ThreeElements {
-        morphingMaterial: any;
+  interface ThreeElements {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    morphingMaterial: any;
+  }
+}
+
+
+export function MorphingSphere() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const materialRef = useRef<any>(null);
+
+  useFrame((state) => {
+    if (materialRef.current) {
+      materialRef.current.uTime = state.clock.getElapsedTime();
+
+      // Dynamic parameters based on phase could go here, 
+      // but we'll control basic time/motion first.
     }
-}
-/* eslint-enable @typescript-eslint/no-empty-interface */
+  });
 
-interface MorphingSphereProps {
-    phase?: "data" | "network" | "shield";
-}
-
-export function MorphingSphere({ phase = "data" }: MorphingSphereProps) {
-    const materialRef = useRef<any>(null);
-
-    useFrame((state) => {
-        if (materialRef.current) {
-            materialRef.current.uTime = state.clock.getElapsedTime();
-
-            // Dynamic parameters based on phase could go here, 
-            // but we'll control basic time/motion first.
-        }
-    });
-
-    return (
-        <mesh scale={1.2}>
-            {/* High polycount needed for smooth vertex displacement */}
-            <icosahedronGeometry args={[1, 64]} />
-            <morphingMaterial
-                ref={materialRef}
-                transparent
-                wireframe={false}
-            />
-        </mesh>
-    );
+  return (
+    <mesh scale={1.2}>
+      {/* High polycount needed for smooth vertex displacement */}
+      <icosahedronGeometry args={[1, 64]} />
+      <morphingMaterial
+        ref={materialRef}
+        transparent
+        wireframe={false}
+      />
+    </mesh>
+  );
 }

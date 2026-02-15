@@ -1,8 +1,12 @@
 import type { NextConfig } from "next";
-import path from "node:path";
+import withPWAInit from "next-pwa";
 
-// Loader path from orchids-visual-edits - use direct resolve to get the actual file
-const loaderPath = require.resolve('orchids-visual-edits/loader.js');
+const withPWA = withPWAInit({
+  dest: "public",
+  disable: process.env.NODE_ENV === "development",
+  register: true,
+  skipWaiting: true,
+});
 
 const nextConfig: NextConfig = {
   output: process.env.NEXT_PUBLIC_IS_ELECTRON === 'true' ? 'export' : undefined,
@@ -35,13 +39,7 @@ const nextConfig: NextConfig = {
   //     }
   //   }
   // }
-} as NextConfig;
+};
 
-const withPWA = require("next-pwa")({
-  dest: "public",
-  disable: process.env.NODE_ENV === "development",
-  register: true,
-  skipWaiting: true,
-});
-
-export default withPWA(nextConfig);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export default withPWA(nextConfig as any);

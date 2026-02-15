@@ -56,7 +56,7 @@ export function ResumableUpload({
             const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
             const filePath = folderPath ? `${folderPath}/${fileName}` : fileName;
 
-            const { data, error } = await supabase.storage
+            const { error } = await supabase.storage
                 .from(bucketName)
                 .upload(filePath, file, {
                     cacheControl: '3600',
@@ -91,7 +91,9 @@ export function ResumableUpload({
 
             // Keep file shown as successes? Or clear? 
             // Let's keep it shown as success state.
-        } catch (error: any) {
+        } catch (err: unknown) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const error = err as any;
             console.error('Upload failed:', error);
             toast.error(`Erro no upload: ${error.message}`);
             setUploading(false);

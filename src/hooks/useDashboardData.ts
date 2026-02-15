@@ -1,6 +1,6 @@
-import { useState, useMemo, useEffect } from "react";
+import { useMemo, useEffect } from "react";
 import { toast } from "sonner";
-import { Product, Asset, StockMovement, Checkout, mockProducts, mockAssets, mockStockMovements, mockCheckouts } from "@/lib/store";
+import { mockProducts, mockAssets, mockStockMovements, mockCheckouts } from "@/lib/store";
 import { syncTable } from "@/lib/db";
 import { useOnboarding } from "@/lib/onboarding-context";
 import { useLiveQuery } from "dexie-react-hooks";
@@ -10,6 +10,8 @@ interface DashboardDataParams {
     role?: string;
     costCenterId?: string | null;
 }
+
+const EMPTY_ARRAY: never[] = [];
 
 export function useDashboardData({ role, costCenterId }: DashboardDataParams = {}) {
     const { isDemoMode } = useOnboarding();
@@ -94,10 +96,10 @@ export function useDashboardData({ role, costCenterId }: DashboardDataParams = {
         toast.success("Dados atualizados!");
     };
 
-    const products = data?.products || [];
-    const assets = data?.assets || [];
-    const movements = data?.movements || [];
-    const checkouts = data?.checkouts || [];
+    const products = data?.products || EMPTY_ARRAY;
+    const assets = data?.assets || EMPTY_ARRAY;
+    const movements = data?.movements || EMPTY_ARRAY;
+    const checkouts = data?.checkouts || EMPTY_ARRAY;
     const isLoading = !data;
 
     // Derived Data

@@ -8,7 +8,6 @@ import {
   MaintenanceTask,
   Checkout,
   CostCenter,
-
   AuditLog,
   User,
   AssetTimeline,
@@ -51,7 +50,7 @@ export const getPublicIp = async (): Promise<string> => {
     if (!response.ok) return "127.0.0.1";
     const data = await response.json();
     return data.ip || "127.0.0.1";
-  } catch (error) {
+  } catch (_error) {
     return "127.0.0.1";
   }
 };
@@ -76,29 +75,29 @@ async function withTimeout<T>(promise: PromiseLike<T>, timeoutMs: number = TIMEO
 }
 
 // Helper to handle standard CRUD
-async function getAll<T>(table: string, orderColumn: string = 'created_at', ascending: boolean = false, forceRefresh = false): Promise<T[]> {
+async function getAll<T>(table: string, orderColumn: keyof T = 'created_at' as keyof T, ascending: boolean = false, _forceRefresh = false): Promise<T[]> {
   const localData = await db.table(table).toArray();
 
   if (!isOnline()) {
     return localData.sort((a, b) => {
       // Simple sort for offline
-      if (a[orderColumn] < b[orderColumn]) return ascending ? -1 : 1;
-      if (a[orderColumn] > b[orderColumn]) return ascending ? 1 : -1;
+      const valA = a[orderColumn] as unknown as string | number;
+      const valB = b[orderColumn] as unknown as string | number;
+      if (valA < valB) return ascending ? -1 : 1;
+      if (valA > valB) return ascending ? 1 : -1;
       return 0;
     }) as T[];
   }
 
   // Network First (if online)
-  // For legacy imperative calls, we still fetch and return.
-  // But we can trigger the sync logic.
   try {
-    await syncTable(table, orderColumn, ascending);
-    // Return fresh data from Dexie just to be sure, or return what we just fetched? 
-    // syncTable puts it in Dexie.
+    await syncTable(table, orderColumn as string, ascending);
     const refreshed = await db.table(table).toArray();
-    return refreshed.sort((a: any, b: any) => { // Re-sort because toArray order is undefined-ish
-      if (a[orderColumn] < b[orderColumn]) return ascending ? -1 : 1;
-      if (a[orderColumn] > b[orderColumn]) return ascending ? 1 : -1;
+    return refreshed.sort((a, b) => {
+      const valA = a[orderColumn] as unknown as string | number;
+      const valB = b[orderColumn] as unknown as string | number;
+      if (valA < valB) return ascending ? -1 : 1;
+      if (valA > valB) return ascending ? 1 : -1;
       return 0;
     }) as T[];
   } catch (err) {
@@ -134,21 +133,23 @@ export async function syncTable(table: string, orderColumn: string = 'created_at
 async function getAllFiltered<T>(
   table: string,
   userInfo: { role: string | null; cost_center: string | null },
-  orderColumn: string = 'created_at',
+  orderColumn: keyof T = 'created_at' as keyof T,
   ascending: boolean = false
 ): Promise<T[]> {
   // Offline: Filter local data
   if (!isOnline()) {
     const localData = await db.table(table).toArray();
-    let filtered = localData.filter((item: any) => !item.deleted_at); // Exclude soft deleted
+    let filtered = localData.filter((item) => !item.deleted_at); // Exclude soft deleted
 
     if (userInfo.role === 'gestor' && userInfo.cost_center) {
-      filtered = filtered.filter((item: any) => item.cost_center === userInfo.cost_center);
+      filtered = filtered.filter((item) => item.cost_center === userInfo.cost_center);
     }
 
-    return filtered.sort((a: any, b: any) => {
-      if (a[orderColumn] < b[orderColumn]) return ascending ? -1 : 1;
-      if (a[orderColumn] > b[orderColumn]) return ascending ? 1 : -1;
+    return filtered.sort((a, b) => {
+      const valA = a[orderColumn] as unknown as string | number;
+      const valB = b[orderColumn] as unknown as string | number;
+      if (valA < valB) return ascending ? -1 : 1;
+      if (valA > valB) return ascending ? 1 : -1;
       return 0;
     }) as T[];
   }
@@ -159,7 +160,7 @@ async function getAllFiltered<T>(
       .from(table)
       .select('*')
       .is('deleted_at', null) // Exclude soft deleted
-      .order(orderColumn, { ascending });
+      .order(orderColumn as string, { ascending });
 
     if (userInfo.role === 'gestor' && userInfo.cost_center) {
       query = query.eq('cost_center', userInfo.cost_center);
@@ -169,10 +170,6 @@ async function getAllFiltered<T>(
 
     if (error) throw error;
 
-    // We can't easily sync partial data to Dexie if we rely on full table replacement
-    // But for now, let's just return the data. 
-    // TODO: Consider better sync strategy for partial views if needed.
-
     return data as T[];
   } catch (err) {
     console.error(`Fetch filtered error ${table}:`, err);
@@ -180,15 +177,11 @@ async function getAllFiltered<T>(
   }
 }
 
-async function upsert<T>(table: string, item: any): Promise<T | null> {
+async function upsert<T extends { id?: string }>(table: string, item: Partial<T>): Promise<T | null> {
   const tableRef = db.table(table);
 
   // 1. Optimistic Update (Local)
   try {
-    // If it's a new item without ID, give it a temp ID for local storage? 
-    // Dexie moves fine with auto-increment, but we use UUIDs usually from Supabase.
-    // If item.id is missing, we might need to generate one if Supabase expects it, or let Supabase generate.
-    // For offline, we MUST have an ID.
     if (!item.id) {
       item.id = crypto.randomUUID();
     }
@@ -324,7 +317,7 @@ async function remove(table: string, id: string): Promise<boolean> {
 
 // Products
 // Products
-export const getProducts = async (forceRefresh = false, costCenterId?: string | null) => {
+export const getProducts = async (_forceRefresh = false, costCenterId?: string | null) => {
   const { data: { session } } = await supabase.auth.getSession();
   const userRole = session?.user?.user_metadata?.role || null;
   const userCostCenter = session?.user?.user_metadata?.cost_center || null;
@@ -338,7 +331,7 @@ export const getProducts = async (forceRefresh = false, costCenterId?: string | 
       role = profile.role;
       // If user is manager, force their cost center. If admin, allow override via argument.
       if (role === 'gestor') {
-        costCenter = (profile as any).cost_center;
+        costCenter = (profile as unknown as { cost_center: string }).cost_center;
       } else if (role === 'admin' && costCenterId) {
         costCenter = costCenterId;
       }
@@ -352,7 +345,7 @@ export const getProducts = async (forceRefresh = false, costCenterId?: string | 
 };
 
 export const saveProduct = async (product: Partial<Product>, userInfo?: { name: string, id: string }) => {
-  const result = await upsert<Product>('products', product);
+  const result = await upsert<Product>('products', product as Product);
   if (result && userInfo) {
     await logActivity(
       product.id ? "UPDATE" : "CREATE",
@@ -395,7 +388,7 @@ export const restoreProduct = async (id: string, userInfo?: { name: string, id: 
 // ... (skip getProductById etc) ...
 
 // Assets
-export const getAssets = async (forceRefresh = false, costCenterId?: string | null) => {
+export const getAssets = async (_forceRefresh = false, costCenterId?: string | null) => {
   const { data: { session } } = await supabase.auth.getSession();
   let role = session?.user?.user_metadata?.role;
   let costCenter = session?.user?.user_metadata?.cost_center;
@@ -405,7 +398,7 @@ export const getAssets = async (forceRefresh = false, costCenterId?: string | nu
     if (profile) {
       role = profile.role;
       if (role === 'gestor') {
-        costCenter = (profile as any).cost_center;
+        costCenter = (profile as unknown as { cost_center: string }).cost_center;
       } else if (role === 'admin' && costCenterId) {
         costCenter = costCenterId;
       }
@@ -426,7 +419,7 @@ export const syncAssets = async () => {
     if (profile) {
       role = profile.role;
       if (role === 'gestor') {
-        costCenter = (profile as any).cost_center;
+        costCenter = (profile as unknown as { cost_center: string }).cost_center;
       }
     }
   }
@@ -487,10 +480,10 @@ export const getAssetById = async (id: string): Promise<Asset | null> => {
   }
 };
 export const saveAsset = async (asset: Partial<Asset>, userInfo?: { name: string, id: string }) => {
-  const result = await upsert<Asset>('assets', asset);
+  const result = await upsert<Asset>('assets', asset as Asset);
   if (result && userInfo) {
     await logActivity(
-      asset.id ? "UPDATE" : "CREATE",
+      asset.id ? "UPDATE" : "PATRIMONIO",
       "PATRIMONIO",
       `Patrimônio "${result.name}" (${result.code}) ${asset.id ? "atualizado" : "criado"} por ${userInfo.name}.`,
       result.id,
@@ -529,7 +522,7 @@ export const restoreAsset = async (id: string, userInfo?: { name: string, id: st
 // Movements
 export const getMovements = (forceRefresh = false) => getAll<StockMovement>('stock_movements', 'date', false, forceRefresh);
 export const saveMovement = async (movement: Partial<StockMovement>, userInfo?: { name: string, id: string }) => {
-  const result = await upsert<StockMovement>('stock_movements', movement);
+  const result = await upsert<StockMovement>('stock_movements', movement as StockMovement);
   if (result && userInfo) {
     await logActivity(
       movement.type === "entrada" ? "CREATE" : "DELETE",
@@ -558,10 +551,10 @@ export const getMaintenanceTasks = async (assetId?: string, forceRefresh = false
       if (data) {
         role = data.role;
         if (role === 'gestor') {
-          costCenter = (data as any).cost_center;
+          costCenter = (data as unknown as { cost_center: string }).cost_center;
         }
       }
-    } catch (e) { /* ignore */ }
+    } catch (_e) { /* ignore */ }
   }
 
   // Offline / Dexie
@@ -607,17 +600,17 @@ export const getMaintenanceTasks = async (assetId?: string, forceRefresh = false
       return [];
     }
     // The data will contain `assets: { cost_center: ... }`. We cast it to clear that out.
-    return data as any as MaintenanceTask[];
+    return data as unknown as MaintenanceTask[];
   } catch (error) {
     console.error("Exception fetching maintenance tasks:", error);
     return [];
   }
 };
 export const saveMaintenanceTask = async (task: Partial<MaintenanceTask>, userInfo?: { name: string, id: string }) => {
-  const result = await upsert<MaintenanceTask>('maintenance_tasks', task);
+  const result = await upsert<MaintenanceTask>('maintenance_tasks', task as MaintenanceTask);
   if (result && userInfo) {
     await logActivity(
-      task.id ? "UPDATE" : "CREATE",
+      task.id ? "UPDATE" : "MANUTENCAO",
       "MANUTENCAO",
       `Tarefa de manutenção "${result.title}" para "${result.asset_name}" ${task.id ? "atualizada" : "criada"} por ${userInfo.name}.`,
       result.id,
@@ -629,7 +622,7 @@ export const saveMaintenanceTask = async (task: Partial<MaintenanceTask>, userIn
 
 // Checkouts
 export const createWriteOffRequest = async (request: Partial<WriteOffRequest>) => {
-  return upsert<WriteOffRequest>('write_off_requests', request);
+  return upsert<WriteOffRequest>('write_off_requests', request as WriteOffRequest);
 };
 
 export const getWriteOffRequests = async () => {
@@ -649,12 +642,12 @@ export const getCheckouts = async (itemId?: string, itemType?: 'product' | 'asse
     const { data, error } = await withTimeout(query);
     if (error) return [];
     return data as Checkout[];
-  } catch (error) {
+  } catch (_error) {
     return [];
   }
 };
 export const saveCheckout = async (checkout: Partial<Checkout>, userInfo?: { name: string, id: string }) => {
-  const result = await upsert<Checkout>('checkouts', checkout);
+  const result = await upsert<Checkout>('checkouts', checkout as Checkout);
   if (result && userInfo) {
     await logActivity(
       checkout.id ? "UPDATE" : "CHECKOUT",
@@ -670,7 +663,7 @@ export const saveCheckout = async (checkout: Partial<Checkout>, userInfo?: { nam
 // Cost Centers
 export const getCostCenters = (forceRefresh = false) => getAll<CostCenter>('cost_centers', 'name', true, forceRefresh);
 export const syncCostCenters = () => syncTable('cost_centers', 'name', true);
-export const saveCostCenter = (cc: Partial<CostCenter>) => upsert<CostCenter>('cost_centers', cc);
+export const saveCostCenter = (cc: Partial<CostCenter>) => upsert<CostCenter>('cost_centers', cc as CostCenter);
 
 // Categories
 export const getCategories = (type: 'insumo' | 'patrimonio', forceRefresh = false) => {
@@ -678,7 +671,7 @@ export const getCategories = (type: 'insumo' | 'patrimonio', forceRefresh = fals
     .then(cats => cats.filter(c => c.type === type));
 };
 export const syncCategories = () => syncTable('categories', 'name', true);
-export const saveCategory = (category: Partial<Category>) => upsert<Category>('categories', category);
+export const saveCategory = (category: Partial<Category>) => upsert<Category>('categories', category as Category);
 export const deleteCategory = (id: string) => remove('categories', id);
 
 
@@ -689,7 +682,7 @@ export const getAuditLogs = (forceRefresh = false) => getAll<AuditLog>('admin_au
 export const logActivity = async (
   action: string,
   resource: string,
-  details: any,
+  details: unknown,
   resourceId?: string,
   userName?: string
 ) => {
@@ -697,7 +690,7 @@ export const logActivity = async (
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) return null;
 
-    const deviceInfo = getDeviceInfo();
+    const _deviceInfo = getDeviceInfo();
 
     // Construct the log entry matching admin_audit_logs table
     const logEntry = {
@@ -713,7 +706,7 @@ export const logActivity = async (
       user_agent: window.navigator.userAgent
     };
 
-    return upsert<AuditLog>('admin_audit_logs', logEntry);
+    return upsert<AuditLog>('admin_audit_logs', logEntry as unknown as AuditLog);
   } catch (error) {
     console.error("Failed to log activity:", error);
     return null;
@@ -728,7 +721,7 @@ export const syncUsers = () => syncTable('profiles', 'name', true);
 
 export const saveUser = async (user: Partial<User>, userInfo?: { name: string, id: string }) => {
   if (!user.id && !user.email) return Promise.resolve(null); // Basic validation
-  const result = await upsert<User>('profiles', user);
+  const result = await upsert<User>('profiles', user as User);
   if (result && userInfo) {
     await logActivity(
       "UPDATE",
@@ -750,7 +743,7 @@ export const getProfile = async (id: string): Promise<User | null> => {
       .maybeSingle());
     if (error) return null;
     return data as User;
-  } catch (error) {
+  } catch (_error) {
     return null;
   }
 };
@@ -766,8 +759,9 @@ export const getAssetTimelines = async (assetId?: string, forceRefresh = false) 
     const { data, error } = await withTimeout(query);
     if (error) return [];
     return data as AssetTimeline[];
-  } catch (error) {
+  } catch (_error) {
     return [];
   }
 };
-export const saveAssetTimeline = (timeline: Partial<AssetTimeline>) => upsert<AssetTimeline>('asset_timelines', timeline);
+export const saveAssetTimeline = (timeline: Partial<AssetTimeline>) => upsert<AssetTimeline>('asset_timelines', timeline as AssetTimeline);
+

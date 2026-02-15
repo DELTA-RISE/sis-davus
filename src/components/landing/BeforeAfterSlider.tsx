@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { MoveHorizontal, FileSpreadsheet, LayoutDashboard, AlertCircle, CheckCircle2 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -9,18 +9,18 @@ export function BeforeAfterSlider() {
     const [isDragging, setIsDragging] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
 
-    const handleMove = (event: React.MouseEvent | React.TouchEvent | MouseEvent | TouchEvent) => {
+    const handleMove = useCallback((event: React.MouseEvent | React.TouchEvent | MouseEvent | TouchEvent) => {
         if (!isDragging || !containerRef.current) return;
 
         const rect = containerRef.current.getBoundingClientRect();
-        const x = "touches" in event ? event.touches[0].clientX : (event as any).clientX;
+        const x = "touches" in event ? event.touches[0].clientX : (event as React.MouseEvent).clientX;
         const position = ((x - rect.left) / rect.width) * 100;
 
         setSliderPosition(Math.min(Math.max(position, 0), 100));
-    };
+    }, [isDragging]);
 
-    const handleMouseDown = () => setIsDragging(true);
-    const handleMouseUp = () => setIsDragging(false);
+    const handleMouseDown = useCallback(() => setIsDragging(true), []);
+    const handleMouseUp = useCallback(() => setIsDragging(false), []);
 
     useEffect(() => {
         if (isDragging) {
@@ -35,7 +35,7 @@ export function BeforeAfterSlider() {
             window.removeEventListener("touchmove", handleMove);
             window.removeEventListener("touchend", handleMouseUp);
         };
-    }, [isDragging]);
+    }, [isDragging, handleMove, handleMouseUp]);
 
     return (
         <div className="w-full max-w-4xl mx-auto p-4">

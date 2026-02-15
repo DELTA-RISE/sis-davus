@@ -7,6 +7,7 @@ import * as THREE from "three";
 
 if (typeof window !== "undefined") {
     // Only patch in browser environment
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const prototype = THREE.Object3D.prototype as any;
 
     if (!prototype.data) {

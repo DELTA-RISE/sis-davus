@@ -2,14 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 
-// Short, subtle click sound (base64)
-const CLICK_SOUND = "data:audio/wav;base64,UklGRi4AAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA="; // Placeholder, I will use a real short beep base64 below
 
-// Real short click (mechanical)
-const CLICK_BASE64 = "data:audio/wav;base64,UklGRjIAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YRAAAACQB/8A/wD/AP8A/wD/AP8AAA==";
-// This is too short, I'll use a better one or just an empty one to not annoy if I can't generate a good one.
-// Let's use a very simple synthesized "pop" logic or just a reliable URL if allowed.
-// Since I can't guarantee URL availability, I'll use a standard browser "beep" approach using Web Audio API which is cleaner and 0kb.
 
 interface SoundContextType {
     playClick: () => void;
@@ -45,6 +38,7 @@ export function SoundProvider({ children }: { children: React.ReactNode }) {
 
     const initAudioContext = () => {
         if (!audioContext) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
             setAudioContext(ctx);
             return ctx;
