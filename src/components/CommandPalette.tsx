@@ -19,7 +19,7 @@ import {
   Search,
   LayoutDashboard,
   Settings,
-  LogOut,
+
   FileBarChart,
   Sparkles,
   Activity,

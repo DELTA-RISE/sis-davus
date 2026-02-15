@@ -2,7 +2,7 @@
 
 import { useRef, useMemo } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls, Sphere, Html } from "@react-three/drei";
+import { OrbitControls, Sphere } from "@react-three/drei";
 import * as THREE from "three";
 // Patch moved to @/lib/fix-r3f-data-props
 
@@ -12,7 +12,7 @@ function HolographicGlobe() {
     const ringRef1 = useRef<THREE.Mesh>(null);
     const ringRef2 = useRef<THREE.Mesh>(null);
 
-    useFrame((state) => {
+    useFrame((_state) => {
         if (globeRef.current) {
             globeRef.current.rotation.y += 0.001;
         }

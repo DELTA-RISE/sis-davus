@@ -21,7 +21,7 @@ export function TextMorph({ text, className = "", trigger = true }: TextMorphPro
         setIsScrambling(true);
 
         const interval = setInterval(() => {
-            setDisplayText((prev) =>
+            setDisplayText((_prev) =>
                 text
                     .split("")
                     .map((char, index) => {

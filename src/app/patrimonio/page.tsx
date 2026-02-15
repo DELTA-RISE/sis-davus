@@ -35,7 +35,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -53,7 +52,7 @@ import {
   User,
   Wrench,
   ChevronRight,
-  QrCode,
+  // QrCode,
   Trash2,
   Zap,
   Printer,
@@ -90,8 +89,8 @@ const conditionColors: Record<string, string> = {
 // Filter configs moved inside component to access dynamic categories
 
 
-import { useOnboarding } from "@/lib/onboarding-context";
-import { mockAssets } from "@/lib/store"; // Removed Asset (duplicate)
+
+
 
 // ... imports
 
@@ -100,7 +99,7 @@ import { PatrimonioCategory } from "@/lib/store";
 
 export default function PatrimonioPage() {
   const { userName, user, currentRole } = useAuth();
-  const { isDemoMode } = useOnboarding();
+  // const { isDemoMode } = useOnboarding();
 
   // Categories State
   const [categories, setCategories] = useState<PatrimonioCategory[]>([]);
@@ -205,6 +204,7 @@ export default function PatrimonioPage() {
 
     if (!result.success) {
       const fieldErrors: Record<string, string> = {};
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (result.error as any).errors.forEach((err: any) => {
         if (err.path[0]) fieldErrors[err.path[0] as string] = err.message;
       });
@@ -292,7 +292,7 @@ export default function PatrimonioPage() {
       });
 
       const pageWidth = 210;
-      const pageHeight = 297;
+      // const pageHeight = 297;
       let tagWidth, tagHeight, gapX, gapY, cols, rows, startX, startY;
 
       if (printLayout === 'compact') {
@@ -354,6 +354,7 @@ export default function PatrimonioPage() {
 
     const channel = supabase
       .channel('assets-changes')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .on('postgres_changes' as any, { event: '*', table: 'assets' }, () => {
         syncAssets(); // Sync instead of loadData
       })
@@ -432,7 +433,6 @@ export default function PatrimonioPage() {
   const handleEdit = (e: React.MouseEvent, asset: Asset) => {
     e.preventDefault();
     e.stopPropagation();
-    setEditingAsset(asset);
     setEditingAsset(asset);
     setNewAsset(asset);
     setErrors({});

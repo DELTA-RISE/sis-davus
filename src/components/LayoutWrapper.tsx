@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "@/components/Sidebar";
 import { BottomNav } from "@/components/BottomNav";
@@ -8,8 +8,6 @@ import { TopBar } from "@/components/TopBar";
 import { DesktopTopBar } from "@/components/DesktopTopBar";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { SidebarProvider, useSidebar } from "@/lib/sidebar-context";
-import { Maximize2, Minimize2 } from "lucide-react";
-import { Button } from "./ui/button";
 
 import { ScrollProgress } from "@/components/ScrollProgress";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";

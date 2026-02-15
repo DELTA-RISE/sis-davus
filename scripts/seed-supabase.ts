@@ -35,7 +35,7 @@ async function seed() {
     }
 
     const adminUser = users?.find(u => u.role === 'admin' || u.role === 'gestor') || users?.[0]
-    const techUser = users?.find(u => u.role === 'user' || u.role === 'tecnico') || users?.[1] || adminUser
+    const adminUser = users?.find(u => u.role === 'admin' || u.role === 'gestor') || users?.[0]
 
     if (!adminUser) {
         console.error('❌ Critical: Non-empty profiles table required to seed dependent data. Please create a user in the app first.')
@@ -158,7 +158,7 @@ async function seed() {
     console.log('Creating Maintenance Tasks...')
     // Using specific asset codes to link
     const chairAsset = assets?.find(a => a.code === 'ATV-0004')
-    const monitorAsset = assets?.find(a => a.code === 'ATV-0003')
+    const chairAsset = assets?.find(a => a.code === 'ATV-0004')
 
     const maintenanceData = []
 

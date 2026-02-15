@@ -1,15 +1,15 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
-import { useOnboarding, TourStep } from "@/lib/onboarding-context";
+import React, { useEffect, useState } from "react";
+import { useOnboarding } from "@/lib/onboarding-context";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { X, ChevronRight, ChevronLeft, Sparkles, Rocket } from "lucide-react";
+import { X, ChevronRight, Sparkles, Rocket } from "lucide-react";
 import { useIsMobile } from "@/hooks/useIsMobile";
 
 export function OnboardingOverlay() {
-    const { isActive, currentStepIndex, steps, nextStep, prevStep, skipOnboarding, finishOnboarding } = useOnboarding();
+    const { isActive, currentStepIndex, steps, nextStep, prevStep, skipOnboarding } = useOnboarding();
     const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
     const isMobile = useIsMobile();
 

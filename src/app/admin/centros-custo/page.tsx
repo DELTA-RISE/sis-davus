@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { getCostCenters, saveCostCenter, getUsers, saveUser } from "@/lib/db";
 import { CostCenter, User } from "@/lib/store";
 import { costCenterSchema } from "@/lib/validations";
+import { ZodError } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,7 +16,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -44,7 +44,7 @@ import { cn } from "@/lib/utils";
 export default function CostCentersPage() {
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [users, setUsers] = useState<User[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -57,14 +57,14 @@ export default function CostCentersPage() {
   const [selectedCenterForDetails, setSelectedCenterForDetails] = useState<CostCenter | null>(null);
 
   const loadData = async () => {
-    setIsLoading(true);
+    // setIsLoading(true);
     const [centersData, usersData] = await Promise.all([
       getCostCenters(),
       getUsers()
     ]);
     setCostCenters(centersData);
     setUsers(usersData);
-    setIsLoading(false);
+    // setIsLoading(false);
   };
 
   useEffect(() => {
@@ -98,8 +98,8 @@ export default function CostCentersPage() {
     const result = costCenterSchema.safeParse(payload);
     if (!result.success) {
       const fieldErrors: Record<string, string> = {};
-      (result.error as any).errors.forEach((err: any) => {
-        if (err.path[0]) fieldErrors[err.path[0] as string] = err.message;
+      (result.error as ZodError).issues.forEach((err: { path: (string | number | symbol)[]; message: string }) => {
+        if (err.path[0]) fieldErrors[String(err.path[0])] = err.message;
       });
       setErrors(fieldErrors);
       return false;

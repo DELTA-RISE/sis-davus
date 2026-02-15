@@ -7,7 +7,7 @@ import { Printer } from "lucide-react";
 import { toast } from "sonner";
 import { renderToStaticMarkup } from "react-dom/server";
 import { QRCodeSVG } from "qrcode.react";
-import { Building2 } from "lucide-react";
+
 
 // Inline styled component for printing - Optimized for 300x150px Label (Standard)
 // Using inline styles avoids dependency on Tailwind in the print window
@@ -71,7 +71,7 @@ interface PrintAssetButtonProps {
 export function PrintAssetButton({ asset, variant = "outline", size = "sm", className }: PrintAssetButtonProps) {
     // const { isElectron, print } = useElectron();
     const isElectron = false;
-    const print = async (html: string, printer: string) => ({ success: false, error: "Unavailable" });
+    const print = async (_html: string, _printer: string) => ({ success: false, error: "Unavailable" });
 
     const handlePrint = async () => {
         if (!isElectron) {
@@ -107,7 +107,7 @@ export function PrintAssetButton({ asset, variant = "outline", size = "sm", clas
             } else {
                 toast.error("Erro na impressão: " + result.error, { id: toastId });
             }
-        } catch (error) {
+        } catch {
             toast.error("Erro de comunicação", { id: toastId });
         }
     };

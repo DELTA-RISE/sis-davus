@@ -1,8 +1,8 @@
 "use client";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, HelpCircle, Mail, MessageCircle, FileText, ExternalLink, Activity } from "lucide-react";
+import { ArrowLeft, HelpCircle, Mail, FileText, ExternalLink, Activity } from "lucide-react";
 import Link from "next/link";
 import {
     Accordion,
@@ -10,7 +10,7 @@ import {
     AccordionItem,
     AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Badge } from "@/components/ui/badge";
+// import { Badge } from "@/components/ui/badge";
 
 export default function SupportPage() {
     const supportEmail = "suporte@davusengenharia.com.br";

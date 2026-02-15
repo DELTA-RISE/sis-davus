@@ -14,18 +14,8 @@ import {
   Briefcase,
   FileBarChart,
   ChevronRight,
-  Shield,
-  UserCog,
   Home,
 } from "lucide-react";
-import { UserRole } from "@/lib/store";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 const allMenuItems = [
   { href: "/", icon: Home, label: "Início", description: "Tela inicial", category: "geral", color: "bg-primary/20 text-primary" },

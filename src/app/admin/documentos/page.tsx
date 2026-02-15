@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 // import { useElectron } from "@/hooks/use-electron";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, Scan, RefreshCw, FolderOpen, Search, Download, Trash2, Link as LinkIcon, SortAsc, SortDesc } from "lucide-react";
+import { FileText, Scan, RefreshCw, FolderOpen, Search, Download, Link as LinkIcon, SortAsc, SortDesc } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -51,15 +51,7 @@ export default function DocumentsPage() {
     const [sortBy, setSortBy] = useState<SortOption>("date");
     const [sortDir, setSortDir] = useState<SortDirection>("desc");
 
-    useEffect(() => {
-        if (isElectron) {
-            loadDocuments();
-        } else {
-            setLoading(false);
-        }
-    }, [isElectron]);
-
-    const loadDocuments = async () => {
+    const loadDocuments = useCallback(async () => {
         setLoading(true);
         try {
             const docs = await listScannedDocuments();
@@ -74,7 +66,15 @@ export default function DocumentsPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        if (isElectron) {
+            loadDocuments();
+        } else {
+            setLoading(false);
+        }
+    }, [isElectron, loadDocuments]);
 
     const handleOpen = (path: string) => {
         openExternal(path);
@@ -185,7 +185,7 @@ export default function DocumentsPage() {
                 </div>
 
                 <div className="flex items-center gap-2 w-full md:w-auto">
-                    <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
+                    <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
                         <SelectTrigger className="w-[140px] bg-background">
                             <SelectValue placeholder="Ordenar por" />
                         </SelectTrigger>

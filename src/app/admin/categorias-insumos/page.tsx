@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { CategoryManager } from "@/components/admin/CategoryManager";
 // import { getCategories, createCategory, updateCategory, deleteCategory, Category } from "@/actions/categories";
 import { saveCategory, deleteCategory, syncCategories } from "@/lib/db"; // Use local db

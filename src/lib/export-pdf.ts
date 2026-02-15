@@ -20,7 +20,7 @@ interface JsPDFWithAutoTable extends jsPDF {
 // Helper to load image
 async function getLogoBase64(): Promise<string> {
     try {
-        const response = await fetch("/davus-logo.png");
+        // const response = await fetch("/davus-logo.png"); // Unused
         // Try white logo specific for PDF if needed, but let's stick to simple logic matching original intent
         // The original code nested fetch in new Promise(async...), which is bad practice.
         // We'll clean this up.

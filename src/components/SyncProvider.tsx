@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+
 import { processSyncQueue } from "@/lib/offline-sync";
 import { toast } from "sonner";
 

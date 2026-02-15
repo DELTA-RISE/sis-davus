@@ -8,7 +8,6 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { saveUser } from "@/lib/db";
 import {
-  User,
   Mail,
   Shield,
   Settings,
@@ -29,18 +28,13 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { getGravatarUrl } from "@/lib/gravatar";
+import Image from "next/image";
 
 export default function PerfilPage() {
   const { user, currentRole, userName, email, gravatarEmail, gravatarUrl, signOut, refreshProfile } = useAuth();
@@ -96,9 +90,11 @@ export default function PerfilPage() {
         <Card className="border-border/50 bg-card/50 overflow-hidden relative">
           <div className="h-24 md:h-32 bg-primary/10 relative overflow-hidden flex items-center justify-center">
             <div className="absolute inset-0 bg-gradient-to-br from-primary/30 via-primary/5 to-accent/10" />
-            <img
+            <Image
               src="/davus-full-logo.svg"
               alt="DAVUS Logo"
+              width={256}
+              height={64}
               className="w-48 md:w-64 opacity-20 pointer-events-none select-none"
             />
           </div>

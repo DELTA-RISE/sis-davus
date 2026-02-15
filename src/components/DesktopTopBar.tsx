@@ -4,14 +4,12 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { Search, Bell, Command, User, CheckCheck, Shield, HardHat, Maximize2 } from "lucide-react";
+import { Search, Bell, Command, CheckCheck, Shield, HardHat } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/lib/auth-context";
-import { useSidebar } from "@/lib/sidebar-context";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { getGravatarUrl } from "@/lib/gravatar";
 import {
   Popover,
   PopoverContent,
@@ -21,14 +19,7 @@ import {
   Dialog,
   DialogContent,
 } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+
 import { getReadNotifications, saveReadNotifications, getDismissedNotifications } from "@/lib/localStorage";
 import { getProducts, getAssets, getWriteOffRequests, getMaintenanceTasks } from "@/lib/db";
 import { Product, Asset, mockProducts, mockAssets } from "@/lib/store";
@@ -54,7 +45,7 @@ interface SearchResult {
 }
 
 export function DesktopTopBar() {
-  const { userName, email, currentRole, gravatarUrl } = useAuth();
+  const { userName, currentRole, gravatarUrl } = useAuth();
   const { isDemoMode } = useOnboarding();
   const router = useRouter();
   const [isSearchOpen, setIsSearchOpen] = useState(false);

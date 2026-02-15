@@ -1,7 +1,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import matter from 'gray-matter';
+import path from 'path';
 
 const contentDirectory = path.join(process.cwd(), 'docs/wiki');
 

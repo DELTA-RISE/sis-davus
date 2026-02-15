@@ -78,12 +78,12 @@ const statusIcons = {
 };
 
 export default function CheckoutsPage() {
-  const { userName, user, currentRole, costCenter } = useAuth();
+  const { userName, user, costCenter } = useAuth();
   const [checkouts, setCheckouts] = useState<Checkout[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [users, setUsers] = useState<AppUser[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -94,19 +94,20 @@ export default function CheckoutsPage() {
   const [openItemSelect, setOpenItemSelect] = useState(false);
   const [openUserSelect, setOpenUserSelect] = useState(false);
 
-  const loadData = useCallback(async (silent = false) => {
-    if (!silent) setIsLoading(true);
+  const loadData = useCallback(async (_silent = false) => {
+    // if (!silent) setIsLoading(true);
     const [c, p, a, u] = await Promise.all([getCheckouts(), getProducts(), getAssets(), getUsers()]);
     setCheckouts(c);
     setProducts(p);
     setAssets(a);
     setUsers(u);
-    if (!silent) setIsLoading(false);
+    // if (!silent) setIsLoading(false);
   }, []);
 
   useEffect(() => {
     loadData();
-    const channel = supabase.channel('checkouts').on('postgres_changes' as any, { event: '*', table: 'checkouts' }, () => loadData(true)).subscribe();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const channel = supabase.channel('checkouts').on('postgres_changes' as any, { event: '*', schema: 'public', table: 'checkouts' }, () => loadData(true)).subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [loadData]);
 

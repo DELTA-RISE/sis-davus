@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Plus, Edit, Trash2, Search, X } from "lucide-react";
+import { Plus, Edit, Trash2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -18,7 +18,7 @@ import {
     DialogContent,
     DialogHeader,
     DialogTitle,
-    DialogTrigger,
+
     DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";

@@ -81,7 +81,7 @@ export default function LoginPage() {
       }
 
       router.push("/dashboard");
-    } catch (err) {
+    } catch (_) {
       setError("Ocorreu um erro ao entrar");
       setLoading(false);
     }

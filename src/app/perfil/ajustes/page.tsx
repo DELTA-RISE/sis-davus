@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Monitor, Zap, Moon, Sun, Smartphone, Grid, MoveHorizontal, Check, Printer, Scale, Scan, Power, RefreshCw, Save, FolderOpen, Globe, LayoutDashboard } from "lucide-react";
+import { ArrowLeft, Monitor, Zap, Moon, Sun, Smartphone, Grid, MoveHorizontal, Check, Printer, Scale, Scan, RefreshCw, Save, FolderOpen, Globe, LayoutDashboard } from "lucide-react";
 import Link from "next/link";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
@@ -15,20 +15,32 @@ import { cn } from "@/lib/utils";
 // import { useElectron } from "@/hooks/use-electron";
 import { ScannerModal } from "@/components/ScannerModal";
 
+interface PrinterDevice {
+    name: string;
+    displayName: string;
+    isDefault: boolean;
+}
+
+interface SerialPortDevice {
+    path: string;
+    manufacturer: string;
+}
+
+
 export default function AppSettingsPage() {
     const router = useRouter();
     const [mounted, setMounted] = useState(false);
 
     // Electron hooks removed
     const isElectron = false;
-    const getPrinters = async (): Promise<any[]> => [];
-    const print = async (_: string, __: string) => ({ success: false, error: "Not supported in web" });
-    const getAutoLaunch = async () => false;
-    const setAutoLaunch = async (_: boolean) => false;
-    const getSerialPorts = async (): Promise<any[]> => [];
-    const connectScale = async (_: string) => ({ success: false, error: "Not supported in web" });
-    const disconnectScale = async () => { };
-    const onScaleData = (_: (data: string) => void) => { };
+    const getPrinters = useCallback(async (): Promise<PrinterDevice[]> => [], []);
+    const print = useCallback(async (_: string, __: string) => ({ success: false, error: "Not supported in web" }), []);
+    // const getAutoLaunch = useCallback(async () => false, []);
+    // const setAutoLaunch = async (_: boolean) => false; // Unused
+    const getSerialPorts = useCallback(async (): Promise<SerialPortDevice[]> => [], []);
+    const connectScale = useCallback(async (_: string) => ({ success: false, error: "Not supported in web" }), []);
+    const disconnectScale = useCallback(async () => { }, []);
+    const onScaleData = useCallback((_: (data: string) => void) => { }, []);
 
     // Preferences State
     const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system');
@@ -36,43 +48,18 @@ export default function AppSettingsPage() {
     const [reducedMotion, setReducedMotion] = useState(false);
 
     // Hardware State
-    const [printers, setPrinters] = useState<any[]>([]);
+    const [printers, setPrinters] = useState<PrinterDevice[]>([]);
     const [selectedPrinter, setSelectedPrinter] = useState<string>("");
-    const [serialPorts, setSerialPorts] = useState<any[]>([]);
+    const [serialPorts, setSerialPorts] = useState<SerialPortDevice[]>([]);
     const [selectedPort, setSelectedPort] = useState<string>("");
     const [scaleConnected, setScaleConnected] = useState(false);
     const [currentWeight, setCurrentWeight] = useState<string>("0.000");
     const [loadingHardware, setLoadingHardware] = useState(true);
-    const [autoLaunch, setAutoLaunchState] = useState(false);
+    // const [autoLaunch, setAutoLaunchState] = useState(false); // Unused
     const [scannerOpen, setScannerOpen] = useState(false);
 
-    useEffect(() => {
-        setMounted(true);
-        if (typeof window !== 'undefined') {
-            // Load saved preferences
-            const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | 'system';
-            const savedDensity = localStorage.getItem('density') as 'default' | 'compact';
-            const savedMotion = localStorage.getItem('reduced-motion');
 
-            if (savedTheme) setTheme(savedTheme);
-            if (savedDensity) setDensity(savedDensity);
-            if (savedMotion) setReducedMotion(savedMotion === 'true');
-        }
 
-        if (isElectron) {
-            loadPrinters();
-            loadPorts();
-            getAutoLaunch().then(setAutoLaunchState);
-
-            const savedPrinter = localStorage.getItem("sisdavus_printer_labels");
-            const savedPort = localStorage.getItem("sisdavus_scale_port");
-
-            if (savedPrinter) setSelectedPrinter(savedPrinter);
-            if (savedPort) setSelectedPort(savedPort);
-        } else {
-            setLoadingHardware(false);
-        }
-    }, [isElectron]);
 
     const updateTheme = (newTheme: 'light' | 'dark' | 'system') => {
         setTheme(newTheme);
@@ -114,30 +101,58 @@ export default function AppSettingsPage() {
     };
 
     // Hardware Functions
-    const loadPrinters = async () => {
+    const loadPrinters = useCallback(async () => {
         try {
             const list = await getPrinters();
             setPrinters(list);
             if (!localStorage.getItem("sisdavus_printer_labels")) {
-                const def = list.find(p => p.isDefault);
+                const def = list.find((p) => p.isDefault);
                 if (def) setSelectedPrinter(def.name);
             }
-        } catch (e) {
+        } catch (e: unknown) {
             console.error(e);
             toast.error("Erro ao carregar impressoras");
         } finally {
             setLoadingHardware(false);
         }
-    };
+    }, [getPrinters]);
 
-    const loadPorts = async () => {
+    const loadPorts = useCallback(async () => {
         try {
             const ports = await getSerialPorts();
             setSerialPorts(ports || []);
-        } catch (e) {
+        } catch (e: unknown) {
             console.error(e);
         }
-    };
+    }, [getSerialPorts]);
+
+    useEffect(() => {
+        setMounted(true);
+        if (typeof window !== 'undefined') {
+            // Load saved preferences
+            const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | 'system';
+            const savedDensity = localStorage.getItem('density') as 'default' | 'compact';
+            const savedMotion = localStorage.getItem('reduced-motion');
+
+            if (savedTheme) setTheme(savedTheme);
+            if (savedDensity) setDensity(savedDensity);
+            if (savedMotion) setReducedMotion(savedMotion === 'true');
+        }
+
+        if (isElectron) {
+            loadPrinters();
+            loadPorts();
+            // getAutoLaunch().then(setAutoLaunchState);
+
+            const savedPrinter = localStorage.getItem("sisdavus_printer_labels");
+            const savedPort = localStorage.getItem("sisdavus_scale_port");
+
+            if (savedPrinter) setSelectedPrinter(savedPrinter);
+            if (savedPort) setSelectedPort(savedPort);
+        } else {
+            setLoadingHardware(false);
+        }
+    }, [isElectron, loadPrinters, loadPorts]);
 
     const handleConnectScale = async () => {
         if (scaleConnected) {
@@ -195,7 +210,7 @@ export default function AppSettingsPage() {
             } else {
                 toast.error("Falha na impressão: " + result.error, { id: toastId });
             }
-        } catch (e) {
+        } catch (_: unknown) {
             toast.error("Erro ao comunicar com a impressora", { id: toastId });
         }
     };

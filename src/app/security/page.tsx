@@ -1,9 +1,9 @@
 "use client";
 
-import { Shield, Lock, Server, Key, FileText, Eye } from "lucide-react";
+import { Shield, Lock, Key, FileText, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { DesktopTopBar } from "@/components/DesktopTopBar";
-import { TopBar } from "@/components/TopBar";
+// import { DesktopTopBar } from "@/components/DesktopTopBar";
+// import { TopBar } from "@/components/TopBar";
 import { MegaFooter } from "@/components/landing/MegaFooter";
 
 export default function SecurityPage() {

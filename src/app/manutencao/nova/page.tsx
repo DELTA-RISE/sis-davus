@@ -15,9 +15,9 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { saveMaintenanceTask, getAssets } from "@/lib/db";
-import { Asset, MaintenanceTask, MaintenanceStep } from "@/lib/store";
+import { Asset, MaintenanceTask } from "@/lib/store";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, CheckCircle2, Circle, Upload, ArrowRight, ArrowLeft, Check, ChevronsUpDown } from "lucide-react";
+import { Loader2, CheckCircle2, Upload, ArrowRight, ArrowLeft, Check, ChevronsUpDown } from "lucide-react";
 import { useEffect } from "react";
 import {
     Command,
@@ -78,6 +78,7 @@ function NewMaintenanceContent() {
         getAssets().then(setAssets);
     }, []);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const onSubmit = async (data: any) => {
         if (currentStep < 4) {
             setCurrentStep(prev => prev + 1);
@@ -129,7 +130,7 @@ function NewMaintenanceContent() {
         if (currentStep === 2) fieldsToValidate.push("title", "description");
         // Step 3 is optional (files)
 
-        // @ts-ignore
+        // @ts-expect-error - trigger accepts specific fields but typing might be loose
         const isValid = await form.trigger(fieldsToValidate);
         if (isValid) setCurrentStep(prev => prev + 1);
     };
@@ -221,6 +222,7 @@ function NewMaintenanceContent() {
                                     <div className="space-y-2">
                                         <Label>Prioridade</Label>
                                         <Select
+                                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                             onValueChange={(v: any) => form.setValue("priority", v)}
                                             value={form.watch("priority")}
                                         >

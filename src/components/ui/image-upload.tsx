@@ -2,10 +2,10 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { X, Upload, Image as ImageIcon } from "lucide-react";
+import { X, Upload } from "lucide-react";
 import { uploadFile, getPublicUrl } from "@/lib/storage";
 import { toast } from "sonner";
-import { Button } from "./button";
+
 import Image from "next/image";
 
 interface ImageUploadProps {

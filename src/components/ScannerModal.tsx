@@ -72,7 +72,7 @@ export function ScannerModal({ isOpen, onClose, onScanComplete }: ScannerModalPr
             } else {
                 toast.error("Erro no OCR: " + res.error);
             }
-        } catch (e) {
+        } catch {
             toast.error("Falha no OCR");
         } finally {
             setOcrProcessing(false);

@@ -64,8 +64,8 @@ export default function ChangePasswordPage() {
 
             toast.success("Senha alterada com sucesso!");
             router.push("/dashboard");
-        } catch (err: any) {
-            setError(err.message || "Erro ao alterar senha");
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : "Erro ao alterar senha");
         } finally {
             setLoading(false);
         }

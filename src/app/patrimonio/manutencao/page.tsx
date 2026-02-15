@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { MaintenanceTask, Asset } from "@/lib/store";
-import { getMaintenanceTasks, saveMaintenanceTask, getAssets } from "@/lib/db";
+import { MaintenanceTask } from "@/lib/store";
+import { getMaintenanceTasks, saveMaintenanceTask } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/select";
 import {
   Wrench,
-  Plus,
+  // Plus,
   ArrowLeft,
   Clock,
   PlayCircle,
@@ -26,7 +26,7 @@ import {
   AlertTriangle,
   Calendar,
   User,
-  GripVertical,
+  // GripVertical,
   LayoutGrid,
   List,
   Zap,
@@ -54,21 +54,23 @@ const priorityConfig = {
 export default function ManutencaoKanbanPage() {
   const { userName, user } = useAuth();
   const [tasks, setTasks] = useState<MaintenanceTask[]>([]);
-  const [assets, setAssets] = useState<Asset[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // const [assets, setAssets] = useState<Asset[]>([]);
+  // const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState<"kanban" | "list">("list");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const loadData = useCallback(async () => {
-    setIsLoading(true);
-    const [t, a] = await Promise.all([getMaintenanceTasks(), getAssets()]);
+    // setIsLoading(true);
+    // const [t, a] = await Promise.all([getMaintenanceTasks(), getAssets()]);
+    const t = await getMaintenanceTasks();
     setTasks(t);
-    setAssets(a);
-    setIsLoading(false);
+    // setAssets(a);
+    // setIsLoading(false);
   }, []);
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const channel = supabase.channel('maintenance').on('postgres_changes' as any, { event: '*', table: 'maintenance_tasks' }, () => loadData()).subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [loadData]);
@@ -114,7 +116,7 @@ export default function ManutencaoKanbanPage() {
           <div className="flex gap-1 mt-2 pt-2 border-t border-border/50">
             {Object.entries(statusConfig).map(([s, cfg]) => (
               s !== task.status && (
-                <Button key={s} variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => handleUpdateStatus(task, s as any)}>
+                <Button key={s} variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => handleUpdateStatus(task, s as MaintenanceTask["status"])}>
                   <cfg.icon className="h-3 w-3" />
                 </Button>
               )

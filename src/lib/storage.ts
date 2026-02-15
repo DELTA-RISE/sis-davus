@@ -33,7 +33,7 @@ export const uploadFile = async (
  * @param path - The file path to delete.
  */
 export const deleteFile = async (bucket: StorageBucket, path: string) => {
-    const { data, error } = await supabase.storage.from(bucket).remove([path]);
+    const { error } = await supabase.storage.from(bucket).remove([path]);
 
     if (error) {
         console.error(`Error deleting from ${bucket}/${path}:`, error);

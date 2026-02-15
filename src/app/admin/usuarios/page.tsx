@@ -5,7 +5,7 @@ import { saveUser, getDeviceInfo, getPublicIp, syncUsers, syncCostCenters } from
 import { createUserAction, deleteUserAction, updateUserPasswordAction } from "@/actions/auth";
 import { useAuth } from "@/lib/auth-context";
 import { useUsers, useCostCenters } from "@/hooks/use-queries";
-import { User, CostCenter } from "@/lib/store";
+import { User, UserRole } from "@/lib/store";
 import { userSchema } from "@/lib/validations";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -53,6 +53,7 @@ import {
   Check,
   ChevronsUpDown,
   RotateCcw,
+  LucideIcon
 } from "lucide-react";
 import {
   Command,
@@ -70,21 +71,21 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-const roleLabels: Record<string, string> = {
+const roleLabels: Record<UserRole, string> = {
   admin: "Administrador",
   gestor: "Gestor",
   user: "Usuário",
   manager: "Gerente",
 };
 
-const roleColors: Record<string, string> = {
+const roleColors: Record<UserRole, string> = {
   admin: "bg-purple-500/20 text-purple-500 border-purple-500/30",
   gestor: "bg-blue-500/20 text-blue-500 border-blue-500/30",
   user: "bg-gray-500/20 text-gray-500 border-gray-500/30",
   manager: "bg-orange-500/20 text-orange-500 border-orange-500/30",
 };
 
-const roleIcons: Record<string, any> = {
+const roleIcons: Record<UserRole, LucideIcon> = {
   admin: Shield,
   gestor: UserCog,
   user: UserIcon,
@@ -98,8 +99,8 @@ export default function UsersPage() {
   const [searchTerm, setSearchTerm] = useState("");
 
   // Reactive Hooks
-  const { users, isLoading: isLoadingUsers } = useUsers(searchTerm);
-  const { costCenters, isLoading: isLoadingCC } = useCostCenters();
+  const { users } = useUsers(searchTerm);
+  const { costCenters } = useCostCenters();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isAlertOpen, setIsAlertOpen] = useState(false);
@@ -127,16 +128,14 @@ export default function UsersPage() {
 
   const validateForm = () => {
     const payload = {
-      ...newUser,
-      // Handle defaults if missing from partial
       role: newUser.role || 'user',
       status: newUser.status || 'ativo'
-    } as any;
+    };
 
     const result = userSchema.safeParse(payload);
     if (!result.success) {
       const fieldErrors: Record<string, string> = {};
-      (result.error as any).errors.forEach((err: any) => {
+      result.error.issues.forEach((err) => {
         if (err.path[0]) fieldErrors[err.path[0] as string] = err.message;
       });
       setErrors(fieldErrors);
@@ -173,8 +172,12 @@ export default function UsersPage() {
       }
 
       toast.success(`2FA resetado com sucesso.`);
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error) {
+      if (error instanceof Error) {
+        toast.error(error.message);
+      } else {
+        toast.error("Erro desconhecido ao resetar 2FA");
+      }
     }
   };
 
@@ -218,7 +221,7 @@ export default function UsersPage() {
           email: newUser.email || "",
           role: newUser.role || 'gestor',
           status: (newUser.status === 'ativo' || newUser.status === 'inativo') ? newUser.status : 'ativo',
-          cost_center: newUser.role === 'gestor' ? (newUser as any).cost_center : null // Pass cost center
+          cost_center: newUser.role === 'gestor' && newUser.cost_center ? newUser.cost_center : null
         }, {
           userName,
           userId: user?.id || "",
@@ -272,7 +275,7 @@ export default function UsersPage() {
       } else {
         toast.error("Erro ao excluir usuário: " + result.error);
       }
-    } catch (error) {
+    } catch {
       toast.error("Erro ao excluir usuário");
     } finally {
       setIsDeleting(false);
@@ -390,8 +393,8 @@ export default function UsersPage() {
                           aria-expanded={openCostCenterSelect}
                           className="w-full justify-between"
                         >
-                          {(newUser as any).cost_center
-                            ? costCenters.find((cc) => cc.id === (newUser as any).cost_center)?.name || "Selecione..."
+                          {newUser.cost_center
+                            ? costCenters.find((cc) => cc.id === newUser.cost_center)?.name || "Selecione..."
                             : "Nenhum"}
                           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                         </Button>
@@ -405,14 +408,14 @@ export default function UsersPage() {
                               <CommandItem
                                 value="none"
                                 onSelect={() => {
-                                  setNewUser({ ...newUser, cost_center: null } as any);
+                                  setNewUser({ ...newUser, cost_center: undefined });
                                   setOpenCostCenterSelect(false);
                                 }}
                               >
                                 <Check
                                   className={cn(
                                     "mr-2 h-4 w-4",
-                                    !(newUser as any).cost_center ? "opacity-100" : "opacity-0"
+                                    !newUser.cost_center ? "opacity-100" : "opacity-0"
                                   )}
                                 />
                                 Nenhum
@@ -422,14 +425,14 @@ export default function UsersPage() {
                                   key={cc.id}
                                   value={cc.name}
                                   onSelect={() => {
-                                    setNewUser({ ...newUser, cost_center: cc.id } as any);
+                                    setNewUser({ ...newUser, cost_center: cc.id });
                                     setOpenCostCenterSelect(false);
                                   }}
                                 >
                                   <Check
                                     className={cn(
                                       "mr-2 h-4 w-4",
-                                      (newUser as any).cost_center === cc.id ? "opacity-100" : "opacity-0"
+                                      newUser.cost_center === cc.id ? "opacity-100" : "opacity-0"
                                     )}
                                   />
                                   {cc.name}
@@ -635,7 +638,7 @@ export default function UsersPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3">
-          {filteredUsers.map((user) => {
+          {filteredUsers.map((user: User) => {
             const RoleIcon = roleIcons[user.role];
             return (
               <Card key={user.id} className="border-border/50 bg-card/50">

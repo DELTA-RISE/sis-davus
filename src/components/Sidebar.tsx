@@ -8,26 +8,16 @@ import {
   Building2,
   FileBarChart,
   Users,
-  MapPin,
   FileText,
   ArrowLeftRight,
   LogOut,
   ChevronRight,
   Briefcase,
-  Settings,
-  Database,
   Tags,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { useSidebar } from "@/lib/sidebar-context";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 const adminItems = [
   { href: "/admin/logs", icon: FileText, label: "Logs de Auditoria" },

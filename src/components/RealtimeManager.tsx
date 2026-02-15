@@ -3,7 +3,6 @@
 import { useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { db } from "@/lib/dexie-db";
-import { toast } from "sonner";
 import { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 
 export function RealtimeManager() {

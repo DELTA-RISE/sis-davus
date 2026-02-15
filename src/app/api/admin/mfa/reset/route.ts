@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
 
         const deletedFactors = [];
         for (const factor of factors.factors) {
-            const { data, error } = await supabaseAdmin.auth.admin.mfa.deleteFactor({
+            const { error } = await supabaseAdmin.auth.admin.mfa.deleteFactor({
                 userId: userId,
                 id: factor.id
             });
@@ -71,8 +71,8 @@ export async function POST(req: NextRequest) {
         }
 
         return NextResponse.json({ success: true, message: `MFA reset for user ${userId}`, deletedCount: deletedFactors.length });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error resetting MFA:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 });
     }
 }

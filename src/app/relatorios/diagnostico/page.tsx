@@ -24,7 +24,7 @@ export default function DiagnosticoPage() {
 
     const measureQuery = async (
         name: string,
-        queryFn: () => Promise<any[]>,
+        queryFn: () => Promise<unknown[]>,
         forceRefresh = false
     ): Promise<QueryResult> => {
         const start = performance.now();

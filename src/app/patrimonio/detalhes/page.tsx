@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Asset, MaintenanceTask, AssetTimeline, Checkout, CostCenter } from "@/lib/store";
@@ -73,6 +73,7 @@ const conditionColors: Record<string, string> = {
   Manutenção: "bg-purple-500/20 text-purple-500 border-purple-500/30",
 };
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const timelineIcons: Record<string, any> = {
   criacao: Package,
   movimentacao: ArrowRightLeft,
@@ -127,7 +128,7 @@ export default function AssetHubPage() {
     documentTitle: `Etiqueta-${asset?.code || 'Patrimonio'}`,
   });
 
-  async function loadData() {
+  const loadData = useCallback(async () => {
     if (!id) return;
     setIsLoading(true);
     try {
@@ -136,7 +137,6 @@ export default function AssetHubPage() {
         getMaintenanceTasks(id),
         getAssetTimelines(id),
         getCheckouts(id, "asset"),
-
         getCostCenters()
       ]);
 
@@ -146,7 +146,6 @@ export default function AssetHubPage() {
       }
       setMaintenanceTasks(tasksData);
       setTimeline(timelineData);
-
       setCostCenters(ccsData);
 
       const current = checkoutsData.find(c => c.status === "Ativo" || c.status === "Atrasado");
@@ -157,13 +156,14 @@ export default function AssetHubPage() {
     } finally {
       setIsLoading(false);
     }
-  }
+  }, [id]);
+
 
   useEffect(() => {
     if (id) {
       loadData();
     }
-  }, [id]);
+  }, [id, loadData]);
 
   const downloadQR = () => {
     const canvas = document.getElementById("qr-code-canvas") as HTMLCanvasElement;
@@ -171,7 +171,7 @@ export default function AssetHubPage() {
       const pngUrl = canvas
         .toDataURL("image/png")
         .replace("image/png", "image/octet-stream");
-      let downloadLink = document.createElement("a");
+      const downloadLink = document.createElement("a");
       downloadLink.href = pngUrl;
       downloadLink.download = `${asset?.code || 'qr'}.png`;
       document.body.appendChild(downloadLink);

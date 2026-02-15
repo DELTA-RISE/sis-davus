@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Package, Laptop, File, Loader2, CheckCircle, AlertCircle } from "lucide-react";
 import { getAssets, getProducts } from "@/lib/db";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
+
 
 interface FileDropWizardProps {
     file: File | null;
@@ -20,7 +20,7 @@ type WizardStep = 'type-selection' | 'code-entry' | 'processing' | 'success';
 type FileCategory = 'asset' | 'input' | 'other';
 
 export function FileDropWizard({ file, isOpen, onClose }: FileDropWizardProps) {
-    const router = useRouter();
+
 
     const [step, setStep] = useState<WizardStep>('type-selection');
     const [category, setCategory] = useState<FileCategory | null>(null);
@@ -106,19 +106,11 @@ export function FileDropWizard({ file, isOpen, onClose }: FileDropWizardProps) {
         }
     };
 
-    const handleImport = async (cat: FileCategory, validCode?: string) => {
+    const handleImport = async (_cat: FileCategory, _validCode?: string) => {
         if (!file) return;
 
         setStep('processing');
         try {
-            let customName = file.name;
-
-            if (cat === 'asset' && validCode) {
-                customName = `[${validCode}] ${file.name}`;
-            } else if (cat === 'input' && validCode) {
-                customName = `[SKU-${validCode}] ${file.name}`; // Distinct prefix for products
-            }
-
             // support file object
             // Electron import removed.
             // const res = await importDocument(file, customName);
@@ -137,7 +129,7 @@ export function FileDropWizard({ file, isOpen, onClose }: FileDropWizardProps) {
                 setError(res.error || "Erro na importação");
                 setStep('code-entry'); // Go back
             }
-        } catch (e) {
+        } catch {
             setError("Falha crítica na importação");
             setStep('code-entry');
         }

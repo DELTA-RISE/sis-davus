@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
 import { Upload, X, CheckCircle, FileIcon } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 interface ResumableUploadProps {
     bucketName: 'public-assets' | 'secure-docs';

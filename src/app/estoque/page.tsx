@@ -47,11 +47,8 @@ import {
   Plus,
   Edit,
   Trash2,
-  MapPin,
   AlertTriangle,
   TrendingUp,
-  CheckSquare,
-  Square,
   Check,
   ChevronsUpDown,
   Building2,
@@ -152,6 +149,7 @@ export default function EstoquePage() {
 
     const channel = supabase
       .channel('products')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .on('postgres_changes' as any, { event: '*', table: 'products' }, () => {
         loadData(true);
       })
@@ -182,7 +180,6 @@ export default function EstoquePage() {
       const name = p.name || "";
       const sku = p.sku || "";
       const category = p.category || "";
-      const location = p.location || "";
 
       const matchesSearch =
         name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
@@ -206,7 +203,7 @@ export default function EstoquePage() {
 
       return matchesSearch && matchesFilters;
     });
-  }, [products, debouncedSearch, activeFilters]);
+  }, [products, debouncedSearch, activeFilters, costCenters]);
 
   const { displayedItems, hasMore, loaderRef } = useInfiniteScroll({
     data: filteredProducts,
@@ -227,6 +224,7 @@ export default function EstoquePage() {
 
     if (!result.success) {
       const fieldErrors: Record<string, string> = {};
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (result.error as any).errors.forEach((err: any) => {
         if (err.path[0]) fieldErrors[err.path[0] as string] = err.message;
       });

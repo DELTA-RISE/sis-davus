@@ -57,7 +57,7 @@ export function QRScanner({ open, onOpenChange, onScan }: QRScannerProps) {
             qrbox: { width: 250, height: 250 },
             aspectRatio: 1
           },
-          (decodedText) => {
+          (decodedText: string) => {
             if (mounted) {
               // Pause or stop before calling callback to prevent multiple scans
               // scannerInstance?.pause();
@@ -104,10 +104,10 @@ export function QRScanner({ open, onOpenChange, onScan }: QRScannerProps) {
         // The most reliable way with html5-qrcode is just calling stop() and catching errors.
         instance.stop()
           .then(() => instance.clear())
-          .catch((err) => {
+          .catch((err: unknown) => {
             console.warn("Failed to stop scanner during cleanup:", err);
             // Force clear if stop fails (e.g. wasn't running)
-            try { instance.clear(); } catch (e) { }
+            try { instance.clear(); } catch { }
           });
       }
     };

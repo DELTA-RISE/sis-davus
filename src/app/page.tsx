@@ -5,19 +5,12 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { m, LazyMotion, domAnimation, useScroll, useTransform } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Box, Shield, Zap, Globe, BarChart3, ChevronDown, Terminal, Download, AppWindow, Smartphone, Apple, Share2, MoreVertical } from "lucide-react";
-import { Terminal as TerminalIcon } from "lucide-react";
+import { ArrowRight, Box, Shield, Globe, ChevronDown, Terminal, Download, AppWindow, Smartphone, Apple, Share2, MoreVertical } from "lucide-react";
 import { LandingHeader } from "@/components/landing/LandingHeader";
 import { MagneticButton } from "@/components/ui/magnetic-button";
 import { useAuth } from "@/lib/auth-context";
 import { TextMorph } from "@/components/landing/TextMorph";
 import { SpotlightCard } from "@/components/landing/SpotlightCard";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 // Dynamic Imports for Heavy Components
 const Experience = dynamic(() => import("@/components/landing/cinematic/Experience").then(mod => mod.Experience), {
@@ -43,7 +36,13 @@ export default function LandingPage() {
 
   // OS Detection & PWA Logic
   const [os, setOs] = useState<"Windows" | "Mac" | "Linux" | "iOS" | "Android" | null>(null);
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  interface BeforeInstallPromptEvent extends Event {
+    prompt: () => Promise<void>;
+    userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
+  }
+
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
 
   useEffect(() => {
     // Detect OS
@@ -55,9 +54,9 @@ export default function LandingPage() {
     else if (userAgent.includes("linux")) setOs("Linux");
 
     // Capture PWA install prompt
-    const handleBeforeInstallPrompt = (e: any) => {
+    const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
-      setDeferredPrompt(e);
+      setDeferredPrompt(e as BeforeInstallPromptEvent);
     };
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);

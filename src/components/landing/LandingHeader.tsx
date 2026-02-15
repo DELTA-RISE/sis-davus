@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { m, useScroll, useMotionValueEvent } from "framer-motion";
-import { Button } from "@/components/ui/button";
+
 import { MagneticButton } from "@/components/ui/magnetic-button";
 import { AudioToggle } from "@/components/ui/audio-toggle";
 import { LocalizedGreeting } from "@/components/landing/LocalizedGreeting";

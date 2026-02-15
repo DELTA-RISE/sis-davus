@@ -5,7 +5,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import {
   Users,
   Briefcase,
-  MapPin,
   FileText,
   Shield,
   Settings,

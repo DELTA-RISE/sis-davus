@@ -30,18 +30,15 @@ interface UserSelectProps {
 export function UserSelect({ value, onChange, placeholder = "Selecione o usuário...", className }: UserSelectProps) {
     const [open, setOpen] = useState(false);
     const [users, setUsers] = useState<User[]>([]);
-    const [loading, setLoading] = useState(false);
+
 
     useEffect(() => {
         async function fetchUsers() {
-            setLoading(true);
             try {
                 const data = await getUsers();
                 setUsers(data);
             } catch (error) {
                 console.error("Error fetching users:", error);
-            } finally {
-                setLoading(false);
             }
         }
         fetchUsers();

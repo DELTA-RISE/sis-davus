@@ -20,6 +20,7 @@ interface Notification {
   time: string;
   unread: boolean;
   type: "low_stock" | "maintenance" | "overdue" | "write_off_request" | "maintenance_request";
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   metadata?: any; // To store requestId, assetId for actions
 }
 
@@ -176,6 +177,7 @@ export default function NotificationsPage() {
           approved_by: user.id,
           admin_signature: `APPROVED_${user.id}_${Date.now()}`,
           admin_signed_at: new Date().toISOString(),
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           steps_data: task.steps_data?.map((step: any) =>
             step.id === '2' ? { ...step, completed: true, completed_by: userName, completed_at: new Date().toISOString() } : step
           )
@@ -219,6 +221,7 @@ export default function NotificationsPage() {
           approval_status: 'rejected',
           status: 'Rejeitado',
           rejection_reason: 'Rejeitado via notificações rápidas',
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           steps_data: task.steps_data?.map((step: any) =>
             step.id === '2' ? { ...step, completed: false, description: `Rejeitado: Rejeitado via notificações rápidas` } : step
           )

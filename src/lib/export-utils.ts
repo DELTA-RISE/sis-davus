@@ -1215,7 +1215,7 @@ export function exportMaintenance(tasks: MaintenanceTask[], format: "csv" | "jso
   ]);
 }
 
-export function exportOverview(products: Product[], assets: Asset[], tasks: MaintenanceTask[], format: 'xlsx'): void {
+export function exportOverview(products: Product[], assets: Asset[], tasks: MaintenanceTask[], _format: 'xlsx'): void {
   const filename = `relatorio_gerencial_${new Date().toISOString().split("T")[0]}`;
   return void exportOverviewXLSX(products, assets, tasks, filename);
 }

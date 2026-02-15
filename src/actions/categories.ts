@@ -1,7 +1,6 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
-import { cookies } from "next/headers";
+// Imports removed as they were unused
 
 // Note: In a Server Action, we should use the equivalent of createServerComponentClient
 // But we can also use the standard client if we handle auth correctly.

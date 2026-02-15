@@ -1,18 +1,18 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Product, Asset, StockMovement, Checkout } from "@/lib/store";
-import { getProducts, getAssets, getMovements, getCheckouts } from "@/lib/db"; // unused but keep for type safety if needed, technically types are imported from store
+// import { Product, Asset, StockMovement, Checkout } from "@/lib/store";
+// import { getProducts, getAssets, getMovements, getCheckouts } from "@/lib/db"; // unused but keep for type safety if needed, technically types are imported from store
 
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { PullToRefresh } from "@/components/PullToRefresh";
-import { PageTransition, StaggerContainer, StaggerItem, SlideUp } from "@/components/PageTransition";
+import { PageTransition, SlideUp, StaggerContainer, StaggerItem } from "@/components/PageTransition";
 import {
   BarChart,
   Bar,
@@ -24,8 +24,6 @@ import {
   PieChart,
   Pie,
   Cell,
-  LineChart,
-  Line,
 } from "recharts";
 import {
   Package,
@@ -33,7 +31,6 @@ import {
   ArrowLeftRight,
   LogOut,
   Users,
-  MapPin,
   FileText,
   Briefcase,
   FileBarChart,
@@ -42,7 +39,7 @@ import {
   ChevronRight,
   Zap,
 } from "lucide-react";
-import { toast } from "sonner";
+// import { toast } from "sonner";
 
 const adminMenuItems = [
   { href: "/admin/logs", icon: FileText, label: "Logs de Auditoria", description: "Histórico de ações", color: "bg-blue-500/20 text-blue-500" },

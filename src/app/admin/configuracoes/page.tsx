@@ -2,62 +2,60 @@
 
 import Link from "next/link";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 // import { useElectron } from "@/hooks/use-electron";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Printer, Save, Power, Scale, RefreshCw, Scan, FolderOpen } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
+import { Printer, Save, Scale, RefreshCw, Scan, FolderOpen } from "lucide-react";
 import { ScannerModal } from "@/components/ScannerModal";
 
-export default function SettingsPage() {
-    // Electron hooks removed
-    const isElectron = false;
-    const getPrinters = async (): Promise<any[]> => [];
-    const print = async (_: string, __: string) => ({ success: false, error: "Not supported in web" });
-    const getAutoLaunch = async () => false;
-    const setAutoLaunch = async (_: boolean) => false;
-    const getSerialPorts = async (): Promise<any[]> => [];
-    const connectScale = async (_: string) => ({ success: false, error: "Not supported in web" });
-    const disconnectScale = async () => { };
-    const onScaleData = (_: (data: string) => void) => { };
+// Printer State
+interface PrinterType {
+    name: string;
+    displayName: string;
+    isDefault: boolean;
+    description: string;
+    status: number;
+}
 
+interface SerialPort {
+    path: string;
+    manufacturer: string;
+    serialNumber: string;
+    pnpId: string;
+    locationId: string;
+    vendorId: string;
+    productId: string;
+}
+
+// Electron hooks removed
+const isElectron = false;
+const getPrinters = async (): Promise<PrinterType[]> => [];
+const print = async (_: string, __: string) => ({ success: false, error: "Not supported in web" });
+const getAutoLaunch = async () => false;
+const getSerialPorts = async () => [];
+const connectScale = async (_: string) => ({ success: false, error: "Not supported in web" });
+const disconnectScale = async () => { };
+const onScaleData = (_: (data: string) => void) => { };
+
+export default function SettingsPage() {
     // Printer State
-    const [printers, setPrinters] = useState<any[]>([]);
+    const [printers, setPrinters] = useState<PrinterType[]>([]);
     const [selectedPrinter, setSelectedPrinter] = useState<string>("");
 
-    // Scale State
-    const [serialPorts, setSerialPorts] = useState<any[]>([]);
-    const [selectedPort, setSelectedPort] = useState<string>("");
     const [scaleConnected, setScaleConnected] = useState(false);
     const [currentWeight, setCurrentWeight] = useState<string>("0.000");
+    const [serialPorts, setSerialPorts] = useState<SerialPort[]>([]);
+    const [selectedPort, setSelectedPort] = useState<string>("");
 
     // System State
     const [loading, setLoading] = useState(true);
-    const [autoLaunch, setAutoLaunchState] = useState(false);
     const [scannerOpen, setScannerOpen] = useState(false);
 
-    useEffect(() => {
-        if (isElectron) {
-            loadPrinters();
-            loadPorts();
-            getAutoLaunch().then(setAutoLaunchState);
-
-            const savedPrinter = localStorage.getItem("sisdavus_printer_labels");
-            const savedPort = localStorage.getItem("sisdavus_scale_port");
-
-            if (savedPrinter) setSelectedPrinter(savedPrinter);
-            if (savedPort) setSelectedPort(savedPort);
-        } else {
-            setLoading(false);
-        }
-    }, [isElectron]);
-
-    const loadPrinters = async () => {
+    const loadPrinters = useCallback(async () => {
         try {
             const list = await getPrinters();
             setPrinters(list);
@@ -72,9 +70,9 @@ export default function SettingsPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
-    const loadPorts = async () => {
+    const loadPorts = useCallback(async () => {
         try {
             const ports = await getSerialPorts();
             setSerialPorts(ports || []);
@@ -82,7 +80,23 @@ export default function SettingsPage() {
             console.error(e);
             // toast.error("Erro ao listar portas seriais"); // Fail silently if no support
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        if (isElectron) {
+            loadPrinters();
+            loadPorts();
+            getAutoLaunch();
+
+            const savedPrinter = localStorage.getItem("sisdavus_printer_labels");
+            const savedPort = localStorage.getItem("sisdavus_scale_port");
+
+            if (savedPrinter) setSelectedPrinter(savedPrinter);
+            if (savedPort) setSelectedPort(savedPort);
+        } else {
+            setLoading(false);
+        }
+    }, [loadPrinters, loadPorts]);
 
     const handleConnectScale = async () => {
         if (scaleConnected) {
@@ -143,7 +157,7 @@ export default function SettingsPage() {
             } else {
                 toast.error("Falha na impressão: " + result.error, { id: toastId });
             }
-        } catch (e) {
+        } catch {
             toast.error("Erro ao comunicar com a impressora", { id: toastId });
         }
     };

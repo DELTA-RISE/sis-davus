@@ -1,7 +1,7 @@
 
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/dexie-db";
-import { User } from "@/lib/store";
+
 
 // ...
 
@@ -20,6 +20,23 @@ export function useProducts(searchTerm = "") {
     }, [searchTerm]);
 
     return { products: products || [], isLoading: products === undefined };
+}
+
+export function useUsers(searchTerm = "") {
+    const users = useLiveQuery(async () => {
+        const all = await db.profiles.toArray();
+        const active = all.filter((u) => u.status !== 'inativo'); // Or whatever logic for active users
+
+        if (!searchTerm) return active.sort((a, b) => a.name.localeCompare(b.name));
+
+        const lower = searchTerm.toLowerCase();
+        return active.filter((u) =>
+            u.name.toLowerCase().includes(lower) ||
+            u.email.toLowerCase().includes(lower)
+        ).sort((a, b) => a.name.localeCompare(b.name));
+    }, [searchTerm]);
+
+    return { users: users || [], isLoading: users === undefined };
 }
 
 export function useAssets(searchTerm = "") {

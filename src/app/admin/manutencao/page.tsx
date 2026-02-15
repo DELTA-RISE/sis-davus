@@ -13,7 +13,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { CheckCircle2, XCircle, Clock, FileText, AlertTriangle } from "lucide-react";
-import { Input } from "@/components/ui/input";
 
 export default function AdminMaintenancePage() {
     const { user, userName } = useAuth();
@@ -55,7 +54,7 @@ export default function AdminMaintenancePage() {
             await saveMaintenanceTask(updatedTask, { name: userName, id: user?.id || "" });
             toast.success("Solicitação aprovada com sucesso!");
             loadTasks();
-        } catch (error) {
+        } catch {
             toast.error("Erro ao aprovar solicitação.");
         }
     };
@@ -80,7 +79,7 @@ export default function AdminMaintenancePage() {
             setRejectionReason("");
             setSelectedTask(null);
             loadTasks();
-        } catch (error) {
+        } catch {
             toast.error("Erro ao rejeitar solicitação.");
         }
     };
@@ -170,7 +169,7 @@ function MaintenanceCard({ task, onApprove, onReject, readOnly }: { task: Mainte
                         <CardDescription className="mt-1">Solicitado por: {task.created_by} em {new Date(task.created_at || "").toLocaleDateString()}</CardDescription>
                     </div>
                     <div className="flex flex-col items-end gap-1">
-                        <Badge variant={task.priority === 'Alta' ? 'destructive' : 'secondary'}>{task.priority}</Badge>
+                        <Badge variant={task.priority === 'alta' ? 'destructive' : 'secondary'}>{task.priority}</Badge>
                         {task.cost ? <span className="text-sm font-medium text-green-600">R$ {task.cost}</span> : null}
                     </div>
                 </div>

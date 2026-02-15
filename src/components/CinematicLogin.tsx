@@ -2,14 +2,14 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+
 
 interface CinematicLoginProps {
     onComplete: () => void;
     isLoading: boolean;
 }
 
-export function CinematicLogin({ onComplete, isLoading }: CinematicLoginProps) {
+export function CinematicLogin({ onComplete: _onComplete, isLoading }: CinematicLoginProps) {
     const [showOverlay, setShowOverlay] = useState(false);
 
     useEffect(() => {

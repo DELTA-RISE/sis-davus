@@ -57,7 +57,7 @@ export default function DocumentsPage() {
         } else {
             setLoading(false);
         }
-    }, [isElectron]);
+    }, [isElectron, loadDocuments]);
 
     const handleDelete = async (pathsToDelete: string[]) => {
         if (!confirm(`Tem certeza que deseja excluir ${pathsToDelete.length} arquivo(s)?`)) return;
@@ -77,7 +77,7 @@ export default function DocumentsPage() {
         }
     };
 
-    const loadDocuments = async () => {
+    const loadDocuments = useCallback(async () => {
         setLoading(true);
         try {
             const docs = await listScannedDocuments();
@@ -92,7 +92,7 @@ export default function DocumentsPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
     const handleOpen = (path: string) => {
         openExternal(path);
@@ -231,7 +231,7 @@ export default function DocumentsPage() {
                 </div>
 
                 <div className="flex items-center gap-2 w-full md:w-auto">
-                    <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
+                    <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
                         <SelectTrigger className="w-[140px] bg-background">
                             <SelectValue placeholder="Ordenar por" />
                         </SelectTrigger>

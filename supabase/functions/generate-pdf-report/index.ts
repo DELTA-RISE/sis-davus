@@ -15,7 +15,7 @@ serve(async (req) => {
     }
 
     try {
-        const { title, content, type } = await req.json()
+        const { title, content } = await req.json()
 
         // Create a new PDFDocument
         const pdfDoc = await PDFDocument.create()
@@ -64,8 +64,9 @@ serve(async (req) => {
                 }
             },
         )
-    } catch (error) {
-        return new Response(JSON.stringify({ error: error.message }), {
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        return new Response(JSON.stringify({ error: message }), {
             headers: { "Content-Type": "application/json" },
             status: 400,
         })

@@ -15,7 +15,6 @@ import {
 } from "@/lib/localStorage";
 // import { getProducts, getAssets, getWriteOffRequests, getMaintenanceTasks } from "@/lib/db";
 import { useNotifications } from "@/hooks/use-queries";
-import { Product, Asset } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { CheckCheck } from "lucide-react";
 import {
@@ -29,7 +28,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { toast } from "sonner";
 
 interface Notification {
   id: string;

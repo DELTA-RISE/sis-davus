@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Book, ChevronRight, Search, PanelLeftClose, PanelLeftOpen, LogOut } from "lucide-react";
+import { Book, Search, PanelLeftClose, PanelLeftOpen, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { WikiSidebarNav } from "@/components/WikiSidebarNav";
 import { cn } from "@/lib/utils";

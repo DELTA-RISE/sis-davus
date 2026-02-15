@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { UploadCloud } from "lucide-react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 // import { useElectron } from "@/hooks/use-electron";
 import { FileDropWizard } from "@/components/FileDropWizard";
 
@@ -17,6 +17,31 @@ export function GlobalDropZone() {
     const [wizardOpen, setWizardOpen] = useState(false);
 
     useEffect(() => {
+        const processFileDrop = (file: File) => {
+            const name = file.name;
+            const extension = name.split(".").pop()?.toLowerCase();
+
+            // Allowed Extensions
+            const allowed = ["xml", "jpg", "jpeg", "png", "pdf", "docx", "doc", "xlsx", "xls"];
+
+            if (!allowed.includes(extension || "")) {
+                toast.warning("Tipo de arquivo não suportado.");
+                return;
+            }
+
+            if (extension === "xml") {
+                // XML NFe Flow - Redirect to import (Assuming we will create this page or it exists)
+                // Ideally we should pass the file object or read content here.
+                // For now, let's just warn as we can't easily pass file objects via URL
+                toast.info("Nota Fiscal detectada. Utilize a página de importação.");
+                router.push('/estoque/importar');
+                return;
+            }
+
+            setDroppedFile(file);
+            setWizardOpen(true);
+        };
+
         const handleDragOver = (e: DragEvent) => {
             e.preventDefault();
             e.stopPropagation();
@@ -53,32 +78,7 @@ export function GlobalDropZone() {
             window.removeEventListener("dragleave", handleDragLeave);
             window.removeEventListener("drop", handleDrop);
         };
-    }, [isDragging]);
-
-    const processFileDrop = (file: File) => {
-        const name = file.name;
-        const extension = name.split(".").pop()?.toLowerCase();
-
-        // Allowed Extensions
-        const allowed = ["xml", "jpg", "jpeg", "png", "pdf", "docx", "doc", "xlsx", "xls"];
-
-        if (!allowed.includes(extension || "")) {
-            toast.warning("Tipo de arquivo não suportado.");
-            return;
-        }
-
-        if (extension === "xml") {
-            // XML NFe Flow - Redirect to import (Assuming we will create this page or it exists)
-            // Ideally we should pass the file object or read content here.
-            // For now, let's just warn as we can't easily pass file objects via URL
-            toast.info("Nota Fiscal detectada. Utilize a página de importação.");
-            router.push('/estoque/importar');
-            return;
-        }
-
-        setDroppedFile(file);
-        setWizardOpen(true);
-    };
+    }, [isDragging, router]);
 
     // Removed strict isElectron check return null
 

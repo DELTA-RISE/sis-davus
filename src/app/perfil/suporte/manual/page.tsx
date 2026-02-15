@@ -1,10 +1,10 @@
 "use client";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, BookOpen, LayoutDashboard, Package, Box, FileBarChart, Settings, Search, QrCode } from "lucide-react";
+import { ArrowLeft, BookOpen, LayoutDashboard, Package, Box, FileBarChart, Settings, QrCode } from "lucide-react";
 import Link from "next/link";
-import { ScrollArea } from "@/components/ui/scroll-area";
+// import { ScrollArea } from "@/components/ui/scroll-area";
 
 export default function UserManualPage() {
     const scrollToSection = (id: string) => {

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, AlertTriangle, Monitor, Activity } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Monitor, Activity } from "lucide-react";
 import { motion } from "framer-motion";
 
 const SERVICES = [

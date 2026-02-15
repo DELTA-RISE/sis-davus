@@ -1,8 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+
 // import { useElectron } from "@/hooks/use-electron";
 
 export function DeepLinkListener() {

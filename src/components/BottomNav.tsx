@@ -1,40 +1,35 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Home,
   Package,
-  User,
   Building2,
   FileBarChart,
-  Users,
-  MapPin,
-  FileText,
-  Briefcase,
   ArrowLeftRight,
   LogOut,
   X,
   Wrench,
-  Settings,
   Shield,
-  HardHat
+  HardHat,
+  LucideIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { getGravatarUrl } from "@/lib/gravatar";
+
 
 interface SubMenuItem {
   href: string;
-  icon: typeof Home;
+  icon: LucideIcon;
   label: string;
 }
 
 export function BottomNav() {
   const pathname = usePathname();
-  const { currentRole, email, gravatarUrl } = useAuth();
+  const { currentRole, gravatarUrl } = useAuth();
   const [activeSubmenu, setActiveSubmenu] = useState<string | null>(null);
 
   const ferramentasGestor: SubMenuItem[] = [

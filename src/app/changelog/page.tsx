@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, FlaskConical, Sparkles, Bug } from "lucide-react";
+import { ArrowLeft, FlaskConical, Sparkles, Bug } from "lucide-react";
 
 interface Release {
     version: string;

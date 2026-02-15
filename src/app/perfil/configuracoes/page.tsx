@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { saveUser } from "@/lib/db";
+import { User as AppUser } from "@/lib/store";
+import { User as SupabaseUser } from "@supabase/supabase-js";
 import { toast } from "sonner";
+import QRCode from 'qrcode';
 import {
     Card,
     CardContent,
@@ -20,7 +22,6 @@ import { Label } from "@/components/ui/label";
 import {
     ArrowLeft,
     Lock,
-    User,
     Shield,
     Bell,
     Eye,
@@ -29,7 +30,6 @@ import {
     Laptop,
     Trash2,
     QrCode,
-    Smartphone,
     FileClock,
     Download
 } from "lucide-react";
@@ -38,7 +38,7 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 
 export default function AccountSettingsPage() {
-    const router = useRouter();
+    // const router = useRouter();
     const { user, refreshProfile, lockPin } = useAuth();
     //...
 
@@ -173,8 +173,8 @@ export default function AccountSettingsPage() {
                 await refreshProfile();
             }
 
-        } catch (error: any) {
-            toast.error(error.message || "Erro ao alterar senha");
+        } catch (error: unknown) {
+            toast.error((error as Error).message || "Erro ao alterar senha");
         } finally {
             setIsChangingPassword(false);
         }
@@ -525,7 +525,7 @@ export default function AccountSettingsPage() {
 
 
 
-function PinSettings({ user, lockPin, refreshProfile }: { user: any, lockPin: string | null | undefined, refreshProfile: () => Promise<void> }) {
+function PinSettings({ user, lockPin, refreshProfile }: { user: SupabaseUser | null, lockPin: string | null | undefined, refreshProfile: () => Promise<void> }) {
     const [pin, setPin] = useState("");
     const [confirmPin, setConfirmPin] = useState("");
     const [isEditing, setIsEditing] = useState(false);
@@ -543,7 +543,9 @@ function PinSettings({ user, lockPin, refreshProfile }: { user: any, lockPin: st
             return;
         }
 
+
         setLoading(true);
+        if (!user) return;
         try {
             await saveUser({ id: user.id, lock_pin: pin });
             await refreshProfile();
@@ -551,7 +553,7 @@ function PinSettings({ user, lockPin, refreshProfile }: { user: any, lockPin: st
             setIsEditing(false);
             setPin("");
             setConfirmPin("");
-        } catch (e) {
+        } catch (_) {
             toast.error("Erro ao salvar PIN.");
         } finally {
             setLoading(false);
@@ -561,11 +563,12 @@ function PinSettings({ user, lockPin, refreshProfile }: { user: any, lockPin: st
     const handleRemovePin = async () => {
         if (!confirm("Remover o bloqueio por PIN?")) return;
         setLoading(true);
+        if (!user) return;
         try {
-            await saveUser({ id: user.id, lock_pin: null } as any); // cast null for partial update
+            await saveUser({ id: user.id, lock_pin: null } as unknown as Partial<AppUser>); // cast null for partial update
             await refreshProfile();
             toast.success("PIN removido.");
-        } catch (e) {
+        } catch (_) {
             toast.error("Erro ao remover PIN.");
         } finally {
             setLoading(false);
@@ -631,9 +634,9 @@ function PinSettings({ user, lockPin, refreshProfile }: { user: any, lockPin: st
     );
 }
 
-import QRCode from 'qrcode';
 
-function TwoFactorAuth({ user }: { user: any }) {
+
+function TwoFactorAuth({ user }: { user: SupabaseUser | null }) {
     const [factorId, setFactorId] = useState<string | null>(null);
     const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
     const [verifyCode, setVerifyCode] = useState("");
@@ -641,28 +644,29 @@ function TwoFactorAuth({ user }: { user: any }) {
     const [loading, setLoading] = useState(false);
     const [step, setStep] = useState<'idle' | 'enrolling' | 'verifying'>('idle');
 
-    useEffect(() => {
-        checkStatus();
+
+    const checkStatus = useCallback(async () => {
+        if (!user) return;
+
+        const { data: _assurance } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+
+        const { data: factors } = await supabase.auth.mfa.listFactors();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const totpFactor = factors?.totp.find((f: any) => f.status === 'verified');
+        setIsEnabled(!!totpFactor);
+        if (totpFactor) setFactorId(totpFactor.id);
     }, [user]);
 
-    const checkStatus = async () => {
-        if (!user) return;
-        const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-        if (data) {
-            // Basic check if any TOTP factor exists would be better, but assurance level gives hint
-            // To strictly check if ENROLLED, we list factors
-            const { data: factors } = await supabase.auth.mfa.listFactors();
-            const totpFactor = factors?.totp.find(f => f.status === 'verified');
-            setIsEnabled(!!totpFactor);
-            if (totpFactor) setFactorId(totpFactor.id);
-        }
-    };
+    useEffect(() => {
+        checkStatus();
+    }, [checkStatus]);
 
     const startEnrollment = async () => {
         setLoading(true);
         try {
             // Cleanup any unverified factors first to avoid collision
             const { data: factors } = await supabase.auth.mfa.listFactors();
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const unverifiedFactors = factors?.totp.filter((f: any) => f.status === 'unverified') || [];
 
             for (const factor of unverifiedFactors) {
@@ -680,8 +684,8 @@ function TwoFactorAuth({ user }: { user: any }) {
             const url = await QRCode.toDataURL(data.totp.uri);
             setQrCodeUrl(url);
             setStep('enrolling');
-        } catch (e: any) {
-            toast.error(e.message);
+        } catch (e: unknown) {
+            toast.error((e as Error).message);
         } finally {
             setLoading(false);
         }
@@ -710,7 +714,7 @@ function TwoFactorAuth({ user }: { user: any }) {
         if (!factorId || !verifyCode) return;
         setLoading(true);
         try {
-            const { data, error } = await supabase.auth.mfa.challengeAndVerify({
+            const { data: _data, error } = await supabase.auth.mfa.challengeAndVerify({
                 factorId: factorId,
                 code: verifyCode,
             });
@@ -721,7 +725,7 @@ function TwoFactorAuth({ user }: { user: any }) {
             setStep('idle');
             setQrCodeUrl(null);
             setVerifyCode("");
-        } catch (e: any) {
+        } catch {
             toast.error("Código inválido. Tente novamente.");
         } finally {
             setLoading(false);
@@ -739,8 +743,8 @@ function TwoFactorAuth({ user }: { user: any }) {
             toast.success("2FA Desativado.");
             setIsEnabled(false);
             setFactorId(null);
-        } catch (e: any) {
-            toast.error("Erro ao desativar: " + e.message);
+        } catch (e: unknown) {
+            toast.error("Erro ao desativar: " + (e as Error).message);
         } finally {
             setLoading(false);
         }
@@ -810,6 +814,7 @@ function TwoFactorAuth({ user }: { user: any }) {
 }
 
 function AccessLogsList({ userId }: { userId?: string }) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [logs, setLogs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -845,6 +850,7 @@ function AccessLogsList({ userId }: { userId?: string }) {
     );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const handleExportData = async (user: any) => {
     if (!user) return;
     toast.promise(

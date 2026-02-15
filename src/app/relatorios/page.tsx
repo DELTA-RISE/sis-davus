@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useAuth } from "@/lib/auth-context";
+// import { useAuth } from "@/lib/auth-context";
 import { Product, Asset, StockMovement, MaintenanceTask } from "@/lib/store";
 import { getProducts, getAssets, getMovements, getMaintenanceTasks } from "@/lib/db";
 import { exportProducts, exportAssets, exportMaintenance, exportOverview } from "@/lib/export-utils";
@@ -29,7 +29,6 @@ import {
   Package,
   Building2,
   Wrench,
-  Calendar as CalendarIcon,
 } from "lucide-react";
 import {
   BarChart,
@@ -47,7 +46,7 @@ import {
   Legend,
 } from "recharts";
 import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
+// import { ptBR } from "date-fns/locale";
 
 const COLORS = ["#ff5d38", "#8b5cf6", "#22c55e", "#eab308", "#06b6d4", "#ec4899", "#f97316"];
 
@@ -204,7 +203,7 @@ export default function RelatoriosPage() {
         if (m.type === "entrada") acc[date].entrada += m.quantity;
         else acc[date].saida += m.quantity;
         return acc;
-      }, {} as Record<string, any>)
+      }, {} as Record<string, { date: string; entrada: number; saida: number }>)
     ).sort((a, b) => a.date.localeCompare(b.date)).slice(-14);
 
     // Maintenance Status Breakdown
@@ -221,10 +220,10 @@ export default function RelatoriosPage() {
       movementTrend,
       maintenanceStatus
     };
-  }, [products, assets, movements, maintenanceTasks, metrics]);
+  }, [products, assets, movements, metrics]);
 
   // Helper to determine if critical data for overview is loaded
-  const hasOverviewData = !loadingProducts && !loadingAssets && !loadingMaintenance;
+  // const hasOverviewData = !loadingProducts && !loadingAssets && !loadingMaintenance;
 
   return (
     <div className="min-h-screen bg-background/50">
@@ -864,7 +863,7 @@ export default function RelatoriosPage() {
                               {isLate && " (Atrasada)"}
                             </TableCell>
                             <TableCell>
-                              <Badge variant={task.priority === 'Alta' ? 'destructive' : 'secondary'}>
+                              <Badge variant={task.priority === 'alta' ? 'destructive' : 'secondary'}>
                                 {task.priority}
                               </Badge>
                             </TableCell>

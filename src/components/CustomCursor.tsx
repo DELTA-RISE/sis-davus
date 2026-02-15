@@ -90,7 +90,7 @@ export function CustomCursor() {
       document.removeEventListener("mouseleave", handleWindowLeave);
       document.removeEventListener("mouseenter", handleWindowEnter);
     };
-  }, [shouldRender, mouseX, mouseY, isVisible]);
+  }, [shouldRender, mouseX, mouseY, isVisible, playClick, playHover]);
 
   if (!shouldRender) return null;
 

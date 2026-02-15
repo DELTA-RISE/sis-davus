@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { EmptyState } from "@/components/EmptyState";
 import { CardSkeletonList } from "@/components/CardSkeleton";
-import { ConfirmDialog } from "@/components/ConfirmDialog";
+// import { ConfirmDialog } from "@/components/ConfirmDialog";
 import {
   Dialog,
   DialogContent,
@@ -47,8 +47,8 @@ import {
   Filter,
   Calendar as CalendarIcon,
   User,
-  Trash2,
-  X,
+  // Trash2,
+  // X,
   Zap,
   Check,
   ChevronsUpDown,
@@ -76,7 +76,7 @@ export default function MovementsPage() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [deleteMovementId, setDeleteMovementId] = useState<string | null>(null);
+  // const [deleteMovementId, setDeleteMovementId] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [openProductSelect, setOpenProductSelect] = useState(false);
   const [newMovement, setNewMovement] = useState<Partial<StockMovement>>({
@@ -96,6 +96,7 @@ export default function MovementsPage() {
 
     const channel = supabase
       .channel('stock-movements')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .on('postgres_changes' as any, { event: '*', table: 'stock_movements' }, () => {
         loadData(true);
       })
@@ -137,6 +138,7 @@ export default function MovementsPage() {
 
     if (!result.success) {
       const fieldErrors: Record<string, string> = {};
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (result.error as any).errors.forEach((err: any) => {
         if (err.path[0]) fieldErrors[err.path[0] as string] = err.message;
       });

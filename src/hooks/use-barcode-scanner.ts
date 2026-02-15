@@ -16,8 +16,9 @@ export function useBarcodeScanner({ onScan, minLength = 3, timeThreshold = 50 }:
         const handleKeyDown = (e: KeyboardEvent) => {
             // Ignore if user is typing in an input field (optional, depending on requirement)
             // Usually scanners should work even in inputs, but sometimes we want global handling
-            const target = e.target as HTMLElement;
-            const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
+            // Ignore check removed as unused
+            // const target = e.target as HTMLElement;
+            // const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
 
             // If strictly global listener, we might want to capture everything.
             // But usually we don't want to interfere with normal typing.

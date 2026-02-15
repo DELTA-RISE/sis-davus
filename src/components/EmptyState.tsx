@@ -1,6 +1,6 @@
 "use client";
 
-import { Package, FileX, Search, Inbox } from "lucide-react";
+import { FileX, Search, Inbox } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface EmptyStateProps {
@@ -21,7 +21,7 @@ const icons = {
 
 export function EmptyState({ type = "noData", title, description, action }: EmptyStateProps) {
   const Icon = icons[type];
-  
+
   const defaultContent = {
     search: {
       title: "Nenhum resultado encontrado",
