@@ -4,7 +4,7 @@ import { PDFDocument, StandardFonts, rgb } from 'https://cdn.skypack.dev/pdf-lib
 
 console.log("Hello from Functions!")
 
-serve(async (req) => {
+serve(async (req: Request) => {
     if (req.method === 'OPTIONS') {
         return new Response('ok', {
             headers: {

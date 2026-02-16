@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 // import { useElectron } from "@/hooks/use-electron";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -51,6 +51,23 @@ export default function DocumentsPage() {
     const [sortBy, setSortBy] = useState<SortOption>("date");
     const [sortDir, setSortDir] = useState<SortDirection>("desc");
 
+    const loadDocuments = useCallback(async () => {
+        setLoading(true);
+        try {
+            const docs = await listScannedDocuments();
+            const processed = docs.map(d => ({
+                ...d,
+                createdAt: new Date(d.createdAt)
+            }));
+            setDocuments(processed);
+            setSelectedPaths(new Set()); // Clear selection on reload
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
     useEffect(() => {
         if (isElectron) {
             loadDocuments();
@@ -77,22 +94,7 @@ export default function DocumentsPage() {
         }
     };
 
-    const loadDocuments = useCallback(async () => {
-        setLoading(true);
-        try {
-            const docs = await listScannedDocuments();
-            const processed = docs.map(d => ({
-                ...d,
-                createdAt: new Date(d.createdAt)
-            }));
-            setDocuments(processed);
-            setSelectedPaths(new Set()); // Clear selection on reload
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setLoading(false);
-        }
-    }, []);
+
 
     const handleOpen = (path: string) => {
         openExternal(path);

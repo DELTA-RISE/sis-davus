@@ -1,7 +1,6 @@
 
 import fs from 'fs';
 import path from 'path';
-import path from 'path';
 
 const contentDirectory = path.join(process.cwd(), 'docs/wiki');
 
