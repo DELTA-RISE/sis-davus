@@ -5,5 +5,10 @@
             "deno.window"
         ],
         "strict": true
+    },
+    "imports": {
+        "std/": "https://deno.land/std@0.168.0/",
+        "pdf-lib": "https://cdn.skypack.dev/pdf-lib",
+        "nodemailer": "npm:nodemailer@6.9.13"
     }
 }

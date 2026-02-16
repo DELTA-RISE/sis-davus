@@ -78,7 +78,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setIsLoading(true);
         }
 
-        if (event === "SIGNED_IN" || event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") {
+        if (event === "PASSWORD_RECOVERY") {
+          // Redirect to change password page when recovery link is clicked
+          // Note: You might need to import useRouter from next/navigation and use it here
+          // But since this is inside useEffect, we can't easily use the hook's router instance if not passed.
+          // We will use window.location as a fallback or assume the app handles it.
+          // Better: Use a reliable redirect.
+          window.location.href = "/change-password";
+        }
+
+        if (event === "SIGNED_IN" || event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED" || event === "PASSWORD_RECOVERY") {
           const profile = await fetchProfile(session.user.id);
 
           if (event === "SIGNED_IN" && profile) {
