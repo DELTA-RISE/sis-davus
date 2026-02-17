@@ -28,17 +28,9 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+
   /* orchids-visual-edits disabled to fix R3F crash */
-  // turbopack: {
-  //   rules: {
-  //     "*.{jsx,tsx}": {
-  //       loaders: [loaderPath]
-  //     }
-  //   }
-  // }
+  turbopack: {}
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

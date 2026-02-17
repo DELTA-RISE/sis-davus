@@ -1,5 +1,17 @@
 
-export const EMAIL_TEMPLATES: Record<string, (data: any) => { subject: string; html: string }> = {
+interface TemplateData {
+  email?: string;
+  reset_url?: string;
+  new_email?: string;
+  old_email?: string;
+  ip_address?: string;
+  device_info?: string;
+  location?: string;
+  time?: string;
+  [key: string]: string | undefined;
+}
+
+export const EMAIL_TEMPLATES: Record<string, (data: TemplateData) => { subject: string; html: string }> = {
   "password-changed": (data) => ({
     subject: "Sua senha foi alterada - SIS DAVUS",
     html: `
@@ -89,7 +101,7 @@ export const EMAIL_TEMPLATES: Record<string, (data: any) => { subject: string; h
       </html>
     `
   }),
-  "mfa-added": (data) => ({
+  "mfa-added": (_) => ({
     subject: "Autenticação em Dois Fatores Adicionada - SIS DAVUS",
     html: `
       <!DOCTYPE html>
@@ -129,7 +141,7 @@ export const EMAIL_TEMPLATES: Record<string, (data: any) => { subject: string; h
       </html>
     `
   }),
-  "mfa-removed": (data) => ({
+  "mfa-removed": (_) => ({
     subject: "Autenticação em Dois Fatores Removida - SIS DAVUS",
     html: `
       <!DOCTYPE html>
@@ -241,3 +253,4 @@ export const EMAIL_TEMPLATES: Record<string, (data: any) => { subject: string; h
       `
   })
 };
+
