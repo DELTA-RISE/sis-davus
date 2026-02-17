@@ -18,6 +18,12 @@ import {
 import { Lock, User, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { getProfile, logActivity, saveUser } from "@/lib/db";
+import HCaptcha from "@hcaptcha/react-hcaptcha";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from "@/components/ui/input-otp";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -27,6 +33,11 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showForgotDialog, setShowForgotDialog] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [step, setStep] = useState<"credentials" | "totp" | "otp">("credentials");
+  const [otpCode, setOtpCode] = useState("");
+  const [factorId, setFactorId] = useState("");
+  const [userId, setUserId] = useState("");
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,54 +48,119 @@ export default function LoginPage() {
       return;
     }
 
+    if (!captchaToken) {
+      setError("Por favor, resolva o captcha");
+      return;
+    }
+
     setLoading(true);
 
     try {
       const { data, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
+        options: { captchaToken },
       });
 
       if (authError) {
         console.error("Login error details:", authError);
-        console.error("Error message:", authError.message);
         setError(`Erro ao entrar: ${authError.message}`);
         setLoading(false);
         return;
       }
 
       if (data.user) {
-        const profile = await getProfile(data.user.id);
-        if (profile) {
-          if (profile.status === "inativo") {
-            await supabase.auth.signOut();
-            setError("Sua conta está inativa. Entre em contato com o administrador.");
-            setLoading(false);
-            return;
-          }
+        const factors = await supabase.auth.mfa.listFactors();
+        const totpFactor = factors.data?.totp.find((f) => f.status === 'verified');
 
-          // Registrar log de login
-          await logActivity(
-            "LOGIN",
-            "SESSAO",
-            `O usuário ${profile.name} realizou login no sistema.`,
-            profile.id,
-            profile.name
-          );
-
-          // Atualizar último acesso
-          await saveUser({
-            id: profile.id,
-            last_login: new Date().toISOString()
-          });
+        if (totpFactor) {
+          setFactorId(totpFactor.id);
+          setUserId(data.user.id);
+          setStep("totp");
+          setLoading(false);
+          return;
         }
-      }
 
-      router.push("/dashboard");
+        // Se não tem TOTP, força OTP por email
+        await supabase.auth.signOut(); // Limpa sessão parcial
+        const { error: otpError } = await supabase.auth.signInWithOtp({
+          email,
+          options: {
+            shouldCreateUser: false,
+            captchaToken,
+          },
+        });
+
+        if (otpError) {
+          setError(`Erro ao enviar código: ${otpError.message}`);
+          setLoading(false);
+          return;
+        }
+
+        setStep("otp");
+        setUserId(data.user.id); // Mantém ID para logs se necessário
+        setLoading(false);
+      }
     } catch (_) {
       setError("Ocorreu um erro ao entrar");
       setLoading(false);
     }
+  };
+
+  const handleVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    try {
+      if (step === "totp") {
+        const { data, error } = await supabase.auth.mfa.challengeAndVerify({
+          factorId,
+          code: otpCode,
+        });
+
+        if (error) throw error;
+        await finalizeLogin(data.user.id);
+      } else {
+        const { data, error } = await supabase.auth.verifyOtp({
+          email,
+          token: otpCode,
+          type: "email",
+        });
+
+        if (error) throw error;
+        if (data.user) await finalizeLogin(data.user.id);
+      }
+    } catch (err: any) {
+      setError(err.message || "Código inválido");
+      setLoading(false);
+    }
+  };
+
+  const finalizeLogin = async (uid: string) => {
+    const profile = await getProfile(uid);
+    if (profile) {
+      if (profile.status === "inativo") {
+        await supabase.auth.signOut();
+        setError("Sua conta está inativa. Entre em contato com o administrador.");
+        setLoading(false);
+        return;
+      }
+
+      await logActivity(
+        "LOGIN",
+        "SESSAO",
+        `O usuário ${profile.name} realizou login no sistema via ${step === "totp" ? "2FA (App)" : "2FA (Email)"}.`,
+        profile.id,
+        profile.name
+      );
+
+      await saveUser({
+        id: profile.id,
+        last_login: new Date().toISOString()
+      });
+    }
+    router.push("/dashboard");
   };
 
   return (
@@ -104,64 +180,133 @@ export default function LoginPage() {
         </CardHeader>
 
         <CardContent className="pt-4">
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">E-mail</Label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="seu@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10"
-                  autoComplete="email"
-                />
-              </div>
-            </div>
+          <form onSubmit={step === "credentials" ? handleLogin : handleVerify} className="space-y-4">
+            {step === "credentials" ? (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="email">E-mail</Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="seu@email.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="pl-10"
+                      autoComplete="email"
+                    />
+                  </div>
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 pr-10"
-                  autoComplete="current-password"
-                />
+                <div className="space-y-2">
+                  <Label htmlFor="password">Senha</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="pl-10 pr-10"
+                      autoComplete="current-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {error && (
+                  <div className="flex items-center gap-2 text-sm text-red-500 bg-red-500/10 p-3 rounded-lg">
+                    <AlertCircle className="h-4 w-4" />
+                    {error}
+                  </div>
+                )}
+
+                <div className="flex justify-center">
+                  <HCaptcha
+                    sitekey={process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY!}
+                    onVerify={(token) => {
+                      setCaptchaToken(token);
+                      setError("");
+                    }}
+                    onExpire={() => setCaptchaToken("")}
+                  />
+                </div>
+
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? "Entrando..." : "Entrar"}
+                </Button>
+
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowForgotDialog(true)}
+                  className="w-full text-sm text-muted-foreground hover:text-primary transition-colors"
                 >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  Esqueci minha senha
                 </button>
-              </div>
-            </div>
+              </>
+            ) : (
+              <div className="flex flex-col items-center space-y-4">
+                <div className="text-center space-y-2">
+                  <h3 className="font-semibold text-lg">
+                    {step === "totp" ? "Autenticação em Duas Etapas" : "Verifique seu E-mail"}
+                  </h3>
+                  <p className="text-sm text-muted-foreground px-4">
+                    {step === "totp"
+                      ? "Digite o código de 6 dígitos do seu aplicativo autenticador."
+                      : `Enviamos um código para ${email}. Digite-o abaixo.`}
+                  </p>
+                </div>
 
-            {error && (
-              <div className="flex items-center gap-2 text-sm text-red-500 bg-red-500/10 p-3 rounded-lg">
-                <AlertCircle className="h-4 w-4" />
-                {error}
+                <InputOTP
+                  maxLength={6}
+                  value={otpCode}
+                  onChange={setOtpCode}
+                >
+                  <InputOTPGroup>
+                    <InputOTPSlot index={0} />
+                    <InputOTPSlot index={1} />
+                    <InputOTPSlot index={2} />
+                    <InputOTPSlot index={3} />
+                    <InputOTPSlot index={4} />
+                    <InputOTPSlot index={5} />
+                  </InputOTPGroup>
+                </InputOTP>
+
+                {error && (
+                  <div className="flex items-center gap-2 text-sm text-red-500 bg-red-500/10 p-3 rounded-lg w-full">
+                    <AlertCircle className="h-4 w-4" />
+                    {error}
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-2 w-full">
+                  <Button type="submit" className="w-full" disabled={loading || otpCode.length !== 6}>
+                    {loading ? "Verificando..." : "Confirmar"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => {
+                      setStep("credentials");
+                      setOtpCode("");
+                      setError("");
+                      setCaptchaToken(""); // Reset captcha on back
+                    }}
+                    className="w-full"
+                  >
+                    Voltar
+                  </Button>
+                </div>
               </div>
             )}
-
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Entrando..." : "Entrar"}
-            </Button>
-
-            <button
-              type="button"
-              onClick={() => setShowForgotDialog(true)}
-              className="w-full text-sm text-muted-foreground hover:text-primary transition-colors"
-            >
-              Esqueci minha senha
-            </button>
           </form>
 
           <div className="mt-6 pt-6 border-t border-border/50 text-center">
