@@ -76,6 +76,7 @@ declare
   user_email text;
   payload jsonb;
   auth_header text;
+  host_header text;
 begin
   -- Check if this IP has been seen before for this user (excluding the current one)
   -- Since this is AFTER insert, we check if count > 1. 
@@ -122,8 +123,19 @@ begin
         )
       );
 
+      -- Get Host Header safely
+      begin
+        host_header := current_setting('request.headers', true)::jsonb->>'x-forwarded-host';
+      exception when others then
+        host_header := null;
+      end;
+
+      if host_header is null then
+         host_header := 'localhost:3000'; -- Fallback
+      end if;
+
       perform net.http_post(
-        url := 'https://' || current_setting('request.headers')::json->>'x-forwarded-host' || '/functions/v1/send-email',
+        url := 'https://' || host_header || '/functions/v1/send-email',
         headers := jsonb_build_object(
           'Content-Type', 'application/json',
           'Authorization', auth_header

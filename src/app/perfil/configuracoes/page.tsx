@@ -31,7 +31,8 @@ import {
     Trash2,
     QrCode,
     FileClock,
-    Download
+    Download,
+    Smartphone
 } from "lucide-react";
 import Link from "next/link";
 import { Separator } from "@/components/ui/separator";
@@ -335,6 +336,7 @@ export default function AccountSettingsPage() {
                 </Card>
 
                 {/* Active Sessions */}
+                {/* Active Sessions */}
                 <Card className="border-border/50 bg-card/50">
                     <CardHeader>
                         <div className="flex items-center gap-3">
@@ -347,21 +349,8 @@ export default function AccountSettingsPage() {
                             Dispositivos onde você está conectado atualmente.
                         </CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="flex items-center justify-between p-3 border rounded-xl bg-muted/30">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-background rounded-lg border">
-                                    <Laptop className="h-5 w-5 text-muted-foreground" />
-                                </div>
-                                <div>
-                                    <p className="text-sm font-medium">Este Dispositivo</p>
-                                    <p className="text-xs text-muted-foreground">{navigator.userAgent.includes("Win") ? "Windows PC" : "Dispositivo"} • Ativo agora</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-                            </div>
-                        </div>
+                    <CardContent>
+                        <ActiveSessionsList />
                     </CardContent>
                 </Card>
 
@@ -883,3 +872,83 @@ const handleExportData = async (user: any) => {
         }
     );
 };
+
+function ActiveSessionsList() {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const [sessions, setSessions] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    const fetchSessions = useCallback(async () => {
+        setLoading(true);
+        const { data, error } = await supabase.rpc('get_my_sessions');
+        if (!error && data) {
+            setSessions(data);
+        }
+        setLoading(false);
+    }, []);
+
+    useEffect(() => {
+        fetchSessions();
+    }, [fetchSessions]);
+
+    const handleRevoke = async (sessionId: string) => {
+        if (!confirm("Tem certeza que deseja desconectar esta sessão?")) return;
+
+        try {
+            const { data, error } = await supabase.rpc('revoke_my_session', { session_id: sessionId });
+            if (error) throw error;
+
+            if (data === false) {
+                toast.error("Sessão não encontrada ou já removida.");
+            } else {
+                toast.success("Sessão desconectada.");
+            }
+            await fetchSessions();
+        } catch (e) {
+            toast.error("Erro ao desconectar sessão.");
+            console.error(e);
+        }
+    };
+
+    if (loading) return <div className="p-4 text-center text-xs text-muted-foreground">Carregando sessões...</div>;
+
+    if (sessions.length === 0) return <div className="p-4 text-center text-xs text-muted-foreground">Nenhuma sessão encontrada.</div>;
+
+    return (
+        <div className="space-y-3">
+            {sessions.map((session) => (
+                <div key={session.id} className="flex items-center justify-between p-3 border rounded-xl bg-muted/30">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-background rounded-lg border">
+                            {/Android|iPhone|iPad|Mobile/i.test(session.user_agent) ? (
+                                <Smartphone className={`h-5 w-5 ${session.is_current ? "text-emerald-500" : "text-muted-foreground"}`} />
+                            ) : (
+                                <Laptop className={`h-5 w-5 ${session.is_current ? "text-emerald-500" : "text-muted-foreground"}`} />
+                            )}
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium flex items-center gap-2">
+                                {session.ip}
+                                {session.is_current && <span className="text-[10px] bg-emerald-500/10 text-emerald-500 px-1.5 py-0.5 rounded-full font-bold">Atual</span>}
+                            </p>
+                            <div className="text-xs text-muted-foreground" title={session.user_agent}>
+                                <p className="truncate max-w-[200px]">{session.user_agent}</p>
+                                <p className="truncate max-w-[200px]">{session.user_agent}</p>
+                                <p>Iniciado: {new Date(session.created_at).toLocaleDateString()} • Último acesso: {new Date(session.last_active_at).toLocaleString()}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        {session.is_current ? (
+                            <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse block" title="Atual" />
+                        ) : (
+                            <Button variant="ghost" size="sm" onClick={() => handleRevoke(session.id)} className="text-red-500 hover:text-red-600 hover:bg-red-500/10 h-8 px-2">
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                        )}
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+}
