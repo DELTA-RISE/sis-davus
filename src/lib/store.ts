@@ -11,6 +11,7 @@ export interface Product {
   location?: string;
   description?: string;
   supplier?: string;
+  unit_of_measure?: string;
   cost_center: string;
   image_url?: string;
   created_at?: string;

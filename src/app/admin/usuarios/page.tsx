@@ -67,9 +67,11 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  PopoverContent as PopoverContentPrimitive
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
 
 const roleLabels: Record<UserRole, string> = {
   admin: "Administrador",
@@ -91,8 +93,6 @@ const roleIcons: Record<UserRole, LucideIcon> = {
   user: UserIcon,
   manager: Shield,
 };
-
-import { supabase } from "@/lib/supabase";
 
 export default function UsersPage() {
   const { userName, user } = useAuth();
@@ -116,20 +116,28 @@ export default function UsersPage() {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Dependency Resolution State
+  const [isResolveDialogOpen, setIsResolveDialogOpen] = useState(false);
+  const [resolveStrategy, setResolveStrategy] = useState<'unassign' | 'reassign'>('unassign');
+  const [newResponsibleId, setNewResponsibleId] = useState<string>("");
+  const [dependencyDetails, setDependencyDetails] = useState<{ count: number } | null>(null);
+
+
   // Background Sync on Mount
   useEffect(() => {
     syncUsers();
     syncCostCenters();
   }, []);
 
-  // No filteredUsers derived state needed, useUsers handles it.
-  const filteredUsers = users; // Already filtered by hook
-
+  const filteredUsers = users;
 
   const validateForm = () => {
     const payload = {
+      name: newUser.name,
+      email: newUser.email,
       role: newUser.role || 'user',
-      status: newUser.status || 'ativo'
+      status: newUser.status || 'ativo',
+      cost_center: newUser.cost_center
     };
 
     const result = userSchema.safeParse(payload);
@@ -190,10 +198,8 @@ export default function UsersPage() {
     setIsSaving(true);
     try {
       if (editingUser) {
-        // Edit existing user - update Dexie (optimistic) + Supabase
         const result = await saveUser(newUser, { name: userName, id: user?.id || "" });
         if (result) {
-          // If password was provided, update it
           if (newPassword) {
             const pwResult = await updateUserPasswordAction(editingUser.id, newPassword);
             if (!pwResult.success) {
@@ -204,18 +210,12 @@ export default function UsersPage() {
           }
 
           toast.success("Usuário atualizado");
-          // No manual loadData needed!
           setIsDialogOpen(false);
           setNewPassword("");
         } else {
           toast.error("Erro ao salvar usuário");
         }
       } else {
-        // Create new user - use Server Action
-        // NOTE: createUserAction creates user in Auth AND Profile (via triggers hopefully, or explicitly).
-        // If it creates in Profile, we need to sync users OR optimistically add to Dexie if we knew the ID.
-        // createUserAction returns tempPassword.
-
         const result = await createUserAction({
           name: newUser.name || "",
           email: newUser.email || "",
@@ -226,7 +226,7 @@ export default function UsersPage() {
           userName,
           userId: user?.id || "",
           deviceInfo: getDeviceInfo(),
-          ip: await getPublicIp() // Mock IP as client can't easily get it
+          ip: await getPublicIp()
         });
 
         if (result.success) {
@@ -237,12 +237,7 @@ export default function UsersPage() {
               password: result.tempPassword
             });
           }
-          // The creation happens on server. We need to fetch the new user to see it locally.
-          // Since createUserAction might not return the full user object to simply puts(), we trigger a sync.
-          // However, for "instant" feeling without full sync, we could optimistically add it if we constructed the User object.
-          // But auth creation is complex. Let's just trigger sync.
           syncUsers();
-
           setIsDialogOpen(false);
         } else {
           toast.error("Erro ao criar usuário: " + result.error);
@@ -256,22 +251,31 @@ export default function UsersPage() {
     }
   };
 
-  const executeDeleteUser = async () => {
+  const executeDeleteUser = async (cleanupConfig?: { costCenterStrategy: 'unassign' | 'reassign', newResponsibleId?: string }) => {
     if (!editingUser) return;
 
     setIsDeleting(true);
     try {
       const result = await deleteUserAction(editingUser.id, {
-        userName,
-        userId: user?.id || "",
-        deviceInfo: getDeviceInfo(),
-        ip: await getPublicIp()
+        audit: {
+          userName,
+          userId: user?.id || "",
+          deviceInfo: getDeviceInfo(),
+          ip: await getPublicIp()
+        },
+        cleanupConfig
       });
+
       if (result.success) {
         toast.success("Usuário excluído com sucesso");
-        syncUsers(); // Sync to remove from local
+        syncUsers();
         setIsDialogOpen(false);
         setIsAlertOpen(false);
+        setIsResolveDialogOpen(false);
+      } else if (result.code === 'DEPENDENCY_COST_CENTER') {
+        setDependencyDetails(result.details as any);
+        setIsAlertOpen(false);
+        setIsResolveDialogOpen(true);
       } else {
         toast.error("Erro ao excluir usuário: " + result.error);
       }
@@ -280,6 +284,17 @@ export default function UsersPage() {
     } finally {
       setIsDeleting(false);
     }
+  };
+
+  const handleResolveAndProceed = () => {
+    if (resolveStrategy === 'reassign' && !newResponsibleId) {
+      toast.error("Selecione um novo responsável");
+      return;
+    }
+    executeDeleteUser({
+      costCenterStrategy: resolveStrategy,
+      newResponsibleId: resolveStrategy === 'reassign' ? newResponsibleId : undefined
+    });
   };
 
   const handleEdit = (user: User) => {
@@ -535,6 +550,57 @@ export default function UsersPage() {
         </div>
       </header >
 
+      {/* Resolve Dependencies Dialog */}
+      <Dialog open={isResolveDialogOpen} onOpenChange={setIsResolveDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Dependências Encontradas</DialogTitle>
+            <DialogDescription>
+              O usuário <strong>{editingUser?.name}</strong> é responsável por {dependencyDetails?.count} Centro(s) de Custo.
+              Você deve decidir o que fazer com essas responsabilidades antes de excluir.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Ação</Label>
+              <Select value={resolveStrategy} onValueChange={(v: any) => setResolveStrategy(v)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unassign">Deixar sem responsável</SelectItem>
+                  <SelectItem value="reassign">Atribuir a outro usuário</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {resolveStrategy === 'reassign' && (
+              <div className="space-y-2">
+                <Label>Novo Responsável</Label>
+                <Select value={newResponsibleId} onValueChange={setNewResponsibleId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {users
+                      .filter(u => u.id !== editingUser?.id && u.role !== 'user')
+                      .map(u => (
+                        <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setIsResolveDialogOpen(false)}>Cancelar</Button>
+            <Button variant="destructive" onClick={handleResolveAndProceed} disabled={isDeleting}>
+              {isDeleting ? "Processando..." : "Resolver e Excluir"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={!!createdCredentials} onOpenChange={(open) => !open && setCreatedCredentials(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -601,31 +667,6 @@ export default function UsersPage() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Tem certeza absoluta?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ação não pode ser desfeita. Isso excluirá permanentemente o usuário
-              <span className="font-semibold text-foreground"> {editingUser?.name} </span>
-              e todos os dados associados.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => {
-                e.preventDefault();
-                executeDeleteUser();
-              }}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={isDeleting}
-            >
-              {isDeleting ? "Excluindo..." : "Sim, excluir usuário"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
       <div className="p-4 md:p-6 lg:p-8 space-y-4 max-w-7xl mx-auto">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

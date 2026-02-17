@@ -471,14 +471,24 @@ export default function EstoquePage() {
                           />
                         </div>
                       </div>
-                      <div className="space-y-2">
-                        <Label>Preço Unitário (R$)</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={newProduct.unit_price || ""}
-                          onChange={(e) => setNewProduct({ ...newProduct, unit_price: parseFloat(e.target.value) || 0 })}
-                        />
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Unidade de Medida</Label>
+                          <Input
+                            value={newProduct.unit_of_measure || ""}
+                            onChange={(e) => setNewProduct({ ...newProduct, unit_of_measure: e.target.value })}
+                            placeholder="Ex: kg, un, cx"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Preço Unitário (R$)</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={newProduct.unit_price || ""}
+                            onChange={(e) => setNewProduct({ ...newProduct, unit_price: parseFloat(e.target.value) || 0 })}
+                          />
+                        </div>
                       </div>
                       <Button onClick={handleSaveProduct} className="w-full">
                         {editingProduct ? "Salvar Alterações" : "Cadastrar Produto"}
@@ -612,7 +622,10 @@ export default function EstoquePage() {
                           </div>
                           <div className="text-right" onClick={(e) => e.stopPropagation()}>
                             <p className="text-sm font-semibold">
-                              R$ {(product.unit_price || 0).toFixed(2)}
+                              R$ {(product.unit_price || 0).toFixed(2)} <span className="text-xs text-muted-foreground font-normal">/ {product.unit_of_measure || 'un'}</span>
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              Total: R$ {((product.quantity || 0) * (product.unit_price || 0)).toFixed(2)}
                             </p>
                             <div className="flex gap-1 mt-1">
                               <Button variant="ghost" size="sm" onClick={() => handleEdit(product)} className="h-7 w-7 p-0">

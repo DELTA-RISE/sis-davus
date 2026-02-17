@@ -8,6 +8,7 @@ export const productSchema = z.object({
   min_stock: z.number().min(0, "Estoque mínimo não pode ser negativo"),
   max_stock: z.number().min(1, "Estoque máximo deve ser maior que 0"),
   location: z.string().min(1, "Informe a localização"),
+  unit_of_measure: z.string().optional(),
   unit_price: z.number().min(0, "Preço não pode ser negativo"),
   cost_center: z.string().min(1, "Selecione um centro de custo"),
 });

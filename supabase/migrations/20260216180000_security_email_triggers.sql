@@ -14,7 +14,28 @@ as $$
 declare
   payload jsonb;
   request_id bigint;
+  headers_text text;
+  headers_json jsonb;
+  request_host text;
 begin
+  -- Safe header fetching with fallback (early exit if no headers/host)
+  begin
+    headers_text := current_setting('request.headers', true);
+  exception when others then
+    headers_text := null;
+  end;
+
+  if headers_text is null then
+    return new; -- Exit if we can't determine context (e.g. running in a script)
+  end if;
+
+  headers_json := headers_text::jsonb;
+  request_host := headers_json->>'x-forwarded-host';
+
+  if request_host is null then
+    return new; -- Exit if no host
+  end if;
+
   -- Check if encrypted_password has changed (Password Reset/Change)
   if (old.encrypted_password is distinct from new.encrypted_password) then
     payload := jsonb_build_object(
@@ -22,15 +43,15 @@ begin
       'template_name', 'password-changed',
       'data', jsonb_build_object(
         'email', new.email,
-        'reset_url', 'http://localhost:3000/auth/reset-password' -- Update with your actual URL
+        'reset_url', 'https://' || request_host || '/auth/reset-password'
       )
     );
     
     perform net.http_post(
-      url := 'https://' || current_setting('request.headers')::json->>'x-forwarded-host' || '/functions/v1/send-email',
+      url := 'https://' || request_host || '/functions/v1/send-email',
       headers := jsonb_build_object(
         'Content-Type', 'application/json',
-        'Authorization', 'Bearer ' || current_setting('request.jwt.claim.role', true)
+        'Authorization', 'Bearer ' || coalesce(current_setting('request.jwt.claim.role', true), 'service_role')
       ),
       body := payload
     );
@@ -48,10 +69,10 @@ begin
     );
 
     perform net.http_post(
-      url := 'https://' || current_setting('request.headers')::json->>'x-forwarded-host' || '/functions/v1/send-email',
+      url := 'https://' || request_host || '/functions/v1/send-email',
       headers := jsonb_build_object(
         'Content-Type', 'application/json',
-        'Authorization', 'Bearer ' || current_setting('request.jwt.claim.role', true)
+        'Authorization', 'Bearer ' || coalesce(current_setting('request.jwt.claim.role', true), 'service_role')
       ),
       body := payload
     );
@@ -70,6 +91,9 @@ as $$
 declare
   payload jsonb;
   user_email text;
+  headers_text text;
+  headers_json jsonb;
+  request_host text;
 begin
   -- Get user email
   select email into user_email from auth.users where id = coalesce(new.user_id, old.user_id);
@@ -91,14 +115,28 @@ begin
   end if;
 
   if (payload is not null) then
-      perform net.http_post(
-        url := 'https://' || current_setting('request.headers')::json->>'x-forwarded-host' || '/functions/v1/send-email',
-        headers := jsonb_build_object(
-          'Content-Type', 'application/json',
-          'Authorization', 'Bearer ' || current_setting('request.jwt.claim.role', true)
-        ),
-        body := payload
-      );
+      -- Safe header fetching with fallback
+      begin
+        headers_text := current_setting('request.headers', true);
+      exception when others then
+        headers_text := null;
+      end;
+      
+      if headers_text is not null then
+          headers_json := headers_text::jsonb;
+          request_host := headers_json->>'x-forwarded-host';
+          
+          if request_host is not null then
+              perform net.http_post(
+                url := 'https://' || request_host || '/functions/v1/send-email',
+                headers := jsonb_build_object(
+                  'Content-Type', 'application/json',
+                  'Authorization', 'Bearer ' || coalesce(current_setting('request.jwt.claim.role', true), 'service_role')
+                ),
+                body := payload
+              );
+          end if;
+      end if;
   end if;
 
   return null;

@@ -251,6 +251,62 @@ export const EMAIL_TEMPLATES: Record<string, (data: TemplateData) => { subject: 
           </body>
         </html>
       `
+  }),
+  "invite-user": (data) => ({
+    subject: "Bem-vindo ao SIS DAVUS - Seu Acesso",
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>
+             @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap');
+            body { font-family: 'Sora', 'Segoe UI', sans-serif; background-color: #030405; color: #ededed; margin: 0; padding: 0; }
+            .container { max-width: 600px; margin: 40px auto; background: #0d0f11; border: 1px solid #1f2226; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.5); }
+            .header { background: #16181b; padding: 32px; text-align: center; border-bottom: 1px solid #1f2226; }
+            .logo { font-size: 24px; font-weight: 700; color: #ededed; text-transform: uppercase; letter-spacing: 1px; text-decoration: none; }
+            .logo span { color: #ff5d38; }
+            .content { padding: 40px 32px; }
+            .highlight-box { background: #1f2937; border: 1px solid #374151; padding: 24px; border-radius: 8px; margin: 24px 0; text-align: center; }
+            .highlight-label { font-size: 12px; color: #9ca3af; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; display: block; }
+            .highlight-value { font-size: 20px; color: #ffffff; font-family: monospace; font-weight: 600; letter-spacing: 0.5px; }
+            .divider { height: 1px; background: #374151; margin: 16px 0; }
+            h2 { color: #ffffff; font-size: 24px; margin: 0 0 24px; text-align: center; }
+            p { line-height: 1.6; margin-bottom: 24px; color: #a1a1aa; font-size: 16px; text-align: center; }
+            .footer { background: #16181b; padding: 24px; text-align: center; font-size: 12px; color: #52525b; border-top: 1px solid #1f2226; }
+            .btn { display: block; width: fit-content; margin: 32px auto; background-color: #ff5d38; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; text-align: center; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <div class="logo">SIS <span>DAVUS</span></div>
+            </div>
+            <div class="content">
+              <h2>Bem-vindo ao Sistema</h2>
+              <p>Olá, <strong>${data.name}</strong>!</p>
+              <p>Uma conta foi criada para você no sistema SIS Davus. Abaixo estão suas credenciais de acesso temporárias.</p>
+              
+              <div class="highlight-box">
+                <span class="highlight-label">E-mail</span>
+                <div class="highlight-value">${data.email}</div>
+                <div class="divider"></div>
+                <span class="highlight-label">Senha Temporária</span>
+                <div class="highlight-value">${data.password}</div>
+              </div>
+
+              <p>Recomendamos que você altere sua senha imediatamente após o primeiro login.</p>
+              
+              <a href="${data.login_url || 'https://sis.davusengenharia.com.br'}" class="btn">Acessar Sistema</a>
+            </div>
+            <div class="footer">
+              <p>&copy; ${new Date().getFullYear()} SIS DAVUS. Todos os direitos reservados.</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `
   })
 };
 
