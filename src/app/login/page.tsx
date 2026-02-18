@@ -204,14 +204,22 @@ export default function LoginPage() {
         const { data, error } = await supabase.auth.verifyOtp({
           email,
           token: otpCode,
-          type: "email",
+          type: "magiclink",
         });
 
         if (error) throw error;
         if (data.user) await finalizeLogin(data.user.id);
       }
     } catch (err: any) {
-      setError(err.message || "Código inválido");
+      // Se o token expirou, pode ser porque o usuário clicou no link (já logou/consumiu o token).
+      // Vamos verificar se já existe sessão.
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        await finalizeLogin(session.user.id);
+        return;
+      }
+
+      setError(err.message || "Código inválido ou expirado");
       setLoading(false);
     }
   };
