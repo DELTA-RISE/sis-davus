@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Lock, User, AlertCircle, Eye, EyeOff } from "lucide-react";
+import { Lock, User, AlertCircle, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { getProfile, logActivity, saveUser } from "@/lib/db";
 import HCaptcha from "@hcaptcha/react-hcaptcha";
@@ -34,14 +34,62 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [showForgotDialog, setShowForgotDialog] = useState(false);
   const [captchaToken, setCaptchaToken] = useState("");
-  const [step, setStep] = useState<"credentials" | "totp" | "otp">("credentials");
+  const [step, setStep] = useState<"credentials" | "email_captcha" | "totp" | "otp">("credentials");
   const [otpCode, setOtpCode] = useState("");
   const [factorId, setFactorId] = useState("");
   const [userId, setUserId] = useState("");
 
+  const captchaRef = useRef<HCaptcha>(null);
+  const isSubmittingRef = useRef(false);
+
+  // Check for existing session on mount
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        router.push("/dashboard");
+      }
+    };
+    checkSession();
+  }, [router]);
+
+  // Listen for auth state changes (e.g. Magic Link clicked in another tab)
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "SIGNED_IN" && session) {
+        // Avoid redirecting if we are in the middle of a multi-step flow that might trigger signed_in
+        // But for Magic Link, we want to redirect.
+        // If we are in TOTP step, we might be verifying, so let's check profile status first.
+
+        // However, Magic Link sets the session directly. 
+        // We should just check if we have a user and redirect.
+        // We can reuse finalizeLogin logic via a simplified check or just router.push
+        // But better to ensure profile check.
+        if (step !== "credentials") {
+          // If manual flow is in progress, we might race. 
+          // But if session is established from outside, we should honor it.
+          router.push("/dashboard");
+        }
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [router, step]);
+
+  const resetCaptcha = () => {
+    setCaptchaToken("");
+    if (captchaRef.current) {
+      captchaRef.current.resetCaptcha();
+    }
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    if (isSubmittingRef.current) return;
 
     if (!email || !password) {
       setError("Preencha todos os campos");
@@ -54,6 +102,7 @@ export default function LoginPage() {
     }
 
     setLoading(true);
+    isSubmittingRef.current = true;
 
     try {
       const { data, error: authError } = await supabase.auth.signInWithPassword({
@@ -66,6 +115,8 @@ export default function LoginPage() {
         console.error("Login error details:", authError);
         setError(`Erro ao entrar: ${authError.message}`);
         setLoading(false);
+        isSubmittingRef.current = false;
+        resetCaptcha();
         return;
       }
 
@@ -78,32 +129,60 @@ export default function LoginPage() {
           setUserId(data.user.id);
           setStep("totp");
           setLoading(false);
+          isSubmittingRef.current = false;
           return;
         }
 
-        // Se não tem TOTP, força OTP por email
-        await supabase.auth.signOut(); // Limpa sessão parcial
-        const { error: otpError } = await supabase.auth.signInWithOtp({
-          email,
-          options: {
-            shouldCreateUser: false,
-            captchaToken,
-          },
-        });
+        // Se não tem TOTP, precisamos validar o captcha NOVAMENTE para enviar o email
+        await supabase.auth.signOut(); // Limpa sessão parcial (security requirement for clean signInWithOtp)
 
-        if (otpError) {
-          setError(`Erro ao enviar código: ${otpError.message}`);
-          setLoading(false);
-          return;
-        }
-
-        setStep("otp");
-        setUserId(data.user.id); // Mantém ID para logs se necessário
+        setStep("email_captcha");
+        setUserId(data.user.id);
         setLoading(false);
+        isSubmittingRef.current = false;
+        resetCaptcha(); // Prepare for second captcha
       }
-    } catch (_) {
+    } catch (err: any) {
+      console.error("Unexpected login error:", err);
       setError("Ocorreu um erro ao entrar");
       setLoading(false);
+      isSubmittingRef.current = false;
+      resetCaptcha();
+    }
+  };
+
+  const handleSendEmailOtp = async (token: string) => {
+    setError("");
+    setLoading(true);
+    isSubmittingRef.current = true;
+
+    try {
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          shouldCreateUser: false,
+          captchaToken: token,
+        },
+      });
+
+      if (otpError) {
+        console.error("OTP Error:", otpError);
+        setError(`Erro ao enviar código: ${otpError.message}`);
+        setLoading(false);
+        isSubmittingRef.current = false;
+        resetCaptcha();
+        return;
+      }
+
+      setStep("otp");
+      setLoading(false);
+      isSubmittingRef.current = false;
+    } catch (err: any) {
+      console.error("Unexpected OTP error:", err);
+      setError("Erro ao processar solicitação");
+      setLoading(false);
+      isSubmittingRef.current = false;
+      resetCaptcha();
     }
   };
 
@@ -231,6 +310,7 @@ export default function LoginPage() {
 
                 <div className="flex justify-center">
                   <HCaptcha
+                    ref={captchaRef}
                     sitekey={process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY!}
                     onVerify={(token) => {
                       setCaptchaToken(token);
@@ -252,6 +332,49 @@ export default function LoginPage() {
                   Esqueci minha senha
                 </button>
               </>
+            ) : step === "email_captcha" ? (
+              <div className="flex flex-col items-center space-y-4">
+                <div className="text-center space-y-2">
+                  <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-2">
+                    <ShieldCheck className="w-6 h-6 text-primary" />
+                  </div>
+                  <h3 className="font-semibold text-lg">Verificação de Segurança</h3>
+                  <p className="text-sm text-muted-foreground px-4">
+                    Para garantir que você não é um robô, resolva o captcha abaixo para receber o código de acesso no seu e-mail.
+                  </p>
+                </div>
+
+                {error && (
+                  <div className="flex items-center gap-2 text-sm text-red-500 bg-red-500/10 p-3 rounded-lg w-full">
+                    <AlertCircle className="h-4 w-4" />
+                    {error}
+                  </div>
+                )}
+
+                <div className="flex justify-center w-full py-4">
+                  <HCaptcha
+                    ref={captchaRef}
+                    sitekey={process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY!}
+                    onVerify={(token) => handleSendEmailOtp(token)}
+                    onExpire={() => setCaptchaToken("")}
+                  />
+                </div>
+
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    setStep("credentials");
+                    setEmail("");
+                    setPassword("");
+                    setError("");
+                    resetCaptcha();
+                  }}
+                  className="w-full"
+                >
+                  Cancelar
+                </Button>
+              </div>
             ) : (
               <div className="flex flex-col items-center space-y-4">
                 <div className="text-center space-y-2">
@@ -261,7 +384,7 @@ export default function LoginPage() {
                   <p className="text-sm text-muted-foreground px-4">
                     {step === "totp"
                       ? "Digite o código de 6 dígitos do seu aplicativo autenticador."
-                      : `Enviamos um código para ${email}. Digite-o abaixo.`}
+                      : `Enviamos um código para ${email}. Digite-o abaixo ou clique no link enviado.`}
                   </p>
                 </div>
 
@@ -298,7 +421,7 @@ export default function LoginPage() {
                       setStep("credentials");
                       setOtpCode("");
                       setError("");
-                      setCaptchaToken(""); // Reset captcha on back
+                      resetCaptcha(); // Ensure fresh start
                     }}
                     className="w-full"
                   >
