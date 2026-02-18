@@ -201,25 +201,63 @@ export default function LoginPage() {
         if (error) throw error;
         await finalizeLogin(data.user.id);
       } else {
-        const { data, error } = await supabase.auth.verifyOtp({
-          email,
-          token: otpCode,
-          type: "magiclink",
-        });
+        console.log("Verifying OTP...", { email, code: otpCode });
 
-        if (error) throw error;
-        if (data.user) await finalizeLogin(data.user.id);
+        let verifyError;
+        let userData;
+
+        // Estratégia 1: Tentar como EMAIL OTP (padrão para código numérico)
+        try {
+          console.log("Attempt 1: type=email");
+          const res = await supabase.auth.verifyOtp({
+            email,
+            token: otpCode,
+            type: "email",
+          });
+          if (res.error) throw res.error;
+          userData = res.data.user;
+        } catch (err: any) {
+          console.log("Attempt 1 failed:", err.message);
+
+          // Estratégia 2: Se falhar, tentar como MAGICLINK
+          try {
+            console.log("Attempt 2: type=magiclink");
+            const res2 = await supabase.auth.verifyOtp({
+              email,
+              token: otpCode,
+              type: "magiclink",
+            });
+            if (res2.error) throw res2.error;
+            userData = res2.data.user;
+          } catch (err2: any) {
+            console.log("Attempt 2 failed:", err2.message);
+            // Se ambos falharem, lançamos o erro original
+            throw err;
+          }
+        }
+
+        if (userData) {
+          console.log("OTP verified successfully");
+          await finalizeLogin(userData.id);
+        } else {
+          throw new Error("Usuário não retornado após verificação");
+        }
       }
     } catch (err: any) {
-      // Se o token expirou, pode ser porque o usuário clicou no link (já logou/consumiu o token).
-      // Vamos verificar se já existe sessão.
+      console.log("Catch block executing in handleVerify. Error:", err);
+
+      // Verificação de sessão de segurança
       const { data: { session } } = await supabase.auth.getSession();
+      console.log("Session check:", session ? "Found" : "Null");
+
       if (session) {
+        console.log("Session detected. Finalizing login...");
         await finalizeLogin(session.user.id);
         return;
       }
 
-      setError(err.message || "Código inválido ou expirado");
+      console.error("No session found. Displaying error.");
+      setError("Código inválido ou expirado. Tente link.");
       setLoading(false);
     }
   };

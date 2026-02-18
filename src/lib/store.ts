@@ -112,6 +112,7 @@ export interface User {
   avatar_url?: string;
   gravatar_email?: string;
   must_change_password?: boolean;
+  is_new_user?: boolean;
   department?: string;
   cost_center?: string; // Link to CostCenter
   phone?: string;

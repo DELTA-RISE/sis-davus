@@ -208,7 +208,7 @@ export const MOBILE_STEPS: TourStep[] = [
 ];
 
 export function OnboardingProvider({ children }: { children: ReactNode }) {
-    const { user, currentRole } = useAuth();
+    const { user, currentRole, isNewUser, updateProfileData } = useAuth();
     const router = useRouter();
     const pathname = usePathname();
     const isMobile = useIsMobile();
@@ -234,17 +234,16 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         }
         setSteps(selectedSteps);
 
-        // Auto-start if not onboarded AND on dashboard
-        if (!hasOnboarded && pathname === "/dashboard") {
+        // Auto-start if isNewUser is true AND on dashboard
+        // We prioritize the database flag over localStorage for the initial "forced" flow
+        if (isNewUser && pathname === "/dashboard" && !isActive) {
             // Small delay to ensure UI is ready
             const timer = setTimeout(() => {
-                setIsActive(true);
-                setIsDemoMode(true);
-                setCurrentStepIndex(0); // Ensure starting from the first step
+                startOnboarding();
             }, 1000);
             return () => clearTimeout(timer);
         }
-    }, [user, currentRole, isMobile, pathname]);
+    }, [user, currentRole, isMobile, pathname, isNewUser, isActive]);
 
     // Handle Step Actions (Navigation)
     useEffect(() => {
@@ -292,15 +291,17 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         finishOnboarding();
     };
 
-    const finishOnboarding = () => {
+    const finishOnboarding = async () => {
         setIsActive(false);
         setIsDemoMode(false); // Switch to real data
         if (user) {
             localStorage.setItem(`sis_davus_onboarded_${user.id}`, "true");
+
+            // If user was new, mark as not new anymore
+            if (isNewUser) {
+                await updateProfileData({ is_new_user: false });
+            }
         }
-        // Keep Demo Mode on? Or ask? For now, keep it on until user toggles off manually or relogins.
-        // Ideally we might want to turn it off, but user request implied exploring "fake data".
-        // Let's keep it on but maybe show a toast.
     };
 
     const toggleDemoMode = (enable?: boolean) => {
