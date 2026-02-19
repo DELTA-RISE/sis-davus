@@ -6,14 +6,19 @@ import { useOnboarding } from "@/lib/onboarding-context";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/dexie-db";
 
+import { DateRange } from "react-day-picker";
+import { isWithinInterval, subDays, startOfDay, endOfDay, eachDayOfInterval, format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+
 interface DashboardDataParams {
     role?: string;
     costCenterId?: string | null;
+    dateRange?: DateRange;
 }
 
 const EMPTY_ARRAY: never[] = [];
 
-export function useDashboardData({ role, costCenterId }: DashboardDataParams = {}) {
+export function useDashboardData({ role, costCenterId, dateRange }: DashboardDataParams = {}) {
     const { isDemoMode } = useOnboarding();
 
     // Trigger Syncs
@@ -131,28 +136,39 @@ export function useDashboardData({ role, costCenterId }: DashboardDataParams = {
 
     const movementsData = useMemo(() => {
         const days: Record<string, { name: string; entradas: number; saidas: number }> = {};
-        const last7Days = Array.from({ length: 7 }, (_, i) => {
-            const d = new Date();
-            d.setDate(d.getDate() - i);
-            const dateStr = d.toISOString().split("T")[0];
-            const label = d.toLocaleDateString("pt-BR", { weekday: "short" });
-            return { dateStr, label };
-        }).reverse();
 
-        last7Days.forEach(({ dateStr, label }) => {
+        let rangeStart = subDays(new Date(), 6); // Default to last 7 days (today - 6)
+        let rangeEnd = new Date();
+
+        if (dateRange?.from) {
+            rangeStart = dateRange.from;
+            rangeEnd = dateRange.to || dateRange.from;
+        }
+
+        // Generate all days in interval
+        const intervalDays = eachDayOfInterval({ start: rangeStart, end: rangeEnd });
+
+        intervalDays.forEach(d => {
+            const dateStr = d.toISOString().split("T")[0];
+            const label = format(d, "EEE", { locale: ptBR }); // Short weekday
             days[dateStr] = { name: label, entradas: 0, saidas: 0 };
         });
 
         movements.forEach((m) => {
-            const date = m.date?.split("T")[0];
-            if (date && days[date]) {
-                if (m.type === "entrada") days[date].entradas += m.quantity;
-                else days[date].saidas += m.quantity;
+            if (!m.date) return;
+            const mDate = new Date(m.date);
+            // Check if within range
+            if (isWithinInterval(mDate, { start: startOfDay(rangeStart), end: endOfDay(rangeEnd) })) {
+                const dateStr = mDate.toISOString().split("T")[0];
+                if (days[dateStr]) {
+                    if (m.type === "entrada") days[dateStr].entradas += m.quantity;
+                    else days[dateStr].saidas += m.quantity;
+                }
             }
         });
 
         return Object.values(days);
-    }, [movements]);
+    }, [movements, dateRange]);
 
     return {
         products,

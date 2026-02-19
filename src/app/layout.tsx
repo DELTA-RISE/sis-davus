@@ -13,6 +13,7 @@ import { Toaster } from "sonner";
 import { ThemeProvider } from "next-themes";
 import { GlobalDropZone } from "@/components/GlobalDropZone";
 import { LockScreen } from "@/components/LockScreen";
+import { CommandMenu } from "@/components/CommandMenu";
 
 const sora = Sora({
   variable: "--font-sora",
@@ -79,6 +80,7 @@ export default function RootLayout({
               <GlobalDropZone />
               <LayoutWrapper>
                 <LockScreen />
+                <CommandMenu />
                 {children}
               </LayoutWrapper>
 

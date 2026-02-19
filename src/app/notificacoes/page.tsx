@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { getProducts, getAssets, getCheckouts, getWriteOffRequests, getMaintenanceTasks, saveMaintenanceTask } from "@/lib/db";
 import { approveWriteOff, rejectWriteOff } from "@/actions/write-off";
+import { saveMaintenanceTask } from "@/lib/db";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
 import { PageTransition, StaggerContainer, StaggerItem } from "@/components/PageTransition";
@@ -13,140 +13,25 @@ import { Bell, CheckCheck, Package, Building2, ChevronLeft, Trash2, Calendar, Fi
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-interface Notification {
-  id: string;
-  title: string;
-  message: string;
-  time: string;
-  unread: boolean;
-  type: "low_stock" | "maintenance" | "overdue" | "write_off_request" | "maintenance_request";
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  metadata?: any; // To store requestId, assetId for actions
-}
-
-import {
-  getReadNotifications,
-  saveReadNotifications,
-  getDismissedNotifications,
-  saveDismissedNotifications
-} from "@/lib/localStorage";
+import { useNotifications, Notification } from "@/hooks/useNotifications";
 
 export default function NotificationsPage() {
   const router = useRouter();
   const { user, userName } = useAuth();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [readIds, setReadIds] = useState<string[]>([]);
-  const [dismissedIds, setDismissedIds] = useState<string[]>([]);
 
-  useEffect(() => {
-    setReadIds(getReadNotifications());
-    setDismissedIds(getDismissedNotifications());
-  }, []);
-
-  const loadNotifications = useCallback(async () => {
-    setIsLoading(true);
-    const [products, assets, checkouts, writeOffRequests, maintenanceTasks] = await Promise.all([
-      getProducts(),
-      getAssets(),
-      getCheckouts(),
-      getWriteOffRequests(),
-      getMaintenanceTasks(),
-    ]);
-
-    const lowStockNotifs: Notification[] = products
-      .filter(p => p.quantity < (p.min_stock || 0))
-      .map(p => ({
-        id: `prod-${p.id}`,
-        title: "Estoque Baixo",
-        message: `${p.name} está com ${p.quantity} unidades (Mínimo: ${p.min_stock})`,
-        time: "Agora",
-        unread: !readIds.includes(`prod-${p.id}`),
-        type: "low_stock"
-      }));
-
-    const maintenanceNotifs: Notification[] = assets
-      .filter(a => a.condition === "Manutenção")
-      .map(a => ({
-        id: `asset-${a.id}`,
-        title: "Em Manutenção",
-        message: `${a.name} (${a.code}) está em manutenção`,
-        time: "Agora",
-        unread: !readIds.includes(`asset-${a.id}`),
-        type: "maintenance"
-      }));
-
-    const overdueNotifs: Notification[] = checkouts
-      .filter(c => c.status === "Atrasado" || (c.status === "Ativo" && c.expected_return_date && new Date(c.expected_return_date) < new Date()))
-      .map(c => ({
-        id: `checkout-${c.id}`,
-        title: "Checkout Atrasado",
-        message: `${c.item_name} deveria ter sido devolvido em ${new Date(c.expected_return_date || "").toLocaleDateString()}`,
-        time: "Atrasado",
-        unread: !readIds.includes(`checkout-${c.id}`),
-        type: "overdue"
-      }));
-
-    const writeOffNotifs: Notification[] = writeOffRequests
-      .filter(r => r.status === 'pending')
-      .map(r => ({
-        id: `writeoff-${r.id}`,
-        title: "Solicitação de Baixa",
-        message: `Solicitado por ${r.user_name || 'Usuário'} para o patrimônio ${r.asset_name || r.asset_id}. Motivo: ${r.reason}`,
-        time: new Date(r.created_at || "").toLocaleDateString(),
-        unread: true, // Always show as actionable
-        type: "write_off_request",
-        metadata: r
-      }));
-
-    const maintenanceRequestNotifs: Notification[] = maintenanceTasks
-      .filter(t => t.approval_status === 'pending')
-      .map(t => ({
-        id: `maint-req-${t.id}`,
-        title: "Solicitação de Manutenção",
-        message: `Solicitado por ${t.created_by || 'Gestor'} para ${t.asset_name} (${t.priority}). ${t.title}`,
-        time: new Date(t.created_at || "").toLocaleDateString(),
-        unread: true,
-        type: "maintenance_request",
-        metadata: t
-      }));
-
-    const allNotifs = [...writeOffNotifs, ...maintenanceRequestNotifs, ...lowStockNotifs, ...maintenanceNotifs, ...overdueNotifs]
-      .filter(n => !dismissedIds.includes(n.id));
-
-    setNotifications(allNotifs);
-    setIsLoading(false);
-  }, [readIds, dismissedIds]);
-
-  useEffect(() => {
-    loadNotifications();
-  }, [loadNotifications]);
-
-  const markAsRead = (id: string) => {
-    const newRead = [...readIds, id];
-    setReadIds(newRead);
-    saveReadNotifications(newRead);
-  };
-
-  const markAllAsRead = () => {
-    const allIds = notifications.map(n => n.id);
-    const newRead = Array.from(new Set([...readIds, ...allIds]));
-    setReadIds(newRead);
-    saveReadNotifications(newRead);
-  };
+  const {
+    notifications,
+    isLoading,
+    markAsRead,
+    markAllAsRead,
+    dismissNotification,
+    refreshNotifications,
+    clearAllNotifications: clearAll
+  } = useNotifications();
 
   const deleteNotification = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    const newDismissed = [...dismissedIds, id];
-    setDismissedIds(newDismissed);
-    saveDismissedNotifications(newDismissed);
-  };
-
-  const clearAll = () => {
-    const allIds = notifications.map(n => n.id);
-    const newDismissed = Array.from(new Set([...dismissedIds, ...allIds]));
-    setDismissedIds(newDismissed);
-    saveDismissedNotifications(newDismissed);
+    dismissNotification(id);
   };
 
   const handleApprove = async (e: React.MouseEvent, notif: Notification) => {
@@ -159,7 +44,7 @@ export default function NotificationsPage() {
         const result = await approveWriteOff(request.id, request.asset_id, user.id, userName);
         if (result.success) {
           toast.success("Solicitação aprovada e patrimônio baixado!");
-          loadNotifications();
+          refreshNotifications();
         } else {
           toast.error("Erro ao aprovar: " + result.error);
         }
@@ -184,7 +69,7 @@ export default function NotificationsPage() {
         };
         await saveMaintenanceTask(updatedTask, { name: userName, id: user.id });
         toast.success("Manutenção aprovada com sucesso!");
-        loadNotifications();
+        refreshNotifications();
       } catch (error) {
         console.error(error);
         toast.error("Erro ao aprovar manutenção.");
@@ -202,7 +87,7 @@ export default function NotificationsPage() {
         const result = await rejectWriteOff(request.id, user.id);
         if (result.success) {
           toast.success("Solicitação rejeitada.");
-          loadNotifications();
+          refreshNotifications();
         } else {
           toast.error("Erro ao rejeitar: " + result.error);
         }
@@ -228,7 +113,7 @@ export default function NotificationsPage() {
         };
         await saveMaintenanceTask(updatedTask, { name: userName, id: user.id });
         toast.success("Manutenção rejeitada.");
-        loadNotifications();
+        refreshNotifications();
       } catch (error) {
         console.error(error);
         toast.error("Erro ao rejeitar manutenção.");

@@ -20,17 +20,23 @@ async function clear() {
     console.log('🧹 Starting cleanup...')
 
     const tables = [
+        // Child tables first to avoid FK constraints
         'write_off_requests',
         'asset_timelines',
         'maintenance_tasks',
-        'checkouts',
         'stock_movements',
+        'checkouts',
+        'job_queue',
+        'compliance_reports',
+        'admin_audit_logs',
+        'access_logs',
+        'audit_logs',
         'assets',
         'products',
         'cost_centers',
-        // 'profiles' - Usually we don't delete profiles in cleanup unless specifically asked, as it breaks auth mapping. 
-        // But since we created mock ones in seed, maybe we should? 
-        // Let's keep profiles for now to avoid locking out real users if they exist.
+        'categories',
+        'system_settings',
+        // 'profiles' - KEEP PROFILES to preserve user accounts
     ]
 
     for (const table of tables) {
