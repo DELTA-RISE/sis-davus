@@ -2,7 +2,6 @@ import { useMemo, useEffect } from "react";
 import { toast } from "sonner";
 import { mockProducts, mockAssets, mockStockMovements, mockCheckouts } from "@/lib/store";
 import { syncTable } from "@/lib/db";
-import { useOnboarding } from "@/lib/onboarding-context";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/dexie-db";
 
@@ -19,29 +18,18 @@ interface DashboardDataParams {
 const EMPTY_ARRAY: never[] = [];
 
 export function useDashboardData({ role, costCenterId, dateRange }: DashboardDataParams = {}) {
-    const { isDemoMode } = useOnboarding();
-
     // Trigger Syncs
     useEffect(() => {
-        if (!isDemoMode && role === 'admin') {
+        if (role === 'admin') {
             // Admin syncs everything to ensure they can see all data
             syncTable('products', 'name', true);
             syncTable('assets', 'name', true);
             syncTable('stock_movements', 'date', false);
             syncTable('checkouts', 'checkout_date', false);
         }
-    }, [isDemoMode, role]);
+    }, [role]);
 
     const data = useLiveQuery(async () => {
-        if (isDemoMode) {
-            return {
-                products: mockProducts,
-                assets: mockAssets,
-                movements: mockStockMovements,
-                checkouts: mockCheckouts
-            };
-        }
-
         let productsQuery = db.products.filter(p => !p.deleted_at);
         let assetsQuery = db.assets.filter(a => !a.deleted_at);
         // Movements don't typically have cost_center directly on the table in this schema?
@@ -85,13 +73,9 @@ export function useDashboardData({ role, costCenterId, dateRange }: DashboardDat
 
 
         return { products, assets, movements, checkouts };
-    }, [isDemoMode, role, costCenterId]);
+    }, [role, costCenterId]);
 
     const refreshData = async () => {
-        if (isDemoMode) {
-            toast.success("Dados atualizados (Demo)!");
-            return;
-        }
         await Promise.all([
             syncTable('products', 'name', true),
             syncTable('assets', 'name', true),

@@ -27,7 +27,7 @@ export default function ContatoPage() {
                             </div>
                             <div>
                                 <h4 className="text-white font-bold mb-1">Email Geral</h4>
-                                <p className="text-white/60">hello@davus.app</p>
+                                <p className="text-white/60">hello@deltarise.com</p>
                             </div>
                         </div>
 
@@ -37,7 +37,7 @@ export default function ContatoPage() {
                             </div>
                             <div>
                                 <h4 className="text-white font-bold mb-1">Vendas / Enterprise</h4>
-                                <p className="text-white/60">sales@davus.app</p>
+                                <p className="text-white/60">sales@deltarise.com</p>
                             </div>
                         </div>
 

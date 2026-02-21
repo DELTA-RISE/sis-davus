@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Product, mockProducts } from "@/lib/store";
-import { useOnboarding } from "@/lib/onboarding-context";
 import { getProducts, saveProduct, deleteProduct } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { productSchema } from "@/lib/validations";
@@ -123,26 +122,14 @@ export default function EstoquePage() {
   });
   const [openCostCenterSelect, setOpenCostCenterSelect] = useState(false);
   const { addHistoryEntry } = useItemHistory();
-  const { isDemoMode } = useOnboarding();
-  // Ensure isLoading is present if it was lost, but looking at file line 89 it exists in the OUTER function.
-  // The issue is the INNER function was added.
-  // We just need to delete the lines that started the inner function and the misplaced imports.
-  // And ensure useOnboarding is called in the main function.
-
-
   const loadData = useCallback(async (silent = false) => {
     if (!silent) setIsLoading(true);
 
-    if (isDemoMode) {
-      await new Promise(resolve => setTimeout(resolve, 500)); // Fake delay
-      setProducts(mockProducts);
-    } else {
-      const data = await getProducts();
-      setProducts(data);
-    }
+    const data = await getProducts();
+    setProducts(data);
 
     if (!silent) setIsLoading(false);
-  }, [isDemoMode]);
+  }, []);
 
   useEffect(() => {
     loadData();

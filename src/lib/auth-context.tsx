@@ -14,7 +14,6 @@ interface AuthContextType {
   userName: string;
   email: string;
   mustChangePassword: boolean;
-  isNewUser: boolean;
   gravatarEmail: string;
   gravatarUrl: string | null;
   costCenter?: string;
@@ -24,7 +23,7 @@ interface AuthContextType {
   refreshProfile: () => Promise<void>;
   updateEmail: (email: string) => Promise<{ error?: Error }>;
   updatePassword: (password: string) => Promise<{ error?: Error }>;
-  updateProfileData: (data: { name?: string; gravatar_email?: string; is_new_user?: boolean }) => Promise<void>;
+  updateProfileData: (data: { name?: string; gravatar_email?: string }) => Promise<void>;
 }
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -35,7 +34,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [userName, setUserName] = useState("Carregando...");
   const [email, setEmail] = useState("");
   const [mustChangePassword, setMustChangePassword] = useState(false);
-  const [isNewUser, setIsNewUser] = useState(false);
   const [gravatarEmail, setGravatarEmail] = useState("");
   const [gravatarUrl, setGravatarUrl] = useState<string | null>(null);
   const [lockPin, setLockPin] = useState<string | null>(null);
@@ -124,7 +122,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUserName("");
         setEmail("");
         setMustChangePassword(false);
-        setIsNewUser(false);
         setGravatarEmail("");
         setGravatarUrl(null);
         setLockPin(null);
@@ -156,7 +153,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUserName("");
           setEmail("");
           setMustChangePassword(false);
-          setIsNewUser(false);
           setGravatarEmail("");
           setGravatarUrl(null);
           setLockPin(null);
@@ -168,7 +164,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUserName(profile.name);
           setEmail(profile.email);
           setMustChangePassword(profile.must_change_password || false);
-          setIsNewUser(profile.is_new_user || false);
           setGravatarEmail(profile.gravatar_email || "");
           setLockPin(profile.lock_pin || null);
           const url = await getGravatarUrl(profile.gravatar_email || profile.email);
@@ -203,7 +198,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       userName,
       email,
       mustChangePassword,
-      isNewUser,
       gravatarEmail,
       gravatarUrl,
       lockPin,
@@ -218,14 +212,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { error } = await supabase.auth.updateUser({ password });
         return { error: error || undefined };
       },
-      updateProfileData: async (data: { name?: string; gravatar_email?: string; is_new_user?: boolean }) => {
+      updateProfileData: async (data: { name?: string; gravatar_email?: string }) => {
         if (!user) return;
 
         await saveUser({
           id: user.id,
           name: data.name,
-          gravatar_email: data.gravatar_email,
-          is_new_user: data.is_new_user
+          gravatar_email: data.gravatar_email
         });
 
         await refreshProfile();

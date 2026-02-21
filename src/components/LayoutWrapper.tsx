@@ -11,12 +11,10 @@ import { SidebarProvider, useSidebar } from "@/lib/sidebar-context";
 
 import { ScrollProgress } from "@/components/ScrollProgress";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
-import { OnboardingProvider } from "@/lib/onboarding-context";
-import { OnboardingOverlay } from "@/components/OnboardingOverlay";
 
 function LayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { user, isLoading, mustChangePassword, isNewUser } = useAuth();
+  const { user, isLoading, mustChangePassword } = useAuth();
   const router = useRouter();
   const isLoginPage = pathname === "/login";
   const isChangePasswordPage = pathname === "/change-password";
@@ -37,11 +35,11 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
     if (!isLoading && !isPublicPage && !isLoginPage && !isWikiPage) {
       if (!user) {
         router.push("/login"); // Redirect to login if not authenticated
-      } else if (mustChangePassword && !isChangePasswordPage && !isNewUser) {
+      } else if (mustChangePassword && !isChangePasswordPage) {
         router.push("/change-password"); // Force password change
       }
     }
-  }, [user, isLoading, isPublicPage, isLoginPage, isWikiPage, isChangePasswordPage, mustChangePassword, isNewUser, router]);
+  }, [user, isLoading, isPublicPage, isLoginPage, isWikiPage, isChangePasswordPage, mustChangePassword, router]);
 
   if (isPublicPage || isLoginPage || isTVMode || isChangePasswordPage || isWikiPage) {
     return (
@@ -85,12 +83,9 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
       <SidebarProvider>
-        <OnboardingProvider>
-          <LayoutContent>
-            {children}
-            <OnboardingOverlay />
-          </LayoutContent>
-        </OnboardingProvider>
+        <LayoutContent>
+          {children}
+        </LayoutContent>
       </SidebarProvider>
     </AuthProvider>
   );

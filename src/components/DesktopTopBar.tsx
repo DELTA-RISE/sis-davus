@@ -26,7 +26,6 @@ import { Product, Asset, mockProducts, mockAssets } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { DialogTitle } from "@/components/ui/dialog";
-import { useOnboarding } from "@/lib/onboarding-context";
 
 interface Notification {
   id: string;
@@ -46,7 +45,6 @@ interface SearchResult {
 
 export function DesktopTopBar() {
   const { userName, currentRole, gravatarUrl } = useAuth();
-  const { isDemoMode } = useOnboarding();
   const router = useRouter();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -63,17 +61,12 @@ export function DesktopTopBar() {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (isDemoMode) {
-        setProducts(mockProducts);
-        setAssets(mockAssets);
-      } else {
-        const [p, a] = await Promise.all([getProducts(), getAssets()]);
-        setProducts(p);
-        setAssets(a);
-      }
+      const [p, a] = await Promise.all([getProducts(), getAssets()]);
+      setProducts(p);
+      setAssets(a);
     };
     fetchData();
-  }, [isDemoMode]);
+  }, []);
 
   useEffect(() => {
     const readIds = getReadNotifications();
