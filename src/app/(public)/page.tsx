@@ -11,6 +11,9 @@ import { MagneticButton } from "@/components/ui/magnetic-button";
 import { useAuth } from "@/lib/auth-context";
 import { TextMorph } from "@/components/landing/TextMorph";
 import { SpotlightCard } from "@/components/landing/SpotlightCard";
+import { GlobalSpotlight } from "@/components/landing/GlobalSpotlight";
+import { ScrollTextReveal } from "@/components/landing/ScrollTextReveal";
+import { useMouse } from "@/hooks/use-mouse";
 
 // Dynamic Imports for Heavy Components
 const Experience = dynamic(() => import("@/components/landing/cinematic/Experience").then(mod => mod.Experience), {
@@ -33,6 +36,11 @@ export default function LandingPage() {
 
   const opacityHero = useTransform(scrollYProgress, [0, 0.1], [1, 0]);
   const yHero = useTransform(scrollYProgress, [0, 0.1], [0, 100]);
+
+  // Mouse Tracking for 3D perspective
+  const mouse = useMouse(containerRef);
+  const rotateX = useTransform(mouse.y, [0, typeof window !== "undefined" ? window.innerHeight : 1000], [10, -10]);
+  const rotateY = useTransform(mouse.x, [0, typeof window !== "undefined" ? window.innerWidth : 1000], [-10, 10]);
 
   // OS Detection & PWA Logic
   const [os, setOs] = useState<"Windows" | "Mac" | "Linux" | "iOS" | "Android" | null>(null);
@@ -87,18 +95,21 @@ export default function LandingPage() {
         <Experience />
 
         {/* Content Layer */}
-        <div className="relative z-10">
-          <LandingHeader />
+        <div className="relative z-10 w-full pt-16 -mt-16">
+          <GlobalSpotlight />
 
           {/* SECTION 1: HERO */}
-          <section className="h-screen w-full flex flex-col items-center justify-center relative px-4 text-center">
-            <m.div style={{ opacity: opacityHero, y: yHero }} className="space-y-8 max-w-4xl mx-auto backdrop-blur-sm p-8 rounded-3xl border border-white/5 bg-black/20">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 mb-4">
+          <section className="min-h-screen w-full flex flex-col items-center justify-center relative px-4 text-center overflow-hidden [perspective:1000px]">
+            <m.div
+              style={{ opacity: opacityHero, y: yHero, rotateX, rotateY }}
+              className="space-y-8 max-w-5xl mx-auto p-12 rounded-[3rem] border border-white/5 bg-black/20 backdrop-blur-md shadow-2xl relative z-20"
+            >
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 mb-4 shadow-[0_0_20px_rgba(255,165,0,0.1)]">
                 <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-500 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
                 </span>
-                <span className="text-xs font-medium text-white/70 tracking-widest uppercase">System V4.0</span>
+                <span className="text-xs font-semibold text-white/80 tracking-widest uppercase">System V4.0</span>
               </div>
 
               <h1 className="text-6xl md:text-8xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-white via-white/80 to-white/40 leading-tight">
@@ -122,6 +133,28 @@ export default function LandingPage() {
                 </Link>
               </div>
             </m.div>
+
+            {/* Floating 3D Elements Behind Hero */}
+            <div className="absolute inset-0 pointer-events-none flex justify-center items-center">
+              <m.div
+                style={{ y: useTransform(mouse.y, [0, 1000], [-50, 50]), x: useTransform(mouse.x, [0, 1000], [-50, 50]) }}
+                className="absolute top-[20%] left-[15%] w-32 h-32 bg-orange-500/10 rounded-2xl border border-orange-500/20 backdrop-blur-xl rotate-12 flex items-center justify-center shadow-2xl"
+              >
+                <Box className="w-10 h-10 text-orange-400/50" />
+              </m.div>
+              <m.div
+                style={{ y: useTransform(mouse.y, [0, 1000], [50, -50]), x: useTransform(mouse.x, [0, 1000], [50, -50]) }}
+                className="absolute bottom-[25%] right-[15%] w-40 h-24 bg-blue-500/10 rounded-2xl border border-blue-500/20 backdrop-blur-xl -rotate-6 flex items-center justify-center shadow-2xl"
+              >
+                <Globe className="w-8 h-8 text-blue-400/50" />
+              </m.div>
+              <m.div
+                style={{ y: useTransform(mouse.y, [0, 1000], [-30, 30]), x: useTransform(mouse.x, [0, 1000], [30, -30]) }}
+                className="absolute top-[30%] right-[25%] w-24 h-24 bg-purple-500/10 rounded-full border border-purple-500/20 backdrop-blur-xl rotate-45 flex items-center justify-center"
+              >
+                <Shield className="w-6 h-6 text-purple-400/50" />
+              </m.div>
+            </div>
 
             <m.div
               style={{ opacity: opacityHero }}
@@ -154,9 +187,22 @@ export default function LandingPage() {
                     </div>
 
                     {/* Connection Line */}
-                    <div className="h-0.5 md:h-1 flex-1 bg-gradient-to-r from-blue-500/50 to-orange-500/50 relative min-w-[2rem]">
-                      <div className="absolute top-1/2 left-0 -translate-y-1/2 w-full h-full">
-                        <div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-white absolute top-1/2 -mt-[3px] md:-mt-1 animate-marquee" />
+                    <div className="h-0.5 md:h-1 flex-1 bg-gradient-to-r from-blue-500/30 to-orange-500/30 relative min-w-[2rem] overflow-hidden">
+                      <div className="absolute inset-0 w-full h-full">
+                        {[...Array(5)].map((_, i) => (
+                          <m.div
+                            key={i}
+                            className="absolute top-1/2 -mt-[1px] md:-mt-[2px] h-[2px] md:h-[4px] w-8 md:w-12 bg-gradient-to-r from-transparent via-white to-transparent shadow-[0_0_8px_#fff]"
+                            initial={{ left: "-20%", opacity: 0 }}
+                            animate={{ left: "120%", opacity: [0, 1, 1, 0] }}
+                            transition={{
+                              duration: 1.2,
+                              repeat: Infinity,
+                              delay: i * 0.4,
+                              ease: "linear"
+                            }}
+                          />
+                        ))}
                       </div>
                     </div>
 
@@ -178,8 +224,7 @@ export default function LandingPage() {
                   <span>Global Sync</span>
                 </div>
                 <h2 className="text-4xl md:text-5xl font-bold text-white leading-tight">
-                  O Campo e a Base.<br />
-                  Sincronizados.
+                  <ScrollTextReveal text="O Campo e a Base. Sincronizados." />
                 </h2>
                 <p className="text-white/60 text-lg leading-relaxed">
                   O que acontece no front de operação reflete instantaneamente no painel de gestão. Sem delays, sem planilhas intermediárias.
@@ -205,16 +250,16 @@ export default function LandingPage() {
             <div className="max-w-7xl mx-auto space-y-24">
               <div className="text-center space-y-4">
                 <h2 className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/50">
-                  Arquitetura de Controle
+                  <ScrollTextReveal text="Arquitetura de Controle" />
                 </h2>
                 <p className="text-white/60 text-xl max-w-2xl mx-auto">
                   Uma suíte completa de ferramentas projetada para operações de alta complexidade.
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-auto md:h-[600px]">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-auto md:h-[600px] group/bento">
                 {/* Feature 1 - Big Left */}
-                <SpotlightCard className="md:col-span-2 md:row-span-2 rounded-[2rem] border-white/10 bg-black/40 backdrop-blur-xl p-10 flex flex-col justify-between group overflow-hidden">
+                <SpotlightCard className="md:col-span-2 md:row-span-2 rounded-[2rem] border-white/10 bg-black/40 backdrop-blur-xl p-10 flex flex-col justify-between group overflow-hidden transition-all duration-500 hover:!opacity-100 group-hover/bento:opacity-50 hover:!scale-100 group-hover/bento:scale-[0.98]">
                   <div className="relative z-10">
                     <div className="w-14 h-14 rounded-2xl bg-orange-500/20 flex items-center justify-center mb-6 border border-orange-500/30">
                       <Box className="h-7 w-7 text-orange-500" />
@@ -234,10 +279,40 @@ export default function LandingPage() {
                   </div>
                   {/* Abstract UI decoration */}
                   <div className="absolute top-1/2 right-0 translate-x-1/3 -translate-y-1/2 w-[400px] h-[400px] bg-orange-500/10 rounded-full blur-[100px] group-hover:bg-orange-500/20 transition-all duration-500" />
+
+                  {/* Animated Sparkline SVG */}
+                  <div className="absolute bottom-8 right-8 w-64 h-32 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none hidden md:block">
+                    <svg viewBox="0 0 200 100" className="w-full h-full text-orange-500 drop-shadow-[0_0_8px_rgba(249,115,22,0.5)]">
+                      <m.path
+                        d="M0 100 Q 20 80 40 90 T 80 60 T 120 70 T 160 30 T 200 10"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        initial={{ pathLength: 0 }}
+                        whileInView={{ pathLength: 1 }}
+                        transition={{ duration: 1.5, ease: "easeInOut" }}
+                      />
+                      <m.path
+                        d="M0 100 Q 20 80 40 90 T 80 60 T 120 70 T 160 30 T 200 10 L 200 100 Z"
+                        fill="url(#sparkline-gradient)"
+                        initial={{ opacity: 0 }}
+                        whileInView={{ opacity: 0.2 }}
+                        transition={{ duration: 1, delay: 0.5 }}
+                      />
+                      <defs>
+                        <linearGradient id="sparkline-gradient" x1="0" x2="0" y1="0" y2="1">
+                          <stop offset="0%" stopColor="currentColor" stopOpacity="1" />
+                          <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
+                        </linearGradient>
+                      </defs>
+                    </svg>
+                  </div>
                 </SpotlightCard>
 
                 {/* Feature 2 - Top Right */}
-                <SpotlightCard className="rounded-[2rem] border-white/10 bg-black/40 backdrop-blur-xl p-8 flex flex-col justify-center gap-4 group">
+                <SpotlightCard className="rounded-[2rem] border-white/10 bg-black/40 backdrop-blur-xl p-8 flex flex-col justify-center gap-4 group transition-all duration-500 hover:!opacity-100 group-hover/bento:opacity-50 hover:!scale-100 group-hover/bento:scale-[0.98]">
                   <div className="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center border border-blue-500/30">
                     <Globe className="h-6 w-6 text-blue-500" />
                   </div>
@@ -248,7 +323,7 @@ export default function LandingPage() {
                 </SpotlightCard>
 
                 {/* Feature 3 - Bottom Right */}
-                <SpotlightCard className="rounded-[2rem] border-white/10 bg-black/40 backdrop-blur-xl p-8 flex flex-col justify-center gap-4 group">
+                <SpotlightCard className="rounded-[2rem] border-white/10 bg-black/40 backdrop-blur-xl p-8 flex flex-col justify-center gap-4 group transition-all duration-500 hover:!opacity-100 group-hover/bento:opacity-50 hover:!scale-100 group-hover/bento:scale-[0.98]">
                   <div className="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center border border-purple-500/30">
                     <Shield className="h-6 w-6 text-purple-500" />
                   </div>
@@ -432,8 +507,6 @@ export default function LandingPage() {
               </Link>
             </div>
           </section>
-
-          <MegaFooter />
         </div>
       </div >
     </LazyMotion >

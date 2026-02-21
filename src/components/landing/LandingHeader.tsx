@@ -3,11 +3,12 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { m, useScroll, useMotionValueEvent } from "framer-motion";
+import { motion, useScroll, useMotionValueEvent } from "framer-motion";
 
 import { MagneticButton } from "@/components/ui/magnetic-button";
 import { AudioToggle } from "@/components/ui/audio-toggle";
 import { LocalizedGreeting } from "@/components/landing/LocalizedGreeting";
+import { DavusLogoIcon } from "@/components/ui/davus-logo-icon";
 import { useAuth } from "@/lib/auth-context";
 
 export function LandingHeader() {
@@ -27,7 +28,7 @@ export function LandingHeader() {
     });
 
     return (
-        <m.header
+        <motion.header
             variants={{
                 visible: { y: 0 },
                 hidden: { y: "-100%" },
@@ -37,19 +38,19 @@ export function LandingHeader() {
             className="sticky top-0 z-50 w-full border-b border-white/5 bg-black/20 backdrop-blur-md supports-[backdrop-filter]:bg-black/20"
         >
             <nav className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between relative">
-                <m.div
+                <motion.div
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     className="flex items-center gap-3"
                 >
-                    <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
-                        <Image src="/davus-logo.svg" alt="Logo" width={28} height={28} className="w-7 h-7 brightness-0 invert" />
+                    <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20 text-white">
+                        <DavusLogoIcon className="w-6 h-6" />
                     </div>
                     <div className="hidden sm:block">
                         <h1 className="text-base font-bold tracking-tight">SIS DAVUS</h1>
                         <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Delta Rise</p>
                     </div>
-                </m.div>
+                </motion.div>
 
                 {/* Centered Greeting - Only for authenticated users */}
                 {user && (
@@ -58,7 +59,7 @@ export function LandingHeader() {
                     </div>
                 )}
 
-                <m.div
+                <motion.div
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
                     className="flex items-center gap-4"
@@ -69,8 +70,8 @@ export function LandingHeader() {
                             {user ? "Acessar Dashboard" : "Entrar"}
                         </MagneticButton>
                     </Link>
-                </m.div>
+                </motion.div>
             </nav>
-        </m.header>
+        </motion.header>
     );
 }

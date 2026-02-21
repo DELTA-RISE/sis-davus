@@ -18,27 +18,35 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, isLoading, mustChangePassword, isNewUser } = useAuth();
   const router = useRouter();
-  const isLandingPage = pathname === "/";
   const isLoginPage = pathname === "/login";
   const isChangePasswordPage = pathname === "/change-password";
   const isTVMode = pathname?.includes("/dashboard/tv");
   const isWikiPage = pathname?.startsWith("/wiki");
+
+  // Public pages that shouldn't have the system HUD
+  const publicPaths = [
+    "/", "/features", "/seguranca", "/roadmap",
+    "/enterprise", "/sobre", "/carreiras", "/blog",
+    "/contato", "/privacidade", "/termos"
+  ];
+  const isPublicPage = publicPaths.includes(pathname || "");
+
   const { isCollapsed } = useSidebar();
 
   useEffect(() => {
-    if (!isLoading && !isLandingPage && !isLoginPage && !isWikiPage) {
+    if (!isLoading && !isPublicPage && !isLoginPage && !isWikiPage) {
       if (!user) {
         router.push("/login"); // Redirect to login if not authenticated
       } else if (mustChangePassword && !isChangePasswordPage && !isNewUser) {
         router.push("/change-password"); // Force password change
       }
     }
-  }, [user, isLoading, isLandingPage, isLoginPage, isWikiPage, isChangePasswordPage, mustChangePassword, isNewUser, router]);
+  }, [user, isLoading, isPublicPage, isLoginPage, isWikiPage, isChangePasswordPage, mustChangePassword, isNewUser, router]);
 
-  if (isLandingPage || isLoginPage || isTVMode || isChangePasswordPage || isWikiPage) {
+  if (isPublicPage || isLoginPage || isTVMode || isChangePasswordPage || isWikiPage) {
     return (
       <div className="relative">
-        {isLandingPage && <ScrollProgress />}
+        {pathname === "/" && <ScrollProgress />}
         {children}
       </div>
     );

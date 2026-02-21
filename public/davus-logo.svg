@@ -7,7 +7,17 @@
         <path d="M852.344,1522.352c142.079,0 257.682,-115.451 257.682,-257.335l0,-704.362l-515.386,0l0,961.697l257.704,0Zm-435.373,177.539l0,-1316.667l870.833,0l0,881.793c0,239.757 -195.312,434.787 -435.373,434.787l-435.46,0.087Z"/>
       </clipPath>
       <g clip-path="url(#_clip1)">
-        <path d="M-27.713,555.534l558.659,1437.652l1201.519,-465.625l-558.637,-1437.652l-1201.541,465.625Z" style="fill:#fc5e38;fill-rule:nonzero;"/>
+        <style>
+          .davus-main-shape {
+            fill: #fc5e38;
+          }
+          @media (prefers-color-scheme: dark) {
+            .davus-main-shape {
+              fill: #ffffff;
+            }
+          }
+        </style>
+        <path class="davus-main-shape" d="M-27.713,555.534l558.659,1437.652l1201.519,-465.625l-558.637,-1437.652l-1201.541,465.625Z" style="fill-rule:nonzero;"/>
       </g>
     </g>
   </g>

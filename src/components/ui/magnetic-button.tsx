@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Button, ButtonProps } from "@/components/ui/button";
+import { useUiSound } from "@/hooks/use-ui-sound";
 
 interface MagneticButtonProps extends ButtonProps {
     children: React.ReactNode;
@@ -12,6 +13,7 @@ export function MagneticButton({ children, className, ...props }: MagneticButton
     const ref = useRef<HTMLButtonElement>(null);
     const [position, setPosition] = useState({ x: 0, y: 0 });
     const [textPosition, setTextPosition] = useState({ x: 0, y: 0 });
+    const { playHoverSound, playClickSound } = useUiSound();
 
     const handleMouseMove = (e: React.MouseEvent<HTMLButtonElement>) => {
         const { clientX, clientY } = e;
@@ -38,6 +40,14 @@ export function MagneticButton({ children, className, ...props }: MagneticButton
                 ref={ref}
                 onMouseMove={handleMouseMove}
                 onMouseLeave={reset}
+                onMouseEnter={() => {
+                    playHoverSound();
+                    if (props.onMouseEnter) props.onMouseEnter({} as React.MouseEvent<HTMLButtonElement>);
+                }}
+                onClick={(e) => {
+                    playClickSound();
+                    if (props.onClick) props.onClick(e);
+                }}
                 className={className}
                 {...props}
             >

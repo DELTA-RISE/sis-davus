@@ -39,28 +39,26 @@ export function MegaFooter() {
                     <div className="lg:col-span-2 space-y-6">
                         <h4 className="text-sm font-bold text-white/40 uppercase tracking-widest">Produto</h4>
                         <ul className="space-y-4">
-                            <FooterLink href="#">Features</FooterLink>
-                            <FooterLink href="#">Segurança</FooterLink>
-                            <FooterLink href="#">Roadmap</FooterLink>
-                            <FooterLink href="#">Enterprise</FooterLink>
+                            <FooterLink href="/features">Features</FooterLink>
+                            <FooterLink href="/seguranca">Segurança</FooterLink>
+                            <FooterLink href="/roadmap">Roadmap</FooterLink>
+                            <FooterLink href="/enterprise">Enterprise</FooterLink>
                         </ul>
                     </div>
 
                     <div className="lg:col-span-2 space-y-6">
                         <h4 className="text-sm font-bold text-white/40 uppercase tracking-widest">Empresa</h4>
                         <ul className="space-y-4">
-                            <FooterLink href="#">Sobre</FooterLink>
-                            <FooterLink href="#">Carreiras</FooterLink>
-                            <FooterLink href="#">Blog</FooterLink>
-                            <FooterLink href="#">Contato</FooterLink>
+                            <FooterLink href="/sobre">Sobre</FooterLink>
+                            <FooterLink href="/contato">Contato</FooterLink>
                         </ul>
                     </div>
 
                     <div className="lg:col-span-2 space-y-6">
                         <h4 className="text-sm font-bold text-white/40 uppercase tracking-widest">Legal</h4>
                         <ul className="space-y-4">
-                            <FooterLink href="#">Privacidade</FooterLink>
-                            <FooterLink href="#">Termos</FooterLink>
+                            <FooterLink href="/privacidade">Privacidade</FooterLink>
+                            <FooterLink href="/termos">Termos</FooterLink>
                         </ul>
                     </div>
 
