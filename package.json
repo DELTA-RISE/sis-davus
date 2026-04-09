@@ -115,7 +115,7 @@
   },
   "overrides": {
     "axios": "^1.13.5",
-    "lodash": "^4.17.21",
+    "lodash": "^4.18.1",
     "next": "$next"
   }
 }
