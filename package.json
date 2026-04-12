@@ -114,7 +114,7 @@
     "wait-on": "^9.0.3"
   },
   "overrides": {
-    "axios": "^1.13.5",
+    "axios": "^1.15.0",
     "lodash": "^4.17.21",
     "next": "$next"
   }
