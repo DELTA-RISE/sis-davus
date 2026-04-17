@@ -281,4 +281,4 @@ Desenvolvido com ❤️ pela equipe [**Delta Rise**](https://deltarise.com.br) p
 ## 📄 Licença
 
 Propriedade intelectual reservada.
-© 2026 [**Delta Rise**](https://deltarise.com.br)
+© 2026 Davus Engenharia
