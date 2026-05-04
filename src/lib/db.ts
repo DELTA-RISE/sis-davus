@@ -201,7 +201,7 @@ async function upsert<T extends { id?: string }>(table: string, item: Partial<T>
     const { data, error } = await withTimeout(
       supabase
         .from(table)
-        .upsert(item)
+        .upsert(item as never)
         .select()
         .single()
     );

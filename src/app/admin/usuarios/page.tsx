@@ -87,7 +87,7 @@ const roleColors: Record<UserRole, string> = {
 };
 
 type DependencyDetails = {
-  count: number;
+  responsibleCount: number;
 };
 
 const roleIcons: Record<UserRole, LucideIcon> = {
@@ -559,7 +559,7 @@ export default function UsersPage() {
           <DialogHeader>
             <DialogTitle>Dependências Encontradas</DialogTitle>
             <DialogDescription>
-              O usuário <strong>{editingUser?.name}</strong> é responsável por {dependencyDetails?.count} Centro(s) de Custo.
+              O usuário <strong>{editingUser?.name}</strong> é responsável por {dependencyDetails?.responsibleCount} Centro(s) de Custo.
               Você deve decidir o que fazer com essas responsabilidades antes de excluir.
             </DialogDescription>
           </DialogHeader>
