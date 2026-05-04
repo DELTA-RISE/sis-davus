@@ -266,7 +266,7 @@ Desenvolvido com ❤️ pela equipe [**Delta Rise**](https://deltarise.com.br) p
 
 ### Core Team
 - [**Charlles Augusto**](https://github.com/charlles-dev) - *Lead Architect & Full Stack*
-- [**Flaviano Rodrigues**](https://github.com/flavianorodrigues147-a11y) - *Backend & DevOps*
+- [**Flaviano Rodrigues**](https://github.com/flaviano-devops) - *Backend & DevOps*
 - [**Weidy Lucena**](https://github.com/Weidyzk) - *Documentation & QA*
 - [**Savio Bezzera**](https://github.com/saviobezerra) - *Backend & QA*
 - [**Natalia Araújo**](https://github.com/nataliaraujo-me) - *Backend & UX*
