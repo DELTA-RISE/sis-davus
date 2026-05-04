@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { CinematicLogin } from "@/components/CinematicLogin";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -15,7 +15,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Lock, User, AlertCircle, Eye, EyeOff, ShieldCheck } from "lucide-react";
+import { Lock, User, AlertCircle, Eye, EyeOff, ShieldCheck, ArrowLeft } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { getProfile, logActivity, saveUser } from "@/lib/db";
 import HCaptcha from "@hcaptcha/react-hcaptcha";
@@ -24,6 +24,9 @@ import {
   InputOTPGroup,
   InputOTPSlot,
 } from "@/components/ui/input-otp";
+
+const getErrorMessage = (err: unknown) =>
+  err instanceof Error ? err.message : String(err);
 
 export default function LoginPage() {
   const router = useRouter();
@@ -37,7 +40,6 @@ export default function LoginPage() {
   const [step, setStep] = useState<"credentials" | "email_captcha" | "totp" | "otp">("credentials");
   const [otpCode, setOtpCode] = useState("");
   const [factorId, setFactorId] = useState("");
-  const [userId, setUserId] = useState("");
 
   const captchaRef = useRef<HCaptcha>(null);
   const isSubmittingRef = useRef(false);
@@ -126,7 +128,6 @@ export default function LoginPage() {
 
         if (totpFactor) {
           setFactorId(totpFactor.id);
-          setUserId(data.user.id);
           setStep("totp");
           setLoading(false);
           isSubmittingRef.current = false;
@@ -137,12 +138,11 @@ export default function LoginPage() {
         await supabase.auth.signOut(); // Limpa sessão parcial (security requirement for clean signInWithOtp)
 
         setStep("email_captcha");
-        setUserId(data.user.id);
         setLoading(false);
         isSubmittingRef.current = false;
         resetCaptcha(); // Prepare for second captcha
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Unexpected login error:", err);
       setError("Ocorreu um erro ao entrar");
       setLoading(false);
@@ -177,7 +177,7 @@ export default function LoginPage() {
       setStep("otp");
       setLoading(false);
       isSubmittingRef.current = false;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Unexpected OTP error:", err);
       setError("Erro ao processar solicitação");
       setLoading(false);
@@ -203,7 +203,6 @@ export default function LoginPage() {
       } else {
         console.log("Verifying OTP...", { email, code: otpCode });
 
-        let verifyError;
         let userData;
 
         // Estratégia 1: Tentar como EMAIL OTP (padrão para código numérico)
@@ -216,8 +215,8 @@ export default function LoginPage() {
           });
           if (res.error) throw res.error;
           userData = res.data.user;
-        } catch (err: any) {
-          console.log("Attempt 1 failed:", err.message);
+        } catch (err: unknown) {
+          console.log("Attempt 1 failed:", getErrorMessage(err));
 
           // Estratégia 2: Se falhar, tentar como MAGICLINK
           try {
@@ -229,8 +228,8 @@ export default function LoginPage() {
             });
             if (res2.error) throw res2.error;
             userData = res2.data.user;
-          } catch (err2: any) {
-            console.log("Attempt 2 failed:", err2.message);
+          } catch (err2: unknown) {
+            console.log("Attempt 2 failed:", getErrorMessage(err2));
             // Se ambos falharem, lançamos o erro original
             throw err;
           }
@@ -243,7 +242,7 @@ export default function LoginPage() {
           throw new Error("Usuário não retornado após verificação");
         }
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.log("Catch block executing in handleVerify. Error:", err);
 
       // Verificação de sessão de segurança
@@ -289,13 +288,20 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-background">
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-chart-5/10 rounded-full blur-3xl" />
+    <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 text-slate-950 dark:bg-black dark:text-foreground">
+      <Link
+        href="/"
+        className="fixed left-4 top-4 z-20 inline-flex h-10 items-center gap-2 rounded-md border border-primary bg-primary px-3 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow-md hover:shadow-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Voltar
+      </Link>
+
+      <div className="fixed inset-0 pointer-events-none dark:hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_28%_20%,rgba(255,93,56,0.14),transparent_34%),radial-gradient(circle_at_78%_60%,rgba(15,23,42,0.10),transparent_32%)]" />
       </div>
 
-      <Card className="w-full max-w-md relative z-10 border-border/50 bg-card/80 backdrop-blur-sm">
+      <Card className="w-full max-w-md relative z-10 border-slate-200 bg-white/90 shadow-xl backdrop-blur-sm dark:border-white/10 dark:bg-[#070707] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.03)]">
         <CardHeader className="text-center pb-2">
           <div className="w-20 h-20 mx-auto mb-4">
             <Image src="/davus-logo.svg" alt="SIS DAVUS" width={48} height={48} className="w-full h-full" />
@@ -318,7 +324,7 @@ export default function LoginPage() {
                       placeholder="seu@email.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="pl-10"
+                      className="pl-10 dark:border-white/10 dark:bg-[#050505]"
                       autoComplete="email"
                     />
                   </div>
@@ -334,7 +340,7 @@ export default function LoginPage() {
                       placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="pl-10 pr-10"
+                      className="pl-10 pr-10 dark:border-white/10 dark:bg-[#050505]"
                       autoComplete="current-password"
                     />
                     <button
@@ -507,7 +513,6 @@ export default function LoginPage() {
           </div>
         </DialogContent>
       </Dialog>
-      <CinematicLogin isLoading={loading} onComplete={() => { }} />
     </div>
   );
 }

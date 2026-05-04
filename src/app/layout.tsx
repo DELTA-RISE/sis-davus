@@ -3,7 +3,6 @@ import { Sora } from "next/font/google";
 import "./globals.css";
 import { VisualEditsMessenger } from "orchids-visual-edits";
 import { LayoutWrapper } from "@/components/LayoutWrapper";
-import { CustomCursor } from "@/components/CustomCursor";
 
 import { SyncProvider } from "@/components/SyncProvider";
 import { SoundProvider } from "@/components/SoundProvider";
@@ -75,7 +74,6 @@ export default function RootLayout({
       <body className={`${sora.variable} antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
           <SoundProvider>
-            <CustomCursor />
             <SyncProvider>
               <GlobalDropZone />
               <LayoutWrapper>

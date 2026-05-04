@@ -1,514 +1,404 @@
-"use client";
-
-import { useRef, useState, useEffect } from "react";
+import Image from "next/image";
 import Link from "next/link";
-import dynamic from "next/dynamic";
-import { m, LazyMotion, domAnimation, useScroll, useTransform } from "framer-motion";
+import {
+  Apple,
+  AppWindow,
+  ArrowRight,
+  Box,
+  Boxes,
+  Building2,
+  CheckCircle2,
+  ClipboardCheck,
+  Download,
+  FileBarChart,
+  Globe,
+  LockKeyhole,
+  MoreVertical,
+  PackageCheck,
+  Share2,
+  Shield,
+  Smartphone,
+  Terminal,
+  WifiOff,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Box, Shield, Globe, ChevronDown, Terminal, Download, AppWindow, Smartphone, Apple, Share2, MoreVertical } from "lucide-react";
-import { LandingHeader } from "@/components/landing/LandingHeader";
-import { MagneticButton } from "@/components/ui/magnetic-button";
-import { useAuth } from "@/lib/auth-context";
-import { TextMorph } from "@/components/landing/TextMorph";
-import { SpotlightCard } from "@/components/landing/SpotlightCard";
-import { GlobalSpotlight } from "@/components/landing/GlobalSpotlight";
-import { ScrollTextReveal } from "@/components/landing/ScrollTextReveal";
-import { useMouse } from "@/hooks/use-mouse";
 
-// Dynamic Imports for Heavy Components
-const Experience = dynamic(() => import("@/components/landing/cinematic/Experience").then(mod => mod.Experience), {
-  ssr: false,
-  loading: () => <div className="fixed inset-0 bg-black -z-10" />
-});
-const StickyScrollGuide = dynamic(() => import("@/components/landing/StickyScrollGuide").then(mod => mod.StickyScrollGuide));
-const MegaFooter = dynamic(() => import("@/components/landing/MegaFooter").then(mod => mod.MegaFooter));
-const ImpactMetrics = dynamic(() => import("@/components/landing/ImpactMetrics").then(mod => mod.ImpactMetrics));
-const FAQ = dynamic(() => import("@/components/landing/FAQ").then(mod => mod.FAQ));
+const modules = [
+  {
+    title: "Gestão de Estoque 3.0",
+    description:
+      "Controle produtos, entradas, saídas, níveis críticos, múltiplos depósitos e alertas de reposição.",
+    icon: Boxes,
+    items: ["Múltiplos depósitos", "Curva ABC", "Alertas de estoque"],
+  },
+  {
+    title: "Patrimônio",
+    description:
+      "Acompanhe ativos por código, localização, status, condição, manutenção e histórico de movimentações.",
+    icon: Building2,
+    items: ["Código do ativo", "Histórico completo", "Status operacional"],
+  },
+  {
+    title: "Checkouts",
+    description:
+      "Registre retirada e devolução de itens para equipes de campo com rastreabilidade clara.",
+    icon: ClipboardCheck,
+    items: ["Retirada", "Devolução", "Responsável"],
+  },
+  {
+    title: "Relatórios",
+    description:
+      "Visualize indicadores de estoque, patrimônio, manutenção e operação sem depender de planilhas paralelas.",
+    icon: FileBarChart,
+    items: ["Indicadores", "Filtros", "Exportação"],
+  },
+];
 
+const syncItems = [
+  "Sincronização entre campo e base",
+  "Modo offline para áreas remotas",
+  "Notificações para alertas críticos",
+];
+
+const securityItems = [
+  "Controle de acesso por perfil",
+  "Auditoria das principais ações",
+  "Políticas de segurança no banco",
+  "Dados protegidos no Supabase",
+];
+
+const industries = [
+  {
+    title: "Construção Civil",
+    description: "Monitore ferramentas, equipamentos e materiais em obras distribuídas.",
+    icon: Box,
+  },
+  {
+    title: "TI e Infraestrutura",
+    description: "Gerencie computadores, celulares, acessórios e ciclo de vida de dispositivos.",
+    icon: Terminal,
+  },
+  {
+    title: "Logística",
+    description: "Acompanhe estoque operacional, movimentações e pontos de retirada.",
+    icon: Globe,
+  },
+];
+
+const metrics = [
+  { label: "Módulos centrais", value: "4+" },
+  { label: "Perfis de acesso", value: "2" },
+  { label: "Fluxos operacionais", value: "10+" },
+  { label: "Base web/PWA", value: "1" },
+];
+
+const faqs = [
+  {
+    question: "O sistema funciona apenas no escritório?",
+    answer:
+      "Não. A estrutura web/PWA permite uso em campo e no escritório, com fluxos preparados para conexão instável.",
+  },
+  {
+    question: "Posso separar acesso por cargo?",
+    answer:
+      "Sim. O sistema trabalha com perfis como administrador e gestor, mantendo o acesso alinhado à responsabilidade de cada usuário.",
+  },
+  {
+    question: "Preciso instalar aplicativo?",
+    answer:
+      "Não obrigatoriamente. A versão web funciona direto no navegador, e o PWA pode ser instalado pelo próprio Chrome ou Safari.",
+  },
+];
 
 export default function LandingPage() {
-  const { user } = useAuth();
-  const containerRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({
-    target: containerRef,
-    offset: ["start start", "end end"],
-  });
-
-  const opacityHero = useTransform(scrollYProgress, [0, 0.1], [1, 0]);
-  const yHero = useTransform(scrollYProgress, [0, 0.1], [0, 100]);
-
-  // Mouse Tracking for 3D perspective
-  const mouse = useMouse(containerRef);
-  const rotateX = useTransform(mouse.y, [0, typeof window !== "undefined" ? window.innerHeight : 1000], [10, -10]);
-  const rotateY = useTransform(mouse.x, [0, typeof window !== "undefined" ? window.innerWidth : 1000], [-10, 10]);
-
-  // OS Detection & PWA Logic
-  const [os, setOs] = useState<"Windows" | "Mac" | "Linux" | "iOS" | "Android" | null>(null);
-
-  interface BeforeInstallPromptEvent extends Event {
-    prompt: () => Promise<void>;
-    userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
-  }
-
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-
-  useEffect(() => {
-    // Detect OS
-    const userAgent = window.navigator.userAgent.toLowerCase();
-    if (/iphone|ipad|ipod/.test(userAgent)) setOs("iOS");
-    else if (/android/.test(userAgent)) setOs("Android");
-    else if (userAgent.includes("win")) setOs("Windows");
-    else if (userAgent.includes("mac")) setOs("Mac");
-    else if (userAgent.includes("linux")) setOs("Linux");
-
-    // Capture PWA install prompt
-    const handleBeforeInstallPrompt = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
-    };
-
-    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
-
-    return () => {
-      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
-    };
-  }, []);
-
-  const handleInstallClick = async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === "accepted") {
-      setDeferredPrompt(null);
-    }
-  };
-
-
-
   return (
-    <LazyMotion features={domAnimation}>
-      <div ref={containerRef} className="relative min-h-[400vh] bg-black overflow-hidden selection:bg-primary/30">
-
-
-
-        {/* 3D Background Layer */}
-        <Experience />
-
-        {/* Content Layer */}
-        <div className="relative z-10 w-full pt-16 -mt-16">
-          <GlobalSpotlight />
-
-          {/* SECTION 1: HERO */}
-          <section className="min-h-screen w-full flex flex-col items-center justify-center relative px-4 text-center overflow-hidden [perspective:1000px]">
-            <m.div
-              style={{ opacity: opacityHero, y: yHero, rotateX, rotateY }}
-              className="space-y-8 max-w-5xl mx-auto p-12 rounded-[3rem] border border-white/5 bg-black/20 backdrop-blur-md shadow-2xl relative z-20"
-            >
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 mb-4 shadow-[0_0_20px_rgba(255,165,0,0.1)]">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-500 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
-                </span>
-                <span className="text-xs font-semibold text-white/80 tracking-widest uppercase">System V4.0</span>
-              </div>
-
-              <h1 className="text-6xl md:text-8xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-white via-white/80 to-white/40 leading-tight">
-                <TextMorph text="ASSET" />
-                <br />
-                <span className="text-stroke-white text-transparent">MASTERY</span>
-              </h1>
-
-              <p className="text-xl md:text-2xl text-white/60 font-light max-w-2xl mx-auto leading-relaxed">
-                O controle absoluto sobre o físico e o digital.
-                <br />
-                <span className="text-white/40">Inventário. Rastreamento. Inteligência.</span>
-              </p>
-
-              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-8">
-                <Link href={user ? "/dashboard" : "/login"}>
-                  <MagneticButton size="xl" className="h-16 px-12 text-lg rounded-full gap-3 bg-white text-black hover:bg-gray-200 transition-all border-none">
-                    {user ? "Acessar Sistema" : "Começar Agora"}
-                    <ArrowRight className="h-5 w-5" />
-                  </MagneticButton>
-                </Link>
-              </div>
-            </m.div>
-
-            {/* Floating 3D Elements Behind Hero */}
-            <div className="absolute inset-0 pointer-events-none flex justify-center items-center">
-              <m.div
-                style={{ y: useTransform(mouse.y, [0, 1000], [-50, 50]), x: useTransform(mouse.x, [0, 1000], [-50, 50]) }}
-                className="absolute top-[20%] left-[15%] w-32 h-32 bg-orange-500/10 rounded-2xl border border-orange-500/20 backdrop-blur-xl rotate-12 flex items-center justify-center shadow-2xl"
-              >
-                <Box className="w-10 h-10 text-orange-400/50" />
-              </m.div>
-              <m.div
-                style={{ y: useTransform(mouse.y, [0, 1000], [50, -50]), x: useTransform(mouse.x, [0, 1000], [50, -50]) }}
-                className="absolute bottom-[25%] right-[15%] w-40 h-24 bg-blue-500/10 rounded-2xl border border-blue-500/20 backdrop-blur-xl -rotate-6 flex items-center justify-center shadow-2xl"
-              >
-                <Globe className="w-8 h-8 text-blue-400/50" />
-              </m.div>
-              <m.div
-                style={{ y: useTransform(mouse.y, [0, 1000], [-30, 30]), x: useTransform(mouse.x, [0, 1000], [30, -30]) }}
-                className="absolute top-[30%] right-[25%] w-24 h-24 bg-purple-500/10 rounded-full border border-purple-500/20 backdrop-blur-xl rotate-45 flex items-center justify-center"
-              >
-                <Shield className="w-6 h-6 text-purple-400/50" />
-              </m.div>
-            </div>
-
-            <m.div
-              style={{ opacity: opacityHero }}
-              className="absolute bottom-12 left-1/2 -translate-x-1/2 text-white/30 animate-bounce"
-            >
-              <ChevronDown className="h-8 w-8" />
-            </m.div>
-          </section>
-
-
-
-          {/* SECTION 1.5: THE ECOSYSTEM (CONNECTIVITY) */}
-          <section className="min-h-[80vh] flex flex-col items-center justify-center py-20 px-4 relative z-20">
-            <div className="max-w-6xl w-full mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-              <div className="order-2 md:order-1">
-                <div className="relative w-full h-[500px] border border-white/10 rounded-3xl bg-white/5 backdrop-blur-sm overflow-hidden p-8 flex items-center justify-center">
-                  {/* Mock Connectivity Visualization */}
-                  <div className="absolute inset-0 bg-grid-white/[0.05]" />
-                  <div className="relative z-10 flex items-center gap-4 md:gap-16 transform scale-90 md:scale-100">
-                    {/* Phone */}
-                    <div className="w-16 h-32 md:w-24 md:h-48 rounded-[1.5rem] md:rounded-[2rem] border-2 md:border-4 border-white/20 bg-black flex flex-col items-center justify-center relative shadow-2xl shadow-blue-500/20 shrink-0">
-                      <div className="w-6 h-0.5 md:w-8 md:h-1 bg-white/20 rounded-full mb-2" />
-                      <div className="space-y-1 md:space-y-2 w-full px-1.5 md:px-2">
-                        <div className="h-1.5 md:h-2 w-full bg-white/10 rounded" />
-                        <div className="h-1.5 md:h-2 w-2/3 bg-white/10 rounded" />
-                        <div className="h-6 md:h-8 w-full bg-blue-500/20 rounded mt-2 md:mt-4 flex items-center justify-center">
-                          <div className="w-2 h-2 md:w-3 md:h-3 rounded-full bg-blue-500 animate-pulse" />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Connection Line */}
-                    <div className="h-0.5 md:h-1 flex-1 bg-gradient-to-r from-blue-500/30 to-orange-500/30 relative min-w-[2rem] overflow-hidden">
-                      <div className="absolute inset-0 w-full h-full">
-                        {[...Array(5)].map((_, i) => (
-                          <m.div
-                            key={i}
-                            className="absolute top-1/2 -mt-[1px] md:-mt-[2px] h-[2px] md:h-[4px] w-8 md:w-12 bg-gradient-to-r from-transparent via-white to-transparent shadow-[0_0_8px_#fff]"
-                            initial={{ left: "-20%", opacity: 0 }}
-                            animate={{ left: "120%", opacity: [0, 1, 1, 0] }}
-                            transition={{
-                              duration: 1.2,
-                              repeat: Infinity,
-                              delay: i * 0.4,
-                              ease: "linear"
-                            }}
-                          />
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Desktop */}
-                    <div className="w-40 h-24 md:w-64 md:h-40 rounded-lg md:rounded-xl border-2 md:border-4 border-white/20 bg-black flex items-center justify-center relative shadow-2xl shadow-orange-500/20 shrink-0">
-                      <div className="space-y-1 md:space-y-2 w-full px-2 md:px-4">
-                        <div className="h-8 md:h-12 w-full bg-orange-500/10 rounded flex items-center px-2 gap-2">
-                          <div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-orange-500" />
-                          <div className="h-0.5 md:h-1 w-1/2 bg-white/10 rounded" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="order-1 md:order-2 space-y-6">
-                <div className="inline-flex items-center gap-2 text-blue-400 font-mono text-sm uppercase tracking-widest">
-                  <Globe className="h-4 w-4" />
-                  <span>Global Sync</span>
-                </div>
-                <h2 className="text-4xl md:text-5xl font-bold text-white leading-tight">
-                  <ScrollTextReveal text="O Campo e a Base. Sincronizados." />
-                </h2>
-                <p className="text-white/60 text-lg leading-relaxed">
-                  O que acontece no front de operação reflete instantaneamente no painel de gestão. Sem delays, sem planilhas intermediárias.
+    <div className="bg-background text-foreground">
+      <section className="border-b border-border">
+        <div className="mx-auto grid min-h-[calc(100vh-5rem)] max-w-7xl grid-cols-1 items-center gap-8 px-5 py-10 sm:px-6 sm:py-14 lg:grid-cols-[1.05fr_0.95fr] lg:gap-12 lg:px-8">
+          <div className="max-w-3xl">
+            <div className="mb-6 flex items-center gap-3 sm:mb-8">
+              <Image
+                src="/davus-logo.svg"
+                alt="SIS DAVUS"
+                width={48}
+                height={48}
+                priority
+                className="h-12 w-12"
+              />
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">
+                  SIS DAVUS
                 </p>
-                <ul className="space-y-4 pt-4">
-                  {[
-                    "Sincronização Bidirecional em < 100ms",
-                    "Modo Offline Inteligente para áreas remotas",
-                    "Notificações Push para alertas críticos"
-                  ].map(item => (
-                    <li key={item} className="flex items-center gap-3 text-white/70">
-                      <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </section>
-
-          {/* SECTION 2: VISIONARY FEATURES (BENTO) */}
-          <section className="min-h-screen py-32 px-4 relative">
-            <div className="max-w-7xl mx-auto space-y-24">
-              <div className="text-center space-y-4">
-                <h2 className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/50">
-                  <ScrollTextReveal text="Arquitetura de Controle" />
-                </h2>
-                <p className="text-white/60 text-xl max-w-2xl mx-auto">
-                  Uma suíte completa de ferramentas projetada para operações de alta complexidade.
+                <p className="text-sm text-muted-foreground">
+                  Patrimônio, estoque e operação
                 </p>
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-auto md:h-[600px] group/bento">
-                {/* Feature 1 - Big Left */}
-                <SpotlightCard className="md:col-span-2 md:row-span-2 rounded-[2rem] border-white/10 bg-black/40 backdrop-blur-xl p-10 flex flex-col justify-between group overflow-hidden transition-all duration-500 hover:!opacity-100 group-hover/bento:opacity-50 hover:!scale-100 group-hover/bento:scale-[0.98]">
-                  <div className="relative z-10">
-                    <div className="w-14 h-14 rounded-2xl bg-orange-500/20 flex items-center justify-center mb-6 border border-orange-500/30">
-                      <Box className="h-7 w-7 text-orange-500" />
-                    </div>
-                    <h3 className="text-3xl font-bold text-white mb-4">Gestão de Estoque 3.0</h3>
-                    <p className="text-white/60 text-lg leading-relaxed max-w-md">
-                      Rastreamento em tempo real com níveis de estoque crítico, alertas automáticos e previsão de demanda baseada em histórico de consumo.
-                    </p>
-                    <ul className="mt-8 space-y-3">
-                      {["Múltiplos Depósitos", "Curva ABC Automatizada", "Alertas Push"].map(item => (
-                        <li key={item} className="flex items-center gap-2 text-white/50">
-                          <div className="h-1.5 w-1.5 rounded-full bg-orange-500" />
-                          {item}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  {/* Abstract UI decoration */}
-                  <div className="absolute top-1/2 right-0 translate-x-1/3 -translate-y-1/2 w-[400px] h-[400px] bg-orange-500/10 rounded-full blur-[100px] group-hover:bg-orange-500/20 transition-all duration-500" />
-
-                  {/* Animated Sparkline SVG */}
-                  <div className="absolute bottom-8 right-8 w-64 h-32 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none hidden md:block">
-                    <svg viewBox="0 0 200 100" className="w-full h-full text-orange-500 drop-shadow-[0_0_8px_rgba(249,115,22,0.5)]">
-                      <m.path
-                        d="M0 100 Q 20 80 40 90 T 80 60 T 120 70 T 160 30 T 200 10"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        initial={{ pathLength: 0 }}
-                        whileInView={{ pathLength: 1 }}
-                        transition={{ duration: 1.5, ease: "easeInOut" }}
-                      />
-                      <m.path
-                        d="M0 100 Q 20 80 40 90 T 80 60 T 120 70 T 160 30 T 200 10 L 200 100 Z"
-                        fill="url(#sparkline-gradient)"
-                        initial={{ opacity: 0 }}
-                        whileInView={{ opacity: 0.2 }}
-                        transition={{ duration: 1, delay: 0.5 }}
-                      />
-                      <defs>
-                        <linearGradient id="sparkline-gradient" x1="0" x2="0" y1="0" y2="1">
-                          <stop offset="0%" stopColor="currentColor" stopOpacity="1" />
-                          <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
-                        </linearGradient>
-                      </defs>
-                    </svg>
-                  </div>
-                </SpotlightCard>
-
-                {/* Feature 2 - Top Right */}
-                <SpotlightCard className="rounded-[2rem] border-white/10 bg-black/40 backdrop-blur-xl p-8 flex flex-col justify-center gap-4 group transition-all duration-500 hover:!opacity-100 group-hover/bento:opacity-50 hover:!scale-100 group-hover/bento:scale-[0.98]">
-                  <div className="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center border border-blue-500/30">
-                    <Globe className="h-6 w-6 text-blue-500" />
-                  </div>
-                  <h3 className="text-xl font-bold text-white">Acesso Global</h3>
-                  <p className="text-white/60">
-                    Sincronização em tempo real entre filiais e operação de campo via PWA Offline-First.
-                  </p>
-                </SpotlightCard>
-
-                {/* Feature 3 - Bottom Right */}
-                <SpotlightCard className="rounded-[2rem] border-white/10 bg-black/40 backdrop-blur-xl p-8 flex flex-col justify-center gap-4 group transition-all duration-500 hover:!opacity-100 group-hover/bento:opacity-50 hover:!scale-100 group-hover/bento:scale-[0.98]">
-                  <div className="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center border border-purple-500/30">
-                    <Shield className="h-6 w-6 text-purple-500" />
-                  </div>
-                  <h3 className="text-xl font-bold text-white">Segurança Militar</h3>
-                  <p className="text-white/60">
-                    Logs de auditoria imutáveis, controle de acesso RBAC e criptografia AES-256.
-                  </p>
-                </SpotlightCard>
-              </div>
             </div>
-          </section>
 
-          {/* SECTION 2.5: STICKY SCROLL MORPH */}
-          {/* SECTION 2.5: STICKY SCROLL MORPH */}
-          <div className="relative z-10">
-            <StickyScrollGuide />
-          </div>
+            <h1 className="max-w-4xl text-3xl font-semibold leading-tight tracking-normal text-foreground sm:text-4xl md:text-6xl">
+              Controle operacional completo, direto e leve para a Davus.
+            </h1>
+            <p className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground sm:mt-6 sm:text-lg sm:leading-8">
+              Inventário, rastreamento, checkouts, relatórios, segurança e
+              sincronização em uma experiência web objetiva para acompanhar a
+              operação com clareza.
+            </p>
 
-          {/* SECTION 3: IMPACT METRICS */}
-          <ImpactMetrics />
-
-          {/* SECTION: INDUSTRIES (Before CTA) */}
-          <section className="py-24 px-4 bg-white/5 border-y border-white/5">
-            <div className="max-w-7xl mx-auto">
-              <div className="text-center mb-16">
-                <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">Projetado para Escala</h2>
-                <p className="text-white/60 text-xl max-w-2xl mx-auto">Sua operação não pode parar. Nós garantimos que ela flua.</p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                {[
-                  { title: "Construção Civil", desc: "Monitore ferramentas em canteiros de obras distribuídos.", icon: Box },
-                  { title: "TI & Infraestrutura", desc: "Gerencie o ciclo de vida de milhares de dispositivos.", icon: Terminal },
-                  { title: "Logística", desc: "Rastreio preciso de carga e estoque de transbordo.", icon: Globe }
-                ].map((item, i) => (
-                  <div key={i} className="p-8 rounded-[2rem] bg-black/40 border border-white/10 hover:border-white/20 transition-all group">
-                    <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                      <item.icon className="h-6 w-6 text-white" />
-                    </div>
-                    <h3 className="text-xl font-bold text-white mb-3">{item.title}</h3>
-                    <p className="text-white/60 leading-relaxed">{item.desc}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-
-          {/* SECTION: THE VAULT (Before CTA) */}
-          <section className="py-24 px-4 flex justify-center">
-            <div className="max-w-4xl w-full text-center space-y-8">
-              <div className="w-20 h-20 rounded-full bg-green-500/10 flex items-center justify-center mx-auto border border-green-500/20">
-                <Shield className="h-10 w-10 text-green-500" />
-              </div>
-              <h2 className="text-3xl md:text-5xl font-bold text-white">Fortaleza Digital</h2>
-              <p className="text-white/60 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
-                Seus dados são o ativo mais valioso. Nossa arquitetura garante que apenas olhos autorizados vejam o que importa.
-              </p>
-              <div className="flex flex-wrap justify-center gap-4 text-sm font-mono text-green-400/80">
-                <span className="px-4 py-2 rounded-full bg-green-500/5 border border-green-500/10">AES-256 ENCRYPTION</span>
-                <span className="px-4 py-2 rounded-full bg-green-500/5 border border-green-500/10">SOC-2 COMPLIANT</span>
-                <span className="px-4 py-2 rounded-full bg-green-500/5 border border-green-500/10">IMMUTABLE LOGS</span>
-              </div>
-            </div>
-          </section>
-
-
-
-          {/* SECTION: DOWNLOADS */}
-          <section className="py-32 px-4 relative">
-            <div className="max-w-7xl mx-auto">
-              <div className="text-center mb-16 space-y-4">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10">
-                  <Download className="h-4 w-4 text-primary" />
-                  <span className="text-xs font-medium text-white/70 tracking-widest uppercase">Multi-Platform</span>
-                </div>
-                <h2 className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/50">
-                  Disponível onde você estiver
-                </h2>
-                <p className="text-white/60 text-xl max-w-2xl mx-auto">
-                  Instale o app nativo para máxima performance ou utilize a versão web otimizada.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Desktop Downloads */}
-                <SpotlightCard className="rounded-[2.5rem] border-white/10 bg-black/40 backdrop-blur-xl p-12 flex flex-col justify-between group overflow-hidden opacity-80">
-                  <div className="relative z-10 space-y-8">
-                    <div>
-                      <div className="w-16 h-16 rounded-2xl bg-blue-500/10 flex items-center justify-center mb-6 border border-blue-500/20 grayscale">
-                        <AppWindow className="h-8 w-8 text-blue-500" />
-                      </div>
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-3xl font-bold text-white">Desktop App</h3>
-                        <span className="px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-xs font-semibold border border-blue-500/20">EM BREVE</span>
-                      </div>
-                      <p className="text-white/60 text-lg leading-relaxed">
-                        A versão desktop nativa está sendo otimizada e chegará em breve para Windows, macOS e Linux.
-                      </p>
-                    </div>
-
-                    <div className="space-y-4">
-                      <Button disabled size="lg" className="w-full h-14 text-base gap-3 bg-white/5 text-white/40 rounded-xl transition-all shadow-none cursor-not-allowed border border-white/5">
-                        <AppWindow className="h-5 w-5" />
-                        <span className="font-semibold">Download Indisponível</span>
-                      </Button>
-
-                      <p className="text-center text-sm text-white/30">
-                        Use a versão Web ou PWA enquanto isso.
-                      </p>
-                    </div>
-                  </div>
-                </SpotlightCard>
-
-                {/* Mobile PWA */}
-                <SpotlightCard className="rounded-[2.5rem] border-white/10 bg-black/40 backdrop-blur-xl p-12 flex flex-col justify-between group overflow-hidden">
-                  <div className="relative z-10 space-y-8">
-                    <div>
-                      <div className="w-16 h-16 rounded-2xl bg-purple-500/10 flex items-center justify-center mb-6 border border-purple-500/20">
-                        <Smartphone className="h-8 w-8 text-purple-500" />
-                      </div>
-                      <h3 className="text-3xl font-bold text-white mb-2">Mobile PWA</h3>
-                      <p className="text-white/60 text-lg leading-relaxed">
-                        Instale diretamente pelo navegador sem precisar de loja de aplicativos.
-                      </p>
-                    </div>
-
-                    <div className="space-y-4">
-                      {deferredPrompt && (
-                        <Button
-                          onClick={handleInstallClick}
-                          size="lg"
-                          className="w-full h-14 text-base gap-3 bg-primary hover:bg-primary/90 text-white rounded-xl transition-all shadow-lg shadow-primary/20 mb-4 animate-pulse"
-                        >
-                          <Download className="h-5 w-5" />
-                          <span className="font-semibold">Instalar Aplicativo Agora</span>
-                        </Button>
-                      )}
-
-                      <div className={`p-5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/[0.07] transition-colors ${os === 'iOS' ? 'border-blue-500/50 bg-blue-500/10' : ''}`}>
-                        <div className="flex items-center gap-3 mb-3 text-white">
-                          <Apple className={`h-5 w-5 ${os === 'iOS' ? 'text-white' : 'text-gray-400'}`} />
-                          <span className="font-semibold">iOS (iPhone/iPad)</span>
-                        </div>
-                        <ol className="text-sm text-white/50 space-y-2 list-decimal list-inside pl-1 marker:text-white/20">
-                          <li>Abra no <strong>Safari</strong></li>
-                          <li>Toque em <Share2 className="h-3 w-3 inline mx-1" /> <strong>Compartilhar</strong></li>
-                          <li>Selecione <strong>Adicionar à Tela de Início</strong></li>
-                        </ol>
-                      </div>
-
-                      <div className="p-5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/[0.07] transition-colors">
-                        <div className="flex items-center gap-3 mb-3 text-white">
-                          <Smartphone className="h-5 w-5 text-green-400" />
-                          <span className="font-semibold">Android</span>
-                        </div>
-                        <ol className="text-sm text-white/50 space-y-2 list-decimal list-inside pl-1 marker:text-white/20">
-                          <li>Abra no <strong>Chrome</strong></li>
-                          <li>Toque em <MoreVertical className="h-3 w-3 inline mx-1" /> <strong>Mais</strong></li>
-                          <li>Selecione <strong>Instalar aplicativo</strong></li>
-                        </ol>
-                      </div>
-                    </div>
-                  </div>
-                </SpotlightCard>
-              </div>
-            </div>
-          </section>
-
-          {/* SECTION: FAQ */}
-          <FAQ />
-
-          {/* SECTION 4: CTA */}
-          <section className="min-h-[50vh] flex items-center justify-center py-20 bg-gradient-to-t from-black via-black to-transparent">
-            <div className="text-center space-y-8 max-w-3xl mx-auto px-4">
-              <h2 className="text-4xl md:text-5xl font-bold text-white">Pronto para o Futuro?</h2>
-              <p className="text-white/60 text-xl">Eleve o padrão de gestão da sua empresa hoje.</p>
-              <Link href={user ? "/dashboard" : "/login"}>
-                <MagneticButton size="xl" className="h-20 px-16 text-2xl rounded-full bg-primary hover:bg-primary/90 text-white border-0 shadow-lg shadow-primary/20">
-                  Iniciar Jornada
-                </MagneticButton>
+            <div className="mt-8 flex flex-col gap-3 sm:mt-10 sm:flex-row">
+              <Link
+                href="/login"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-md bg-primary px-6 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+              >
+                Acessar sistema
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link
+                href="/features"
+                className="inline-flex h-12 items-center justify-center rounded-md border border-border px-6 text-sm font-semibold hover:bg-muted"
+              >
+                Ver módulos
               </Link>
             </div>
-          </section>
+          </div>
+
+          <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {modules.map((module) => (
+                <div
+                  key={module.title}
+                  className="rounded-md border border-border bg-background p-4"
+                >
+                  <module.icon className="mb-4 h-5 w-5 text-primary" />
+                  <h2 className="text-base font-semibold">{module.title}</h2>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                    {module.description}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
-      </div >
-    </LazyMotion >
+      </section>
+
+      <section className="border-b border-border">
+        <div className="mx-auto grid max-w-7xl grid-cols-1 gap-10 px-6 py-16 lg:grid-cols-2 lg:px-8">
+          <div className="rounded-lg border border-border bg-card p-6">
+            <div className="mb-6 flex items-center gap-3">
+              <PackageCheck className="h-6 w-6 text-primary" />
+              <h2 className="text-2xl font-semibold">Campo e base sincronizados</h2>
+            </div>
+            <div className="grid gap-3">
+              {syncItems.map((item) => (
+                <div key={item} className="flex items-center gap-3 rounded-md border border-border bg-background p-4">
+                  <CheckCircle2 className="h-5 w-5 text-primary" />
+                  <span className="text-sm font-medium">{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-5">
+            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-primary">
+              Operação conectada
+            </p>
+            <h2 className="text-3xl font-semibold md:text-4xl">
+              O que acontece na obra precisa aparecer rápido na gestão.
+            </h2>
+            <p className="text-base leading-7 text-muted-foreground">
+              O sistema organiza estoque, patrimônio e movimentações para evitar
+              informação espalhada, retrabalho e perda de visibilidade entre
+              equipes.
+            </p>
+            <div className="flex items-start gap-3 rounded-md border border-border bg-card p-4">
+              <WifiOff className="mt-1 h-5 w-5 text-primary" />
+              <p className="text-sm leading-6 text-muted-foreground">
+                Os fluxos foram pensados para uso real: escritório, campo,
+                conexão oscilando e necessidade de resposta rápida.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-6 py-16 lg:px-8">
+        <div className="mb-10 max-w-3xl">
+          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-primary">
+            Arquitetura de controle
+          </p>
+          <h2 className="mt-3 text-3xl font-semibold md:text-4xl">
+            Uma suíte completa para operações de alta complexidade.
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
+          {modules.map((module) => (
+            <article key={module.title} className="rounded-lg border border-border bg-card p-5">
+              <module.icon className="h-6 w-6 text-primary" />
+              <h3 className="mt-5 text-lg font-semibold">{module.title}</h3>
+              <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                {module.description}
+              </p>
+              <ul className="mt-5 space-y-2">
+                {module.items.map((item) => (
+                  <li key={item} className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="border-y border-border bg-muted/30">
+        <div className="mx-auto grid max-w-7xl grid-cols-2 gap-4 px-6 py-12 md:grid-cols-4 lg:px-8">
+          {metrics.map((metric) => (
+            <div key={metric.label} className="rounded-lg border border-border bg-background p-5">
+              <p className="text-3xl font-semibold text-primary">{metric.value}</p>
+              <p className="mt-2 text-sm text-muted-foreground">{metric.label}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-6 py-16 lg:px-8">
+        <div className="mb-10 text-center">
+          <h2 className="text-3xl font-semibold md:text-4xl">Projetado para escala</h2>
+          <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">
+            Sua operação não pode parar. O sistema organiza os pontos críticos
+            para facilitar decisão e acompanhamento.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          {industries.map((item) => (
+            <article key={item.title} className="rounded-lg border border-border bg-card p-6">
+              <item.icon className="h-6 w-6 text-primary" />
+              <h3 className="mt-5 text-lg font-semibold">{item.title}</h3>
+              <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                {item.description}
+              </p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="border-y border-border">
+        <div className="mx-auto grid max-w-7xl grid-cols-1 gap-8 px-6 py-16 lg:grid-cols-[0.85fr_1.15fr] lg:px-8">
+          <div>
+            <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Shield className="h-7 w-7" />
+            </div>
+            <h2 className="text-3xl font-semibold md:text-4xl">Fortaleza digital</h2>
+            <p className="mt-4 text-base leading-7 text-muted-foreground">
+              A gestão de patrimônio e estoque precisa de rastreabilidade,
+              permissão correta e dados protegidos.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {securityItems.map((item) => (
+              <div key={item} className="flex items-center gap-3 rounded-md border border-border bg-card p-4">
+                <LockKeyhole className="h-5 w-5 text-primary" />
+                <span className="text-sm font-medium">{item}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-6 py-16 lg:px-8">
+        <div className="mb-10 text-center">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            <Download className="h-4 w-4 text-primary" />
+            Multi-platform
+          </div>
+          <h2 className="text-3xl font-semibold md:text-4xl">
+            Disponível onde você estiver
+          </h2>
+          <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">
+            Use no navegador ou instale como PWA para acesso rápido nos
+            dispositivos da equipe.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <div className="rounded-lg border border-border bg-card p-6">
+            <AppWindow className="h-7 w-7 text-primary" />
+            <h3 className="mt-5 text-2xl font-semibold">Desktop App</h3>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+              A versão desktop nativa pode ser preparada depois. Hoje, a versão
+              web entrega o acesso principal sem instalação pesada.
+            </p>
+            <Button disabled className="mt-6 w-full">
+              Download indisponivel
+            </Button>
+          </div>
+
+          <div className="rounded-lg border border-border bg-card p-6">
+            <Smartphone className="h-7 w-7 text-primary" />
+            <h3 className="mt-5 text-2xl font-semibold">Mobile PWA</h3>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+              Instale direto pelo navegador em celulares e tablets usados na
+              operação.
+            </p>
+            <div className="mt-6 grid gap-3">
+              <div className="rounded-md border border-border bg-background p-4">
+                <div className="mb-2 flex items-center gap-2 font-semibold">
+                  <Apple className="h-5 w-5" />
+                  iOS
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Safari, Compartilhar <Share2 className="inline h-3 w-3" /> e
+                  Adicionar à Tela de Início.
+                </p>
+              </div>
+              <div className="rounded-md border border-border bg-background p-4">
+                <div className="mb-2 flex items-center gap-2 font-semibold">
+                  <MoreVertical className="h-5 w-5" />
+                  Android
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Chrome, menu Mais e Instalar aplicativo.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-y border-border bg-muted/30">
+        <div className="mx-auto max-w-4xl px-6 py-16 lg:px-8">
+          <h2 className="text-center text-3xl font-semibold md:text-4xl">
+            Perguntas frequentes
+          </h2>
+          <div className="mt-10 grid gap-3">
+            {faqs.map((faq) => (
+              <article key={faq.question} className="rounded-lg border border-border bg-background p-5">
+                <h3 className="font-semibold">{faq.question}</h3>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  {faq.answer}
+                </p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-5xl px-6 py-16 text-center lg:px-8">
+        <h2 className="text-3xl font-semibold md:text-4xl">Pronto para operar?</h2>
+        <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
+          Entre no sistema para acessar dashboard, estoque, patrimônio,
+          checkouts, relatórios e administração.
+        </p>
+        <Link
+          href="/login"
+          className="mt-8 inline-flex h-12 items-center justify-center gap-2 rounded-md bg-primary px-6 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+        >
+          Entrar no SIS DAVUS
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+      </section>
+    </div>
   );
 }
