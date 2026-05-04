@@ -9,7 +9,7 @@ export default function PrivacidadePage() {
             <div className="prose prose-invert prose-p:text-white/60 prose-h2:text-white prose-h2:mt-12 max-w-none">
                 <h2>1. Quais dados processamos</h2>
                 <p>
-                    A Delta Rise ("Sis Davus", "nós", "nosso") atua rigorosamente como Processadora de Dados sob a LGPD (Lei Geral de Proteção de Dados - Brasil) e GDPR. Os dados inseridos no sistema, incluindo cadastros de usuários corporativos, registros de estoque, fluxos de caixas e endereços de operações são de propriedade exclusiva do Controlador (a empresa contratante). Nós apenas processamos metadados de acesso (Analytics anônimo) e logs de conexão essenciais para a garantia de segurança da infraestrutura.
+                    A Delta Rise (&quot;Sis Davus&quot;, &quot;nós&quot;, &quot;nosso&quot;) atua rigorosamente como Processadora de Dados sob a LGPD (Lei Geral de Proteção de Dados - Brasil) e GDPR. Os dados inseridos no sistema, incluindo cadastros de usuários corporativos, registros de estoque, fluxos de caixas e endereços de operações são de propriedade exclusiva do Controlador (a empresa contratante). Nós apenas processamos metadados de acesso (Analytics anônimo) e logs de conexão essenciais para a garantia de segurança da infraestrutura.
                 </p>
 
                 <h2>2. Criptografia e Armazenamento</h2>

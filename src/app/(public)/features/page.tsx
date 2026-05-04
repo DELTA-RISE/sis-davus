@@ -1,4 +1,4 @@
-import { Box, Lock, Zap, RefreshCw } from "lucide-react";
+import { Box, Lock, Zap, RefreshCw, type LucideIcon } from "lucide-react";
 import { SpotlightCard } from "@/components/landing/SpotlightCard";
 
 export default function FeaturesPage() {
@@ -39,7 +39,7 @@ export default function FeaturesPage() {
     );
 }
 
-function FeatureCard({ icon: Icon, title, desc }: { icon: any, title: string, desc: string }) {
+function FeatureCard({ icon: Icon, title, desc }: { icon: LucideIcon, title: string, desc: string }) {
     return (
         <SpotlightCard className="p-8 rounded-[2rem] bg-black/40 border border-white/10 backdrop-blur-xl group">
             <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-6 text-white group-hover:scale-110 group-hover:bg-primary/20 group-hover:text-primary transition-all">

@@ -67,7 +67,6 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-  PopoverContent as PopoverContentPrimitive
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -85,6 +84,10 @@ const roleColors: Record<UserRole, string> = {
   gestor: "bg-blue-500/20 text-blue-500 border-blue-500/30",
   user: "bg-gray-500/20 text-gray-500 border-gray-500/30",
   manager: "bg-orange-500/20 text-orange-500 border-orange-500/30",
+};
+
+type DependencyDetails = {
+  count: number;
 };
 
 const roleIcons: Record<UserRole, LucideIcon> = {
@@ -120,7 +123,7 @@ export default function UsersPage() {
   const [isResolveDialogOpen, setIsResolveDialogOpen] = useState(false);
   const [resolveStrategy, setResolveStrategy] = useState<'unassign' | 'reassign'>('unassign');
   const [newResponsibleId, setNewResponsibleId] = useState<string>("");
-  const [dependencyDetails, setDependencyDetails] = useState<{ count: number } | null>(null);
+  const [dependencyDetails, setDependencyDetails] = useState<DependencyDetails | null>(null);
 
 
   // Background Sync on Mount
@@ -273,7 +276,7 @@ export default function UsersPage() {
         setIsAlertOpen(false);
         setIsResolveDialogOpen(false);
       } else if (result.code === 'DEPENDENCY_COST_CENTER') {
-        setDependencyDetails(result.details as any);
+        setDependencyDetails(result.details as DependencyDetails);
         setIsAlertOpen(false);
         setIsResolveDialogOpen(true);
       } else {
@@ -563,7 +566,7 @@ export default function UsersPage() {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Ação</Label>
-              <Select value={resolveStrategy} onValueChange={(v: any) => setResolveStrategy(v)}>
+              <Select value={resolveStrategy} onValueChange={(v) => setResolveStrategy(v as typeof resolveStrategy)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>

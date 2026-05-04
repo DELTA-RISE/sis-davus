@@ -2,15 +2,19 @@
 
 import { useCallback } from "react";
 
+type WindowWithWebkitAudio = Window & typeof globalThis & {
+    webkitAudioContext?: typeof AudioContext;
+};
+
 export function useUiSound() {
     const playHoverSound = useCallback(() => {
         try {
             if (typeof window === "undefined") return;
 
-            const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-            if (!AudioContext) return;
+            const BrowserAudioContext = window.AudioContext || (window as WindowWithWebkitAudio).webkitAudioContext;
+            if (!BrowserAudioContext) return;
 
-            const ctx = new AudioContext();
+            const ctx = new BrowserAudioContext();
             // Se não houver interação prévia, o contexto pode estar suspenso. Ele retoma silenciosamente.
             if (ctx.state === "suspended") {
                 ctx.resume().catch(() => { });
@@ -32,7 +36,7 @@ export function useUiSound() {
 
             osc.start();
             osc.stop(ctx.currentTime + 0.1);
-        } catch (e) {
+        } catch {
             // Ignorar erros caso o navegador bloqueie
         }
     }, []);
@@ -41,10 +45,10 @@ export function useUiSound() {
         try {
             if (typeof window === "undefined") return;
 
-            const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-            if (!AudioContext) return;
+            const BrowserAudioContext = window.AudioContext || (window as WindowWithWebkitAudio).webkitAudioContext;
+            if (!BrowserAudioContext) return;
 
-            const ctx = new AudioContext();
+            const ctx = new BrowserAudioContext();
             if (ctx.state === "suspended") {
                 ctx.resume().catch(() => { });
             }
@@ -65,7 +69,7 @@ export function useUiSound() {
 
             osc.start();
             osc.stop(ctx.currentTime + 0.05);
-        } catch (e) {
+        } catch {
             // Ignorar
         }
     }, []);
