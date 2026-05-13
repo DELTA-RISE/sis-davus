@@ -1,10 +1,12 @@
 import Image from "next/image";
 import Link from "next/link";
+import { PublicMobileMenu } from "@/components/PublicMobileMenu";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 const navItems = [
-  { href: "/features", label: "Modulos" },
-  { href: "/seguranca", label: "Seguranca" },
+  { href: "/", label: "Início" },
+  { href: "/features", label: "Módulos" },
+  { href: "/seguranca", label: "Segurança" },
   { href: "/sobre", label: "Sobre" },
   { href: "/contato", label: "Contato" },
 ];
@@ -48,10 +50,11 @@ export default function PublicLayout({
             <ThemeToggle className="h-10 w-10 border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground" />
             <Link
               href="/login"
-              className="inline-flex h-10 items-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+              className="hidden h-10 items-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 md:inline-flex"
             >
               Entrar
             </Link>
+            <PublicMobileMenu items={navItems} />
           </div>
         </div>
       </header>
