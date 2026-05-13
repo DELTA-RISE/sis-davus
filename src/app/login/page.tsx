@@ -15,10 +15,9 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Lock, User, AlertCircle, Eye, EyeOff, ShieldCheck, ArrowLeft } from "lucide-react";
+import { Lock, User, AlertCircle, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { getProfile, logActivity, saveUser } from "@/lib/db";
-import HCaptcha from "@hcaptcha/react-hcaptcha";
 import {
   InputOTP,
   InputOTPGroup,
@@ -36,15 +35,12 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showForgotDialog, setShowForgotDialog] = useState(false);
-  const [captchaToken, setCaptchaToken] = useState("");
-  const [step, setStep] = useState<"credentials" | "email_captcha" | "totp" | "otp">("credentials");
+  const [step, setStep] = useState<"credentials" | "totp" | "otp">("credentials");
   const [otpCode, setOtpCode] = useState("");
   const [factorId, setFactorId] = useState("");
 
-  const captchaRef = useRef<HCaptcha>(null);
   const isSubmittingRef = useRef(false);
 
-  // Check for existing session on mount
   useEffect(() => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -55,23 +51,10 @@ export default function LoginPage() {
     checkSession();
   }, [router]);
 
-  // Listen for auth state changes (e.g. Magic Link clicked in another tab)
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === "SIGNED_IN" && session) {
-        // Avoid redirecting if we are in the middle of a multi-step flow that might trigger signed_in
-        // But for Magic Link, we want to redirect.
-        // If we are in TOTP step, we might be verifying, so let's check profile status first.
-
-        // However, Magic Link sets the session directly. 
-        // We should just check if we have a user and redirect.
-        // We can reuse finalizeLogin logic via a simplified check or just router.push
-        // But better to ensure profile check.
-        if (step !== "credentials") {
-          // If manual flow is in progress, we might race. 
-          // But if session is established from outside, we should honor it.
-          router.push("/dashboard");
-        }
+      if (event === "SIGNED_IN" && session && step !== "credentials") {
+        router.push("/dashboard");
       }
     });
 
@@ -79,13 +62,6 @@ export default function LoginPage() {
       subscription.unsubscribe();
     };
   }, [router, step]);
-
-  const resetCaptcha = () => {
-    setCaptchaToken("");
-    if (captchaRef.current) {
-      captchaRef.current.resetCaptcha();
-    }
-  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,11 +74,6 @@ export default function LoginPage() {
       return;
     }
 
-    if (!captchaToken) {
-      setError("Por favor, resolva o captcha");
-      return;
-    }
-
     setLoading(true);
     isSubmittingRef.current = true;
 
@@ -110,7 +81,6 @@ export default function LoginPage() {
       const { data, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
-        options: { captchaToken },
       });
 
       if (authError) {
@@ -118,13 +88,12 @@ export default function LoginPage() {
         setError(`Erro ao entrar: ${authError.message}`);
         setLoading(false);
         isSubmittingRef.current = false;
-        resetCaptcha();
         return;
       }
 
       if (data.user) {
         const factors = await supabase.auth.mfa.listFactors();
-        const totpFactor = factors.data?.totp.find((f) => f.status === 'verified');
+        const totpFactor = factors.data?.totp.find((f) => f.status === "verified");
 
         if (totpFactor) {
           setFactorId(totpFactor.id);
@@ -134,24 +103,18 @@ export default function LoginPage() {
           return;
         }
 
-        // Se não tem TOTP, precisamos validar o captcha NOVAMENTE para enviar o email
-        await supabase.auth.signOut(); // Limpa sessão parcial (security requirement for clean signInWithOtp)
-
-        setStep("email_captcha");
-        setLoading(false);
-        isSubmittingRef.current = false;
-        resetCaptcha(); // Prepare for second captcha
+        await supabase.auth.signOut();
+        await handleSendEmailOtp();
       }
     } catch (err: unknown) {
       console.error("Unexpected login error:", err);
       setError("Ocorreu um erro ao entrar");
       setLoading(false);
       isSubmittingRef.current = false;
-      resetCaptcha();
     }
   };
 
-  const handleSendEmailOtp = async (token: string) => {
+  const handleSendEmailOtp = async () => {
     setError("");
     setLoading(true);
     isSubmittingRef.current = true;
@@ -161,7 +124,6 @@ export default function LoginPage() {
         email,
         options: {
           shouldCreateUser: false,
-          captchaToken: token,
         },
       });
 
@@ -170,7 +132,6 @@ export default function LoginPage() {
         setError(`Erro ao enviar código: ${otpError.message}`);
         setLoading(false);
         isSubmittingRef.current = false;
-        resetCaptcha();
         return;
       }
 
@@ -182,7 +143,6 @@ export default function LoginPage() {
       setError("Erro ao processar solicitação");
       setLoading(false);
       isSubmittingRef.current = false;
-      resetCaptcha();
     }
   };
 
@@ -205,7 +165,6 @@ export default function LoginPage() {
 
         let userData;
 
-        // Estratégia 1: Tentar como EMAIL OTP (padrão para código numérico)
         try {
           console.log("Attempt 1: type=email");
           const res = await supabase.auth.verifyOtp({
@@ -218,7 +177,6 @@ export default function LoginPage() {
         } catch (err: unknown) {
           console.log("Attempt 1 failed:", getErrorMessage(err));
 
-          // Estratégia 2: Se falhar, tentar como MAGICLINK
           try {
             console.log("Attempt 2: type=magiclink");
             const res2 = await supabase.auth.verifyOtp({
@@ -230,7 +188,6 @@ export default function LoginPage() {
             userData = res2.data.user;
           } catch (err2: unknown) {
             console.log("Attempt 2 failed:", getErrorMessage(err2));
-            // Se ambos falharem, lançamos o erro original
             throw err;
           }
         }
@@ -245,7 +202,6 @@ export default function LoginPage() {
     } catch (err: unknown) {
       console.log("Catch block executing in handleVerify. Error:", err);
 
-      // Verificação de sessão de segurança
       const { data: { session } } = await supabase.auth.getSession();
       console.log("Session check:", session ? "Found" : "Null");
 
@@ -256,7 +212,7 @@ export default function LoginPage() {
       }
 
       console.error("No session found. Displaying error.");
-      setError("Código inválido ou expirado. Tente link.");
+      setError("Código inválido ou expirado. Tente usar o link enviado.");
       setLoading(false);
     }
   };
@@ -288,7 +244,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 text-slate-950 dark:bg-black dark:text-foreground">
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4 text-slate-950 dark:bg-black dark:text-foreground">
       <Link
         href="/"
         className="fixed left-4 top-4 z-20 inline-flex h-10 items-center gap-2 rounded-md border border-primary bg-primary px-3 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow-md hover:shadow-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -297,14 +253,14 @@ export default function LoginPage() {
         Voltar
       </Link>
 
-      <div className="fixed inset-0 pointer-events-none dark:hidden">
+      <div className="pointer-events-none fixed inset-0 dark:hidden">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_28%_20%,rgba(255,93,56,0.14),transparent_34%),radial-gradient(circle_at_78%_60%,rgba(15,23,42,0.10),transparent_32%)]" />
       </div>
 
-      <Card className="w-full max-w-md relative z-10 border-slate-200 bg-white/90 shadow-xl backdrop-blur-sm dark:border-white/10 dark:bg-[#070707] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.03)]">
-        <CardHeader className="text-center pb-2">
-          <div className="w-20 h-20 mx-auto mb-4">
-            <Image src="/davus-logo.svg" alt="SIS DAVUS" width={48} height={48} className="w-full h-full" />
+      <Card className="relative z-10 w-full max-w-md border-slate-200 bg-white/90 shadow-xl backdrop-blur-sm dark:border-white/10 dark:bg-[#070707] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.03)]">
+        <CardHeader className="pb-2 text-center">
+          <div className="mx-auto mb-4 h-20 w-20">
+            <Image src="/davus-logo.svg" alt="SIS DAVUS" width={48} height={48} className="h-full w-full" />
           </div>
           <CardTitle className="text-2xl">SIS DAVUS</CardTitle>
           <CardDescription>Entre com suas credenciais para acessar</CardDescription>
@@ -317,7 +273,7 @@ export default function LoginPage() {
                 <div className="space-y-2">
                   <Label htmlFor="email">E-mail</Label>
                   <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       id="email"
                       type="email"
@@ -333,7 +289,7 @@ export default function LoginPage() {
                 <div className="space-y-2">
                   <Label htmlFor="password">Senha</Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       id="password"
                       type={showPassword ? "text" : "password"}
@@ -354,23 +310,11 @@ export default function LoginPage() {
                 </div>
 
                 {error && (
-                  <div className="flex items-center gap-2 text-sm text-red-500 bg-red-500/10 p-3 rounded-lg">
+                  <div className="flex items-center gap-2 rounded-lg bg-red-500/10 p-3 text-sm text-red-500">
                     <AlertCircle className="h-4 w-4" />
                     {error}
                   </div>
                 )}
-
-                <div className="flex justify-center">
-                  <HCaptcha
-                    ref={captchaRef}
-                    sitekey={process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY!}
-                    onVerify={(token) => {
-                      setCaptchaToken(token);
-                      setError("");
-                    }}
-                    onExpire={() => setCaptchaToken("")}
-                  />
-                </div>
 
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? "Entrando..." : "Entrar"}
@@ -379,61 +323,18 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowForgotDialog(true)}
-                  className="w-full text-sm text-muted-foreground hover:text-primary transition-colors"
+                  className="w-full text-sm text-muted-foreground transition-colors hover:text-primary"
                 >
                   Esqueci minha senha
                 </button>
               </>
-            ) : step === "email_captcha" ? (
-              <div className="flex flex-col items-center space-y-4">
-                <div className="text-center space-y-2">
-                  <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-2">
-                    <ShieldCheck className="w-6 h-6 text-primary" />
-                  </div>
-                  <h3 className="font-semibold text-lg">Verificação de Segurança</h3>
-                  <p className="text-sm text-muted-foreground px-4">
-                    Para garantir que você não é um robô, resolva o captcha abaixo para receber o código de acesso no seu e-mail.
-                  </p>
-                </div>
-
-                {error && (
-                  <div className="flex items-center gap-2 text-sm text-red-500 bg-red-500/10 p-3 rounded-lg w-full">
-                    <AlertCircle className="h-4 w-4" />
-                    {error}
-                  </div>
-                )}
-
-                <div className="flex justify-center w-full py-4">
-                  <HCaptcha
-                    ref={captchaRef}
-                    sitekey={process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY!}
-                    onVerify={(token) => handleSendEmailOtp(token)}
-                    onExpire={() => setCaptchaToken("")}
-                  />
-                </div>
-
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => {
-                    setStep("credentials");
-                    setEmail("");
-                    setPassword("");
-                    setError("");
-                    resetCaptcha();
-                  }}
-                  className="w-full"
-                >
-                  Cancelar
-                </Button>
-              </div>
             ) : (
               <div className="flex flex-col items-center space-y-4">
-                <div className="text-center space-y-2">
-                  <h3 className="font-semibold text-lg">
+                <div className="space-y-2 text-center">
+                  <h3 className="text-lg font-semibold">
                     {step === "totp" ? "Autenticação em Duas Etapas" : "Verifique seu E-mail"}
                   </h3>
-                  <p className="text-sm text-muted-foreground px-4">
+                  <p className="px-4 text-sm text-muted-foreground">
                     {step === "totp"
                       ? "Digite o código de 6 dígitos do seu aplicativo autenticador."
                       : `Enviamos um código para ${email}. Digite-o abaixo ou clique no link enviado.`}
@@ -456,13 +357,13 @@ export default function LoginPage() {
                 </InputOTP>
 
                 {error && (
-                  <div className="flex items-center gap-2 text-sm text-red-500 bg-red-500/10 p-3 rounded-lg w-full">
+                  <div className="flex w-full items-center gap-2 rounded-lg bg-red-500/10 p-3 text-sm text-red-500">
                     <AlertCircle className="h-4 w-4" />
                     {error}
                   </div>
                 )}
 
-                <div className="flex flex-col gap-2 w-full">
+                <div className="flex w-full flex-col gap-2">
                   <Button type="submit" className="w-full" disabled={loading || otpCode.length !== 6}>
                     {loading ? "Verificando..." : "Confirmar"}
                   </Button>
@@ -473,7 +374,7 @@ export default function LoginPage() {
                       setStep("credentials");
                       setOtpCode("");
                       setError("");
-                      resetCaptcha(); // Ensure fresh start
+                      isSubmittingRef.current = false;
                     }}
                     className="w-full"
                   >
@@ -484,7 +385,7 @@ export default function LoginPage() {
             )}
           </form>
 
-          <div className="mt-6 pt-6 border-t border-border/50 text-center">
+          <div className="mt-6 border-t border-border/50 pt-6 text-center">
             <p className="text-xs text-muted-foreground">
               © {new Date().getFullYear()} Delta Rise
             </p>
@@ -501,7 +402,7 @@ export default function LoginPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-4 pt-4">
-            <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
+            <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-4">
               <p className="text-sm text-amber-600 dark:text-amber-400">
                 Somente administradores podem redefinir senhas de usuários.
                 Solicite a alteração através dos canais internos da empresa.
