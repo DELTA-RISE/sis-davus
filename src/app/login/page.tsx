@@ -24,9 +24,6 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 
-const getErrorMessage = (err: unknown) =>
-  err instanceof Error ? err.message : String(err);
-
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -35,7 +32,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showForgotDialog, setShowForgotDialog] = useState(false);
-  const [step, setStep] = useState<"credentials" | "totp" | "otp">("credentials");
+  const [step, setStep] = useState<"credentials" | "totp">("credentials");
   const [otpCode, setOtpCode] = useState("");
   const [factorId, setFactorId] = useState("");
 
@@ -50,18 +47,6 @@ export default function LoginPage() {
     };
     checkSession();
   }, [router]);
-
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === "SIGNED_IN" && session && step !== "credentials") {
-        router.push("/dashboard");
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [router, step]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,21 +76,25 @@ export default function LoginPage() {
         return;
       }
 
-      if (data.user) {
-        const factors = await supabase.auth.mfa.listFactors();
-        const totpFactor = factors.data?.totp.find((f) => f.status === "verified");
-
-        if (totpFactor) {
-          setFactorId(totpFactor.id);
-          setStep("totp");
-          setLoading(false);
-          isSubmittingRef.current = false;
-          return;
-        }
-
-        await supabase.auth.signOut();
-        await handleSendEmailOtp();
+      if (!data.user) {
+        setError("Usuário não retornado após autenticação.");
+        setLoading(false);
+        isSubmittingRef.current = false;
+        return;
       }
+
+      const factors = await supabase.auth.mfa.listFactors();
+      const totpFactor = factors.data?.totp.find((f) => f.status === "verified");
+
+      if (totpFactor) {
+        setFactorId(totpFactor.id);
+        setStep("totp");
+        setLoading(false);
+        isSubmittingRef.current = false;
+        return;
+      }
+
+      await finalizeLogin(data.user.id, "senha");
     } catch (err: unknown) {
       console.error("Unexpected login error:", err);
       setError("Ocorreu um erro ao entrar");
@@ -114,110 +103,27 @@ export default function LoginPage() {
     }
   };
 
-  const handleSendEmailOtp = async () => {
-    setError("");
-    setLoading(true);
-    isSubmittingRef.current = true;
-
-    try {
-      const { error: otpError } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          shouldCreateUser: false,
-        },
-      });
-
-      if (otpError) {
-        console.error("OTP Error:", otpError);
-        setError(`Erro ao enviar código: ${otpError.message}`);
-        setLoading(false);
-        isSubmittingRef.current = false;
-        return;
-      }
-
-      setStep("otp");
-      setLoading(false);
-      isSubmittingRef.current = false;
-    } catch (err: unknown) {
-      console.error("Unexpected OTP error:", err);
-      setError("Erro ao processar solicitação");
-      setLoading(false);
-      isSubmittingRef.current = false;
-    }
-  };
-
-  const handleVerify = async (e: React.FormEvent) => {
+  const handleVerifyTotp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
     try {
-      if (step === "totp") {
-        const { data, error } = await supabase.auth.mfa.challengeAndVerify({
-          factorId,
-          code: otpCode,
-        });
+      const { data, error } = await supabase.auth.mfa.challengeAndVerify({
+        factorId,
+        code: otpCode,
+      });
 
-        if (error) throw error;
-        await finalizeLogin(data.user.id);
-      } else {
-        console.log("Verifying OTP...", { email, code: otpCode });
-
-        let userData;
-
-        try {
-          console.log("Attempt 1: type=email");
-          const res = await supabase.auth.verifyOtp({
-            email,
-            token: otpCode,
-            type: "email",
-          });
-          if (res.error) throw res.error;
-          userData = res.data.user;
-        } catch (err: unknown) {
-          console.log("Attempt 1 failed:", getErrorMessage(err));
-
-          try {
-            console.log("Attempt 2: type=magiclink");
-            const res2 = await supabase.auth.verifyOtp({
-              email,
-              token: otpCode,
-              type: "magiclink",
-            });
-            if (res2.error) throw res2.error;
-            userData = res2.data.user;
-          } catch (err2: unknown) {
-            console.log("Attempt 2 failed:", getErrorMessage(err2));
-            throw err;
-          }
-        }
-
-        if (userData) {
-          console.log("OTP verified successfully");
-          await finalizeLogin(userData.id);
-        } else {
-          throw new Error("Usuário não retornado após verificação");
-        }
-      }
+      if (error) throw error;
+      await finalizeLogin(data.user.id, "2FA (App)");
     } catch (err: unknown) {
-      console.log("Catch block executing in handleVerify. Error:", err);
-
-      const { data: { session } } = await supabase.auth.getSession();
-      console.log("Session check:", session ? "Found" : "Null");
-
-      if (session) {
-        console.log("Session detected. Finalizing login...");
-        await finalizeLogin(session.user.id);
-        return;
-      }
-
-      console.error("No session found. Displaying error.");
-      setError("Código inválido ou expirado. Tente usar o link enviado.");
+      console.error("TOTP verification error:", err);
+      setError("Código inválido ou expirado.");
       setLoading(false);
     }
   };
 
-  const finalizeLogin = async (uid: string) => {
+  const finalizeLogin = async (uid: string, method: "senha" | "2FA (App)") => {
     const profile = await getProfile(uid);
     if (profile) {
       if (profile.status === "inativo") {
@@ -230,7 +136,7 @@ export default function LoginPage() {
       await logActivity(
         "LOGIN",
         "SESSAO",
-        `O usuário ${profile.name} realizou login no sistema via ${step === "totp" ? "2FA (App)" : "2FA (Email)"}.`,
+        `O usuário ${profile.name} realizou login no sistema via ${method}.`,
         profile.id,
         profile.name
       );
@@ -267,7 +173,7 @@ export default function LoginPage() {
         </CardHeader>
 
         <CardContent className="pt-4">
-          <form onSubmit={step === "credentials" ? handleLogin : handleVerify} className="space-y-4">
+          <form onSubmit={step === "credentials" ? handleLogin : handleVerifyTotp} className="space-y-4">
             {step === "credentials" ? (
               <>
                 <div className="space-y-2">
@@ -331,13 +237,9 @@ export default function LoginPage() {
             ) : (
               <div className="flex flex-col items-center space-y-4">
                 <div className="space-y-2 text-center">
-                  <h3 className="text-lg font-semibold">
-                    {step === "totp" ? "Autenticação em Duas Etapas" : "Verifique seu E-mail"}
-                  </h3>
+                  <h3 className="text-lg font-semibold">Autenticação em Duas Etapas</h3>
                   <p className="px-4 text-sm text-muted-foreground">
-                    {step === "totp"
-                      ? "Digite o código de 6 dígitos do seu aplicativo autenticador."
-                      : `Enviamos um código para ${email}. Digite-o abaixo ou clique no link enviado.`}
+                    Digite o código de 6 dígitos do seu aplicativo autenticador.
                   </p>
                 </div>
 
