@@ -54,3 +54,7 @@ public/workbox-*.js
 
 # logs
 build_log*.txt
+dev-server*.log
+
+# local tooling
+.docker/
