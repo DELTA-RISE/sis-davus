@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { CategoryManager } from "@/components/admin/CategoryManager";
+import { CategoryPageSkeleton } from "@/components/admin/CategoryPageSkeleton";
 import {
     Category,
     createCategory,
@@ -33,11 +34,11 @@ export default function CategoriasPatrimonioPage() {
     };
 
     if (isLoading) {
-        return <div className="p-8 text-center text-muted-foreground">Carregando categorias...</div>;
+        return <CategoryPageSkeleton />;
     }
 
     return (
-        <div className="p-6">
+        <div className="min-h-[calc(100vh-4rem)] bg-background p-6">
             <h1 className="text-3xl font-bold tracking-tight mb-6">Categorias de Patrimonio</h1>
             <CategoryManager
                 title="Gerenciar Categorias de Patrimonio"
