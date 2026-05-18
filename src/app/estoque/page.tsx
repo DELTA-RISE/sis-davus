@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Product, mockProducts } from "@/lib/store";
+import { Product } from "@/lib/store";
 import { getProducts, isPendingSync, saveProduct, deleteProduct } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { productSchema } from "@/lib/validations";
@@ -111,6 +111,7 @@ export default function EstoquePage() {
   const [searchTerm, setSearchTerm] = useState("");
   const debouncedSearch = useDebounce(searchTerm, 300);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deleteProductId, setDeleteProductId] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -227,12 +228,14 @@ export default function EstoquePage() {
       return;
     }
 
+    setIsSaving(true);
     const payload: Partial<Product> = {
       ...newProduct,
       updated_at: new Date().toISOString(),
     };
 
     const saved = await saveProduct(payload, { name: userName, id: user?.id || "" });
+    setIsSaving(false);
 
     if (saved) {
       if (isPendingSync(saved)) {
@@ -389,6 +392,7 @@ export default function EstoquePage() {
                               ))}
                             </SelectContent>
                           </Select>
+                          {errors.category && <p className="text-xs text-destructive">{errors.category}</p>}
                         </div>
                         <div className="space-y-2 text-left">
                           <Label>Centro de Custo</Label>
@@ -435,7 +439,18 @@ export default function EstoquePage() {
                               </Command>
                             </PopoverContent>
                           </Popover>
+                          {errors.cost_center && <p className="text-xs text-destructive">{errors.cost_center}</p>}
                         </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Localização</Label>
+                        <Input
+                          value={newProduct.location || ""}
+                          onChange={(e) => setNewProduct({ ...newProduct, location: e.target.value })}
+                          placeholder="Ex: Almoxarifado A1"
+                          className={errors.location ? "border-destructive" : ""}
+                        />
+                        {errors.location && <p className="text-xs text-destructive">{errors.location}</p>}
                       </div>
                       <div className="grid grid-cols-3 gap-4">
                         <div className="space-y-2">
@@ -482,8 +497,8 @@ export default function EstoquePage() {
                           />
                         </div>
                       </div>
-                      <Button onClick={handleSaveProduct} className="w-full">
-                        {editingProduct ? "Salvar Alterações" : "Cadastrar Produto"}
+                      <Button onClick={handleSaveProduct} className="w-full" disabled={isSaving}>
+                        {isSaving ? "Salvando..." : editingProduct ? "Salvar Alterações" : "Cadastrar Produto"}
                       </Button>
                     </div>
                   </DialogContent>
