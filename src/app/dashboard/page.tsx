@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 // import { Product, Asset, StockMovement, Checkout } from "@/lib/store";
 // import { getProducts, getAssets, getMovements, getCheckouts } from "@/lib/db"; // unused but keep for type safety if needed, technically types are imported from store
 
@@ -88,7 +88,7 @@ const categoryChartConfig = {
 } satisfies ChartConfig;
 
 export default function DashboardPage() {
-  const { currentRole } = useAuth();
+  const { currentRole, costCenter } = useAuth();
   const [costCenters, setCostCenters] = useState<{ id: string, name: string }[]>([]);
   const [selectedCostCenter, setSelectedCostCenter] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
@@ -115,7 +115,11 @@ export default function DashboardPage() {
     recentMovements,
     stockByCategory,
     movementsData
-  } = useDashboardData({ role: currentRole || undefined, costCenterId: selectedCostCenter, dateRange });
+  } = useDashboardData({
+    role: currentRole || undefined,
+    costCenterId: currentRole === "gestor" ? costCenter : selectedCostCenter,
+    dateRange
+  });
 
   const { isRefreshing, pullDistance, threshold } = usePullToRefresh({
     onRefresh: refreshData,
@@ -134,14 +138,32 @@ export default function DashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen">
+      <div className="min-h-screen bg-background">
         <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
+          <div className="flex items-center justify-between rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm">
+            <div className="space-y-2">
+              <Skeleton className="h-7 w-48 bg-slate-300/80 dark:bg-muted" />
+              <Skeleton className="h-4 w-36 bg-slate-300/70 dark:bg-muted" />
+            </div>
+            <Skeleton className="h-10 w-10 rounded-xl bg-slate-300/80 dark:bg-muted" />
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-24 w-full rounded-2xl" />)}
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm">
+                <Skeleton className="h-4 w-20 bg-slate-300/70 dark:bg-muted" />
+                <Skeleton className="mt-4 h-8 w-12 bg-slate-300/80 dark:bg-muted" />
+              </div>
+            ))}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Skeleton className="h-64 rounded-2xl" />
-            <Skeleton className="h-64 rounded-2xl" />
+            <div className="rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm">
+              <Skeleton className="h-5 w-36 bg-slate-300/80 dark:bg-muted" />
+              <Skeleton className="mt-4 h-56 rounded-xl bg-slate-300/70 dark:bg-muted" />
+            </div>
+            <div className="rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm">
+              <Skeleton className="h-5 w-44 bg-slate-300/80 dark:bg-muted" />
+              <Skeleton className="mx-auto mt-4 h-56 max-w-56 rounded-full bg-slate-300/70 dark:bg-muted" />
+            </div>
           </div>
         </div>
       </div>
@@ -261,25 +283,35 @@ export default function DashboardPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="h-64">
-                    <ChartContainer config={movementsChartConfig} className="h-full w-full">
-                      <BarChart accessibilityLayer data={movementsData}>
-                        <CartesianGrid vertical={false} />
-                        <XAxis
-                          dataKey="name"
-                          tickLine={false}
-                          tickMargin={10}
-                          axisLine={false}
-                          tickFormatter={(value) => value.slice(0, 3)}
-                        />
-                        <ChartTooltip
-                          cursor={false}
-                          content={<ChartTooltipContent indicator="dashed" />}
-                        />
-                        <ChartLegend content={<ChartLegendContent />} />
-                        <Bar dataKey="entradas" fill="var(--color-entradas)" radius={4} />
-                        <Bar dataKey="saidas" fill="var(--color-saidas)" radius={4} />
-                      </BarChart>
-                    </ChartContainer>
+                    {movementsData.some((day) => day.entradas > 0 || day.saidas > 0) ? (
+                      <ChartContainer config={movementsChartConfig} className="h-full w-full">
+                        <BarChart accessibilityLayer data={movementsData}>
+                          <CartesianGrid vertical={false} />
+                          <XAxis
+                            dataKey="name"
+                            tickLine={false}
+                            tickMargin={10}
+                            axisLine={false}
+                            tickFormatter={(value) => value.slice(0, 3)}
+                          />
+                          <ChartTooltip
+                            cursor={false}
+                            content={<ChartTooltipContent indicator="dashed" />}
+                          />
+                          <ChartLegend content={<ChartLegendContent />} />
+                          <Bar dataKey="entradas" fill="var(--color-entradas)" radius={4} />
+                          <Bar dataKey="saidas" fill="var(--color-saidas)" radius={4} />
+                        </BarChart>
+                      </ChartContainer>
+                    ) : (
+                      <div className="flex h-full flex-col items-center justify-center rounded-xl border border-dashed border-border/80 bg-background/60 text-center">
+                        <ArrowLeftRight className="h-8 w-8 text-muted-foreground" />
+                        <p className="mt-3 text-sm font-medium">Sem movimentações no período</p>
+                        <p className="mt-1 max-w-56 text-xs text-muted-foreground">
+                          Entradas e saídas aparecerão aqui após os primeiros lançamentos.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -289,57 +321,67 @@ export default function DashboardPage() {
                   <CardTitle className="text-sm font-medium">Distribuição por Categoria</CardTitle>
                 </CardHeader>
                 <CardContent className="flex-1 pb-0">
-                  <ChartContainer
-                    config={categoryChartConfig}
-                    className="mx-auto aspect-square max-h-[250px]"
-                  >
-                    <PieChart>
-                      <ChartTooltip
-                        cursor={false}
-                        content={<ChartTooltipContent hideLabel />}
-                      />
-                      <Pie
-                        data={stockByCategory}
-                        dataKey="value"
-                        nameKey="name"
-                        innerRadius={60}
-                        strokeWidth={5}
-                      >
-                        {stockByCategory.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                        <Label
-                          content={({ viewBox }) => {
-                            if (viewBox && "cx" in viewBox && "cy" in viewBox) {
-                              return (
-                                <text
-                                  x={viewBox.cx}
-                                  y={viewBox.cy}
-                                  textAnchor="middle"
-                                  dominantBaseline="middle"
-                                >
-                                  <tspan
+                  {stockByCategory.length > 0 ? (
+                    <ChartContainer
+                      config={categoryChartConfig}
+                      className="mx-auto aspect-square max-h-[250px]"
+                    >
+                      <PieChart>
+                        <ChartTooltip
+                          cursor={false}
+                          content={<ChartTooltipContent hideLabel />}
+                        />
+                        <Pie
+                          data={stockByCategory}
+                          dataKey="value"
+                          nameKey="name"
+                          innerRadius={60}
+                          strokeWidth={5}
+                        >
+                          {stockByCategory.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                          <Label
+                            content={({ viewBox }) => {
+                              if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                                return (
+                                  <text
                                     x={viewBox.cx}
                                     y={viewBox.cy}
-                                    className="fill-foreground text-3xl font-bold"
+                                    textAnchor="middle"
+                                    dominantBaseline="middle"
                                   >
-                                    {totalStock.toLocaleString()}
-                                  </tspan>
-                                  <tspan
-                                    x={viewBox.cx}
-                                    y={(viewBox.cy || 0) + 24}
-                                    className="fill-muted-foreground text-xs"
-                                  >
-                                    Produtos
-                                  </tspan>
-                                </text>
-                              )
-                            }
-                          }}
-                        />
-                      </Pie>
-                    </PieChart>
-                  </ChartContainer>
+                                    <tspan
+                                      x={viewBox.cx}
+                                      y={viewBox.cy}
+                                      className="fill-foreground text-3xl font-bold"
+                                    >
+                                      {totalStock.toLocaleString()}
+                                    </tspan>
+                                    <tspan
+                                      x={viewBox.cx}
+                                      y={(viewBox.cy || 0) + 24}
+                                      className="fill-muted-foreground text-xs"
+                                    >
+                                      Produtos
+                                    </tspan>
+                                  </text>
+                                )
+                              }
+                            }}
+                          />
+                        </Pie>
+                      </PieChart>
+                    </ChartContainer>
+                  ) : (
+                    <div className="flex min-h-[250px] flex-col items-center justify-center rounded-xl border border-dashed border-border/80 bg-background/60 text-center">
+                      <Package className="h-8 w-8 text-muted-foreground" />
+                      <p className="mt-3 text-sm font-medium">Sem produtos cadastrados</p>
+                      <p className="mt-1 max-w-56 text-xs text-muted-foreground">
+                        O gráfico será montado assim que houver estoque com categoria.
+                      </p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>

@@ -1,6 +1,5 @@
 import { useMemo, useEffect } from "react";
 import { toast } from "sonner";
-import { mockProducts, mockAssets, mockStockMovements, mockCheckouts } from "@/lib/store";
 import { syncTable } from "@/lib/db";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/dexie-db";
@@ -20,8 +19,7 @@ const EMPTY_ARRAY: never[] = [];
 export function useDashboardData({ role, costCenterId, dateRange }: DashboardDataParams = {}) {
     // Trigger Syncs
     useEffect(() => {
-        if (role === 'admin') {
-            // Admin syncs everything to ensure they can see all data
+        if (role) {
             syncTable('products', 'name', true);
             syncTable('assets', 'name', true);
             syncTable('stock_movements', 'date', false);
@@ -105,13 +103,16 @@ export function useDashboardData({ role, costCenterId, dateRange }: DashboardDat
         [assets]);
 
     const recentMovements = useMemo(() =>
-        movements.slice(0, 5),
+        [...movements]
+            .sort((a, b) => new Date(b.date || b.created_at || 0).getTime() - new Date(a.date || a.created_at || 0).getTime())
+            .slice(0, 5),
         [movements]);
 
     const stockByCategory = useMemo(() => {
         const categories: Record<string, number> = {};
         products.forEach((p) => {
-            categories[p.category] = (categories[p.category] || 0) + p.quantity;
+            const category = p.category || "Sem categoria";
+            categories[category] = (categories[category] || 0) + p.quantity;
         });
         return Object.entries(categories)
             .map(([name, value]) => ({ name, value }))
