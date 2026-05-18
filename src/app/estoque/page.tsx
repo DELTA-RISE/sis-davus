@@ -69,8 +69,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
 import { motion, AnimatePresence } from "framer-motion";
 import { ImageUpload } from "@/components/ui/image-upload"; // Imported component
-import { getInsumosCategories } from "@/app/actions/categories";
-import { InsumoCategory } from "@/lib/store";
+import { Category, getCategories } from "@/actions/categories";
 
 // FilterConfigs moved inside component
 
@@ -78,10 +77,10 @@ export default function EstoquePage() {
   const { userName, user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const { costCenters } = useCostCenters();
-  const [categories, setCategories] = useState<InsumoCategory[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
 
   useEffect(() => {
-    getInsumosCategories().then(setCategories);
+    getCategories("insumo").then(setCategories);
   }, []);
 
   const filterConfigs: FilterConfig[] = useMemo(() => [

@@ -94,18 +94,17 @@ const conditionColors: Record<string, string> = {
 
 // ... imports
 
-import { getPatrimoniosCategories } from "@/app/actions/categories";
-import { PatrimonioCategory } from "@/lib/store";
+import { Category, getCategories } from "@/actions/categories";
 
 export default function PatrimonioPage() {
   const { userName, user, currentRole } = useAuth();
   // const { isDemoMode } = useOnboarding();
 
   // Categories State
-  const [categories, setCategories] = useState<PatrimonioCategory[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
 
   useEffect(() => {
-    getPatrimoniosCategories().then(setCategories);
+    getCategories("patrimonio").then(setCategories);
   }, []);
 
   const filterConfigs: FilterConfig[] = useMemo(() => [
