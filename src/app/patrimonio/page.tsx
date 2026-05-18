@@ -26,6 +26,7 @@ import { AdvancedFilters, FilterConfig, ActiveFilter } from "@/components/Advanc
 import { InfiniteScrollLoader } from "@/components/InfiniteScrollLoader";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { PageTransition, StaggerContainer, StaggerItem } from "@/components/PageTransition";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 import { AssetLabel, AssetLabelLayout } from "@/components/AssetLabel";
 import { exportAssets } from "@/lib/export-utils";
@@ -151,6 +152,7 @@ export default function PatrimonioPage() {
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
   const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [newAsset, setNewAsset] = useState<Partial<Asset>>({
@@ -475,17 +477,11 @@ export default function PatrimonioPage() {
       return;
     }
 
-    if (confirm(`Deseja excluir ${selectedIds.length} patrimônios?`)) {
-      const results = await Promise.all(selectedIds.map(id => deleteAsset(id, { name: userName, id: user?.id || "" })));
-      const successCount = results.filter(Boolean).length;
-      toast.success(`${successCount} itens excluídos.`);
-      setSelectedIds([]);
-      toast.success(`${successCount} itens excluídos.`);
-      setSelectedIds([]);
-      // loadData(); // No need to reload, sync covers it or soft delete updates local?
-      // deleteAsset calls softDelete which updates Dexie locally immediately.
-      // So UI should update automatically via useLiveQuery.
-    }
+    const results = await Promise.all(selectedIds.map(id => deleteAsset(id, { name: userName, id: user?.id || "" })));
+    const successCount = results.filter(Boolean).length;
+    toast.success(`${successCount} itens excluidos.`);
+    setSelectedIds([]);
+    setIsBulkDeleteOpen(false);
   };
 
   const totalValue = assets.reduce((acc, a) => acc + (a.value || 0), 0);
@@ -793,7 +789,7 @@ export default function PatrimonioPage() {
                 <div className="flex items-center gap-2">
                   <Button variant="ghost" size="sm" onClick={() => setSelectedIds([])}>Cancelar</Button>
                   <Button variant="outline" size="sm" onClick={() => setBulkPrintOpen(true)} className="gap-1.5"><Printer className="h-4 w-4" />Gerar Etiquetas</Button>
-                  <Button variant="destructive" size="sm" onClick={bulkDelete} className="gap-1.5 border-none"><Trash2 className="h-4 w-4" />Excluir</Button>
+                  <Button variant="destructive" size="sm" onClick={() => setIsBulkDeleteOpen(true)} className="gap-1.5 border-none"><Trash2 className="h-4 w-4" />Excluir</Button>
                 </div>
               </motion.div>
             )}
@@ -906,8 +902,15 @@ export default function PatrimonioPage() {
 
           <InfiniteScrollLoader ref={loaderRef} hasMore={hasMore} />
         </div>
-
-
+        <ConfirmDialog
+          open={isBulkDeleteOpen}
+          onOpenChange={setIsBulkDeleteOpen}
+          title="Excluir Patrimonios"
+          description={`Tem certeza que deseja excluir ${selectedIds.length} patrimonio(s)? Esta acao nao pode ser desfeita.`}
+          onConfirm={bulkDelete}
+          confirmText="Excluir"
+          variant="destructive"
+        />
       </div >
     </PageTransition >
   );

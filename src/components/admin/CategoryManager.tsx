@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 interface Category {
     id: string;
@@ -52,6 +53,7 @@ export function CategoryManager<T extends Category>({
     const [editingItem, setEditingItem] = useState<T | null>(null);
     const [formData, setFormData] = useState<Partial<T>>({});
     const [isLoading, setIsLoading] = useState(false);
+    const [deleteItem, setDeleteItem] = useState<T | null>(null);
 
     useEffect(() => {
         setData(initialData);
@@ -99,13 +101,14 @@ export function CategoryManager<T extends Category>({
         }
     };
 
-    const handleDelete = async (id: string) => {
-        if (!confirm("Tem certeza que deseja excluir esta categoria?")) return;
+    const handleDelete = async () => {
+        if (!deleteItem) return;
 
         try {
-            await deleteAction(id);
-            setData((prev) => prev.filter((item) => item.id !== id));
-            toast.success("Categoria excluída com sucesso!");
+            await deleteAction(deleteItem.id);
+            setData((prev) => prev.filter((item) => item.id !== deleteItem.id));
+            toast.success("Categoria excluida com sucesso!");
+            setDeleteItem(null);
         } catch (error) {
             toast.error("Erro ao excluir categoria");
             console.error(error);
@@ -168,7 +171,7 @@ export function CategoryManager<T extends Category>({
                                                 variant="ghost"
                                                 size="icon"
                                                 className="text-destructive hover:text-destructive"
-                                                onClick={() => handleDelete(item.id)}
+                                                onClick={() => setDeleteItem(item)}
                                             >
                                                 <Trash2 className="h-4 w-4" />
                                             </Button>
@@ -216,6 +219,15 @@ export function CategoryManager<T extends Category>({
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+            <ConfirmDialog
+                open={!!deleteItem}
+                onOpenChange={(open) => !open && setDeleteItem(null)}
+                title="Excluir Categoria"
+                description={`Tem certeza que deseja excluir "${deleteItem?.name}"? Esta acao nao pode ser desfeita.`}
+                onConfirm={handleDelete}
+                confirmText="Excluir"
+                variant="destructive"
+            />
         </div>
     );
 }

@@ -114,6 +114,7 @@ export default function EstoquePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deleteProductId, setDeleteProductId] = useState<string | null>(null);
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -293,13 +294,12 @@ export default function EstoquePage() {
   };
 
   const bulkDelete = async () => {
-    if (confirm(`Deseja excluir ${selectedIds.length} itens?`)) {
-      const results = await Promise.all(selectedIds.map(id => deleteProduct(id, { name: userName, id: user?.id || "" })));
-      const successCount = results.filter(Boolean).length;
-      toast.success(`${successCount} itens excluídos.`);
-      setSelectedIds([]);
-      loadData();
-    }
+    const results = await Promise.all(selectedIds.map(id => deleteProduct(id, { name: userName, id: user?.id || "" })));
+    const successCount = results.filter(Boolean).length;
+    toast.success(`${successCount} itens excluidos.`);
+    setSelectedIds([]);
+    setIsBulkDeleteOpen(false);
+    loadData();
   };
 
   return (
@@ -523,7 +523,7 @@ export default function EstoquePage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Button variant="ghost" size="sm" onClick={() => setSelectedIds([])}>Cancelar</Button>
-                  <Button variant="destructive" size="sm" onClick={bulkDelete} className="gap-1.5 border-none">
+                  <Button variant="destructive" size="sm" onClick={() => setIsBulkDeleteOpen(true)} className="gap-1.5 border-none">
                     <Trash2 className="h-4 w-4" />
                     Excluir
                   </Button>
@@ -662,6 +662,15 @@ export default function EstoquePage() {
           title="Excluir Produto"
           description={`Tem certeza que deseja excluir este produto? Esta ação não pode ser desfeita.`}
           onConfirm={confirmDelete}
+          confirmText="Excluir"
+          variant="destructive"
+        />
+        <ConfirmDialog
+          open={isBulkDeleteOpen}
+          onOpenChange={setIsBulkDeleteOpen}
+          title="Excluir Produtos"
+          description={`Tem certeza que deseja excluir ${selectedIds.length} produto(s)? Esta acao nao pode ser desfeita.`}
+          onConfirm={bulkDelete}
           confirmText="Excluir"
           variant="destructive"
         />

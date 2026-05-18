@@ -116,6 +116,11 @@ export default function RelatoriosPage() {
     loadData();
   }, [loadData]);
 
+  const visibleMovements = useMemo(() => {
+    const visibleProductIds = new Set(products.map((product) => product.id));
+    return movements.filter((movement) => visibleProductIds.has(movement.product_id));
+  }, [movements, products]);
+
   // Derived Data Calculations
   const metrics = useMemo(() => {
     // Stock Metrics
@@ -132,11 +137,11 @@ export default function RelatoriosPage() {
     const assetsInMaintenance = assets.filter(a => a.condition === "Manutenção").length;
 
     // Movement Metrics
-    const entries = movements.filter(m => m.type === "entrada");
-    const exits = movements.filter(m => m.type === "saida");
+    const entries = visibleMovements.filter(m => m.type === "entrada");
+    const exits = visibleMovements.filter(m => m.type === "saida");
     const currentMonth = new Date().getMonth();
     const currentYear = new Date().getFullYear();
-    const monthlyMovements = movements.filter(m => {
+    const monthlyMovements = visibleMovements.filter(m => {
       if (!m.date) return false;
       const moveDate = new Date(m.date);
       return moveDate.getMonth() === currentMonth && moveDate.getFullYear() === currentYear;
@@ -179,7 +184,7 @@ export default function RelatoriosPage() {
       topProducts,
       topAssets
     };
-  }, [products, assets, movements, maintenanceTasks]);
+  }, [products, assets, visibleMovements, maintenanceTasks]);
 
   // Charts Data
   const chartsData = useMemo(() => {
@@ -197,7 +202,7 @@ export default function RelatoriosPage() {
     ).map(([name, value]) => ({ name, value }));
 
     const movementTrend = Object.values(
-      movements.reduce((acc, m) => {
+      visibleMovements.reduce((acc, m) => {
         const date = m.date?.split("T")[0] || "";
         if (!acc[date]) acc[date] = { date, entrada: 0, saida: 0 };
         if (m.type === "entrada") acc[date].entrada += m.quantity;
@@ -220,7 +225,7 @@ export default function RelatoriosPage() {
       movementTrend,
       maintenanceStatus
     };
-  }, [products, assets, movements, metrics]);
+  }, [products, assets, visibleMovements, metrics]);
 
   // Helper to determine if critical data for overview is loaded
   // const hasOverviewData = !loadingProducts && !loadingAssets && !loadingMaintenance;
