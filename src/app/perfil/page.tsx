@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from "@/lib/auth-context";
+import { getRoleLabel } from "@/lib/roles";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -122,7 +123,7 @@ export default function PerfilPage() {
                   <div className="flex items-center gap-2 mt-1">
                     <Badge variant="outline" className="text-xs gap-1 bg-background/50 backdrop-blur-sm">
                       <Shield className="h-3 w-3" />
-                      {currentRole === "admin" ? "Administrador" : "Gestor"}
+                      {getRoleLabel(currentRole)}
                     </Badge>
                   </div>
                 </div>

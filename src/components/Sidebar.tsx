@@ -18,6 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { useSidebar } from "@/lib/sidebar-context";
+import { isCostCenterScopedRole } from "@/lib/roles";
 
 const adminItems = [
   { href: "/admin/logs", icon: FileText, label: "Logs de Auditoria" },
@@ -35,10 +36,13 @@ const gestorItems = [
   { href: "/relatorios", icon: FileBarChart, label: "Relatórios" },
 ];
 
+const operadorItems = gestorItems.filter((item) => item.href !== "/relatorios");
+
 export function Sidebar() {
   const pathname = usePathname();
   const { isCollapsed, setIsCollapsed } = useSidebar();
   const { currentRole, costCenter } = useAuth();
+  const visibleGestaoItems = currentRole === "operador" || currentRole === "user" ? operadorItems : gestorItems;
 
   return (
     <aside
@@ -111,7 +115,7 @@ export function Sidebar() {
           </p>
         )}
         {isCollapsed && <div className="h-px bg-sidebar-border my-2" />}
-        {gestorItems.map((item) => {
+        {visibleGestaoItems.map((item) => {
           const isActive = pathname === item.href;
           return (
             <Link
@@ -134,7 +138,7 @@ export function Sidebar() {
         })}
 
 
-        {currentRole === 'gestor' && costCenter && (
+        {isCostCenterScopedRole(currentRole) && costCenter && (
           <>
             {isCollapsed && <div className="h-px bg-sidebar-border my-2" />}
             <Link

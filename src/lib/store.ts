@@ -102,7 +102,7 @@ export interface AuditLog {
   user_name?: string;
 }
 
-export type UserRole = 'admin' | 'user' | 'manager' | 'gestor';
+export type UserRole = 'admin' | 'user' | 'manager' | 'gestor' | 'operador';
 
 export interface User {
   id: string;

@@ -7,6 +7,7 @@ import { db } from "@/lib/dexie-db";
 import { DateRange } from "react-day-picker";
 import { isWithinInterval, subDays, startOfDay, endOfDay, eachDayOfInterval, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { isCostCenterScopedRole } from "@/lib/roles";
 
 interface DashboardDataParams {
     role?: string;
@@ -40,7 +41,7 @@ export function useDashboardData({ role, costCenterId, dateRange }: DashboardDat
         // Wait, db.ts getAllFiltered uses `item.cost_center`.
         // Let's assume Products and Assets have `cost_center`.
 
-        const targetCostCenter = role === 'gestor' ? (costCenterId || undefined) : costCenterId; // If gestor, costCenterId passed in hook should be theirs.
+        const targetCostCenter = isCostCenterScopedRole(role) ? (costCenterId || undefined) : costCenterId;
 
         if (targetCostCenter) {
             productsQuery = productsQuery.filter(p => p.cost_center === targetCostCenter);

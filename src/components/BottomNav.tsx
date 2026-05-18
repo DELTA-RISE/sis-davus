@@ -45,7 +45,12 @@ export function BottomNav() {
     { href: "/admin/hub", icon: Shield, label: "Hub Admin" },
   ];
 
-  const ferramentas = currentRole === "admin" ? ferramentasAdmin : ferramentasGestor;
+  const ferramentasOperador = ferramentasGestor.filter((item) => item.href !== "/relatorios");
+  const ferramentas = currentRole === "admin"
+    ? ferramentasAdmin
+    : currentRole === "operador" || currentRole === "user"
+      ? ferramentasOperador
+      : ferramentasGestor;
 
   const handleNavClick = (key: string) => {
     if (activeSubmenu === key) {

@@ -14,6 +14,7 @@ import {
   WriteOffRequest,
   Category
 } from './store';
+import { isCostCenterScopedRole } from './roles';
 
 // Helper to parse User Agent
 export const getDeviceInfo = () => {
@@ -164,7 +165,7 @@ async function getAllFiltered<T>(
     const localData = await db.table(table).toArray();
     let filtered = localData.filter((item) => !item.deleted_at); // Exclude soft deleted
 
-    if (userInfo.role === 'gestor' && userInfo.cost_center) {
+    if (isCostCenterScopedRole(userInfo.role) && userInfo.cost_center) {
       filtered = filtered.filter((item) => item.cost_center === userInfo.cost_center);
     }
 
@@ -185,7 +186,7 @@ async function getAllFiltered<T>(
       .is('deleted_at', null) // Exclude soft deleted
       .order(orderColumn as string, { ascending });
 
-    if (userInfo.role === 'gestor' && userInfo.cost_center) {
+    if (isCostCenterScopedRole(userInfo.role) && userInfo.cost_center) {
       query = query.eq('cost_center', userInfo.cost_center);
     }
 
@@ -353,7 +354,7 @@ export const getProducts = async (_forceRefresh = false, costCenterId?: string |
     if (profile) {
       role = profile.role;
       // If user is manager, force their cost center. If admin, allow override via argument.
-      if (role === 'gestor') {
+      if (isCostCenterScopedRole(role)) {
         costCenter = (profile as unknown as { cost_center: string }).cost_center;
       } else if (role === 'admin' && costCenterId) {
         costCenter = costCenterId;
@@ -420,7 +421,7 @@ export const getAssets = async (_forceRefresh = false, costCenterId?: string | n
     const profile = await getProfile(session.user.id);
     if (profile) {
       role = profile.role;
-      if (role === 'gestor') {
+      if (isCostCenterScopedRole(role)) {
         costCenter = (profile as unknown as { cost_center: string }).cost_center;
       } else if (role === 'admin' && costCenterId) {
         costCenter = costCenterId;
@@ -441,7 +442,7 @@ export const syncAssets = async () => {
     const profile = await getProfile(session.user.id);
     if (profile) {
       role = profile.role;
-      if (role === 'gestor') {
+      if (isCostCenterScopedRole(role)) {
         costCenter = (profile as unknown as { cost_center: string }).cost_center;
       }
     }
@@ -453,7 +454,7 @@ export const syncAssets = async () => {
       .select('*')
       .is('deleted_at', null);
 
-    if (role === 'gestor' && costCenter) {
+    if (isCostCenterScopedRole(role) && costCenter) {
       query = query.eq('cost_center', costCenter);
     }
 
@@ -573,7 +574,7 @@ export const getMaintenanceTasks = async (assetId?: string, forceRefresh = false
       const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
       if (data) {
         role = data.role;
-        if (role === 'gestor') {
+        if (isCostCenterScopedRole(role)) {
           costCenter = (data as unknown as { cost_center: string }).cost_center;
         }
       }
@@ -589,7 +590,7 @@ export const getMaintenanceTasks = async (assetId?: string, forceRefresh = false
       filtered = filtered.filter(t => t.asset_id === assetId);
     }
 
-    if (role === 'gestor' && costCenter) {
+    if (isCostCenterScopedRole(role) && costCenter) {
       try {
         const myAssets = await db.assets.where('cost_center').equals(costCenter).toArray();
         const myAssetIds = new Set(myAssets.map(a => a.id));
@@ -609,7 +610,7 @@ export const getMaintenanceTasks = async (assetId?: string, forceRefresh = false
     query = query.eq('asset_id', assetId);
   }
 
-  if (role === 'gestor' && costCenter) {
+  if (isCostCenterScopedRole(role) && costCenter) {
     query = query.eq('assets.cost_center', costCenter);
   }
 

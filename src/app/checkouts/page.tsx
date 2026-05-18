@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Checkout, Product, Asset, User as AppUser } from "@/lib/store";
 import { getCheckouts, isPendingSync, saveCheckout, getProducts, getAssets, getUsers } from "@/lib/db";
+import { isCostCenterScopedRole } from "@/lib/roles";
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -132,7 +133,7 @@ export default function CheckoutsPage() {
     if (!item) return;
 
     // Restriction: Manager can only checkout items assigned to them (Assets) or their Cost Center (Products)
-    if (user?.role === 'gestor' || user?.role === 'manager') {
+    if (isCostCenterScopedRole(user?.role)) {
       if (newCheckout.item_type === 'asset') {
         // For assets, must be assigned to the manager? Or is "associado a ele" meaning assigned to him?
         // User request: "caso esteja associado a ele e não necessariamente a obra"

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { StockMovement, Product } from "@/lib/store";
 import { getMovements, isPendingSync, saveMovement, getProducts } from "@/lib/db";
+import { isCostCenterScopedRole } from "@/lib/roles";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { movementSchema } from "@/lib/validations";
@@ -159,7 +160,7 @@ export default function MovementsPage() {
     if (!product) return;
 
     // Restriction: Manager can only move stock if product belongs to their Cost Center
-    if (currentRole === 'gestor' || currentRole === 'manager') {
+    if (isCostCenterScopedRole(currentRole)) {
       if (!costCenter) {
         toast.error("Seu usuário não possui Centro de Custo vinculado.");
         return;

@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useDashboardData } from "@/hooks/useDashboardData";
+import { isCostCenterScopedRole } from "@/lib/roles";
 
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { PageTransition, SlideUp, StaggerContainer, StaggerItem } from "@/components/PageTransition";
@@ -67,6 +68,8 @@ const gestorMenuItems = [
   { href: "/relatorios", icon: FileBarChart, label: "Relatórios", description: "Análises e indicadores", color: "bg-chart-2/20 text-chart-2" },
 ];
 
+const operadorMenuItems = gestorMenuItems.filter((item) => item.href !== "/relatorios");
+
 // Chart colors from globals.css are in HEX, so we don't need hsl() wrapper
 const COLORS = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)"];
 
@@ -117,7 +120,7 @@ export default function DashboardPage() {
     movementsData
   } = useDashboardData({
     role: currentRole || undefined,
-    costCenterId: currentRole === "gestor" ? costCenter : selectedCostCenter,
+    costCenterId: isCostCenterScopedRole(currentRole) ? costCenter : selectedCostCenter,
     dateRange
   });
 
@@ -127,6 +130,7 @@ export default function DashboardPage() {
 
   const getMenuItems = () => {
     if (currentRole === "admin") return [...adminMenuItems, ...gestorMenuItems];
+    if (currentRole === "operador" || currentRole === "user") return operadorMenuItems;
     return gestorMenuItems;
   };
 

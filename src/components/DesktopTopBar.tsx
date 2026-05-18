@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/lib/auth-context";
+import { getRoleLabel } from "@/lib/roles";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Popover,
@@ -345,7 +346,7 @@ export function DesktopTopBar() {
             <div className="flex flex-col items-end hidden lg:flex">
               <span className="text-sm font-bold leading-none">{userName}</span>
               <span className="text-[10px] text-muted-foreground leading-none mt-1 uppercase tracking-wider font-semibold">
-                {currentRole === "admin" ? "Administrador" : "Gestor"}
+                {getRoleLabel(currentRole)}
               </span>
             </div>
             <Avatar className="w-9 h-9 rounded-xl shadow-lg shadow-primary/20 flex items-center justify-center group-hover:scale-105 transition-transform">

@@ -36,6 +36,9 @@ export default function MenuPage() {
   const getMenuItems = () => {
     const geral = allMenuItems.filter(i => i.category === "geral");
     if (currentRole === "admin") return [...geral, ...allMenuItems.filter(i => i.category !== "geral")];
+    if (currentRole === "operador" || currentRole === "user") {
+      return [...geral, ...allMenuItems.filter(i => i.category === "gestor" && i.href !== "/relatorios")];
+    }
     return [...geral, ...allMenuItems.filter(i => i.category === "gestor")];
   };
 
