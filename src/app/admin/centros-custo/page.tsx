@@ -41,6 +41,18 @@ import { Briefcase, Search, Plus, Edit, User as UserIcon, Check, ChevronsUpDown,
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
+function generateCostCenterCode(name?: string) {
+  const base = (name || "CENTRO")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .toUpperCase()
+    .slice(0, 24);
+
+  return base || "CENTRO";
+}
+
 export default function CostCentersPage() {
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -116,8 +128,13 @@ export default function CostCentersPage() {
 
     setIsSaving(true);
     try {
+      const payload: Partial<CostCenter> = {
+        ...newCenter,
+        code: newCenter.code || generateCostCenterCode(newCenter.name),
+      };
+
       // 1. Save the Cost Center
-      const savedCenter = await saveCostCenter(newCenter);
+      const savedCenter = await saveCostCenter(payload);
 
       if (savedCenter) {
         // 2. If a responsible was selected (and it changed or is new), update the User's cost_center
