@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { StockMovement, Product } from "@/lib/store";
-import { getMovements, saveMovement, getProducts } from "@/lib/db";
+import { getMovements, isPendingSync, saveMovement, getProducts } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { movementSchema } from "@/lib/validations";
@@ -180,7 +180,13 @@ export default function MovementsPage() {
 
     const saved = await saveMovement(payload, { name: userName, id: user?.id || "" });
     if (saved) {
-      toast.success("Movimentação registrada com sucesso!");
+      if (isPendingSync(saved)) {
+        toast.warning("Movimentacao registrada localmente.", {
+          description: "A sincronizacao com o Supabase ainda esta pendente.",
+        });
+      } else {
+        toast.success("Movimentacao registrada com sucesso!");
+      }
       setIsDialogOpen(false);
       setNewMovement({ type: "entrada" });
     } else {

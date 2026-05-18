@@ -3,7 +3,7 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { Asset } from "@/lib/store";
-import { saveAsset, deleteAsset, syncAssets } from "@/lib/db";
+import { isPendingSync, saveAsset, deleteAsset, syncAssets } from "@/lib/db";
 import { requestWriteOff } from "@/actions/write-off";
 import { db } from "@/lib/dexie-db";
 import { supabase } from "@/lib/supabase";
@@ -412,7 +412,13 @@ export default function PatrimonioPage() {
     const saved = await saveAsset(newAsset, { name: userName, id: user?.id || "" });
 
     if (saved) {
-      toast.success(editingAsset ? "Patrimônio atualizado com sucesso!" : "Patrimônio cadastrado com sucesso!");
+      if (isPendingSync(saved)) {
+        toast.warning(editingAsset ? "Patrimonio atualizado localmente." : "Patrimonio cadastrado localmente.", {
+          description: "A sincronizacao com o Supabase ainda esta pendente.",
+        });
+      } else {
+        toast.success(editingAsset ? "Patrimonio atualizado com sucesso!" : "Patrimonio cadastrado com sucesso!");
+      }
 
       addHistoryEntry({
         item_id: saved.id,

@@ -60,6 +60,29 @@ const isOnline = () => typeof window !== 'undefined' && window.navigator.onLine;
 const TIMEOUT_MS = 15000;
 // memoryCache removed in favor of Dexie
 
+export type PersistenceStatus = 'synced' | 'queued';
+export type Persisted<T> = T & {
+  __persistenceStatus?: PersistenceStatus;
+  __persistenceError?: string;
+};
+
+export function isPendingSync<T>(item: Persisted<T> | null | undefined): boolean {
+  return item?.__persistenceStatus === 'queued';
+}
+
+function withPersistenceStatus<T extends object>(
+  item: T,
+  status: PersistenceStatus,
+  error?: unknown
+): Persisted<T> {
+  const message = error instanceof Error ? error.message : undefined;
+  return {
+    ...item,
+    __persistenceStatus: status,
+    ...(message ? { __persistenceError: message } : {}),
+  };
+}
+
 async function withTimeout<T>(promise: PromiseLike<T>, timeoutMs: number = TIMEOUT_MS): Promise<T> {
   let timeoutId: NodeJS.Timeout;
   const timeoutPromise = new Promise<T>((_, reject) => {
@@ -177,7 +200,7 @@ async function getAllFiltered<T>(
   }
 }
 
-async function upsert<T extends { id?: string }>(table: string, item: Partial<T>): Promise<T | null> {
+async function upsert<T extends { id?: string }>(table: string, item: Partial<T>): Promise<Persisted<T> | null> {
   const tableRef = db.table(table);
 
   // 1. Optimistic Update (Local)
@@ -192,8 +215,8 @@ async function upsert<T extends { id?: string }>(table: string, item: Partial<T>
 
   // 2. Offline Handling
   if (!isOnline()) {
-    await addToSyncQueue({ table, action: 'upsert', payload: item });
-    return item as T;
+    const queued = await addToSyncQueue({ table, action: 'upsert', payload: item });
+    return queued ? withPersistenceStatus(item as T, 'queued') : null;
   }
 
   // 3. Online Handling
@@ -211,11 +234,11 @@ async function upsert<T extends { id?: string }>(table: string, item: Partial<T>
     // Update local with confirmed server data (e.g. correct ID, timestamps)
     await tableRef.put(data);
 
-    return data as T;
+    return withPersistenceStatus(data as T, 'synced');
   } catch (err) {
     console.error(`Sync error ${table}, queuing:`, err);
-    await addToSyncQueue({ table, action: 'upsert', payload: item });
-    return item as T;
+    const queued = await addToSyncQueue({ table, action: 'upsert', payload: item });
+    return queued ? withPersistenceStatus(item as T, 'queued', err) : null;
   }
 }
 

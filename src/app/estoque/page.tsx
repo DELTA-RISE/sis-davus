@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Product, mockProducts } from "@/lib/store";
-import { getProducts, saveProduct, deleteProduct } from "@/lib/db";
+import { getProducts, isPendingSync, saveProduct, deleteProduct } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { productSchema } from "@/lib/validations";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -236,7 +236,13 @@ export default function EstoquePage() {
     const saved = await saveProduct(payload, { name: userName, id: user?.id || "" });
 
     if (saved) {
-      toast.success(editingProduct ? "Produto atualizado com sucesso!" : "Produto cadastrado com sucesso!");
+      if (isPendingSync(saved)) {
+        toast.warning(editingProduct ? "Produto atualizado localmente." : "Produto cadastrado localmente.", {
+          description: "A sincronizacao com o Supabase ainda esta pendente.",
+        });
+      } else {
+        toast.success(editingProduct ? "Produto atualizado com sucesso!" : "Produto cadastrado com sucesso!");
+      }
 
       addHistoryEntry({
         item_id: saved.id,

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Checkout, Product, Asset, User as AppUser } from "@/lib/store";
-import { getCheckouts, saveCheckout, getProducts, getAssets, getUsers } from "@/lib/db";
+import { getCheckouts, isPendingSync, saveCheckout, getProducts, getAssets, getUsers } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -167,7 +167,13 @@ export default function CheckoutsPage() {
 
     const saved = await saveCheckout(payload, { name: userName, id: user?.id || "" });
     if (saved) {
-      toast.success("Checkout realizado!");
+      if (isPendingSync(saved)) {
+        toast.warning("Checkout salvo localmente.", {
+          description: "A sincronizacao com o Supabase ainda esta pendente.",
+        });
+      } else {
+        toast.success("Checkout realizado!");
+      }
       setIsDialogOpen(false);
       setNewCheckout({ item_type: "asset", quantity: 1 });
     } else {
@@ -180,7 +186,15 @@ export default function CheckoutsPage() {
     if (!checkout) return;
 
     const updated = await saveCheckout({ ...checkout, status: "Devolvido", return_date: new Date().toISOString() }, { name: userName, id: user?.id || "" });
-    if (updated) toast.success("Item devolvido!");
+    if (updated) {
+      if (isPendingSync(updated)) {
+        toast.warning("Devolucao salva localmente.", {
+          description: "A sincronizacao com o Supabase ainda esta pendente.",
+        });
+      } else {
+        toast.success("Item devolvido!");
+      }
+    }
   };
 
   const currentItems = newCheckout.item_type === "asset" ? assets : products;

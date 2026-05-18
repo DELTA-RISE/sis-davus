@@ -8,7 +8,7 @@ export async function addToSyncQueue(action: {
   table: string;
   action: 'upsert' | 'delete';
   payload: Record<string, unknown>;
-}) {
+}): Promise<boolean> {
   try {
     await db.sync_queue.add({
       table: action.table,
@@ -17,12 +17,14 @@ export async function addToSyncQueue(action: {
       timestamp: Date.now(),
       status: 'pending'
     });
-    toast.info("Alteração salva offline.", {
-      description: "Será sincronizada quando a conexão retornar."
+    toast.info("Alteracao salva offline.", {
+      description: "Sera sincronizada quando a conexao retornar."
     });
+    return true;
   } catch (error) {
     console.error("Failed to add to sync queue:", error);
-    toast.error("Erro ao salvar alteração offline.");
+    toast.error("Erro ao salvar alteracao offline.");
+    return false;
   }
 }
 
@@ -37,12 +39,11 @@ export async function processSyncQueue() {
 
   if (pendingActions.length === 0) return;
 
-  const toastId = toast.loading(`Sincronizando ${pendingActions.length} alterações...`);
+  const toastId = toast.loading(`Sincronizando ${pendingActions.length} alteracoes...`);
   let successCount = 0;
 
   for (const item of pendingActions) {
     try {
-      // Mark as syncing to avoid double processing
       await db.sync_queue.update(item.id!, { status: 'syncing' });
 
       let result;
@@ -54,7 +55,6 @@ export async function processSyncQueue() {
 
       if (result?.error) throw result.error;
 
-      // Remove from queue on success
       await db.sync_queue.delete(item.id!);
       successCount++;
     } catch (err: unknown) {
@@ -62,42 +62,38 @@ export async function processSyncQueue() {
       const error = err as any;
       console.error(`Failed to sync item ${item.id}:`, error);
 
-      // Check for permanent errors that shouldn't be retried
       const isPermanentError =
-        error.code === '23514' || // Check violation
-        error.code === '23505' || // Unique violation
-        error.code === 'PGRST204' || // Column not found
-        error.code === '42703' || // Undefined column
-        (error.code && error.code.startsWith('22')) || // Data exception
-        (error.status >= 400 && error.status < 500); // Client errors
+        error.code === '23514' ||
+        error.code === '23505' ||
+        error.code === 'PGRST204' ||
+        error.code === '42703' ||
+        (error.code && error.code.startsWith('22')) ||
+        (error.status >= 400 && error.status < 500);
 
       if (isPermanentError) {
         console.warn(`Cleaned up failing sync item ${item.id} due to permanent error:`, item.payload);
         await db.sync_queue.delete(item.id!);
-        toast.error(`Erro de sincronização permanente removido: ${error.message}`);
+        toast.error(`Erro permanente de sincronizacao: ${error.message}`);
       } else {
-        // Revert to pending (or maybe mark as failed if it's a permanent error?)
-        // For now, keep as pending to retry later
-        await db.sync_queue.update(item.id!, { status: 'failed' });
+        await db.sync_queue.update(item.id!, { status: 'pending' });
       }
     }
   }
 
   if (successCount > 0) {
-    toast.success(`${successCount} alterações sincronizadas!`, { id: toastId });
+    toast.success(`${successCount} alteracoes sincronizadas!`, { id: toastId });
   } else {
     toast.dismiss(toastId);
   }
 }
 
-// Global listener for online/offline events
 if (typeof window !== 'undefined') {
   window.addEventListener('online', () => {
-    toast.success("Conexão restaurada. Sincronizando...");
+    toast.success("Conexao restaurada. Sincronizando...");
     processSyncQueue();
   });
 
   window.addEventListener('offline', () => {
-    toast.warning("Você está offline. Alterações serão salvas localmente.");
+    toast.warning("Voce esta offline. Alteracoes serao salvas localmente.");
   });
 }
