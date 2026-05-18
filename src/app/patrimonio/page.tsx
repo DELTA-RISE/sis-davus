@@ -719,7 +719,7 @@ export default function PatrimonioPage() {
                             </Command>
                           </PopoverContent>
                         </Popover>
-                        {errors.responsible && <p className="text-xs text-destructive">{errors.responsible}</p>}
+                        {errors.assigned_to && <p className="text-xs text-destructive">{errors.assigned_to}</p>}
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">

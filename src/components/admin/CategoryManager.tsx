@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Plus, Edit, Trash2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -52,6 +52,10 @@ export function CategoryManager<T extends Category>({
     const [editingItem, setEditingItem] = useState<T | null>(null);
     const [formData, setFormData] = useState<Partial<T>>({});
     const [isLoading, setIsLoading] = useState(false);
+
+    useEffect(() => {
+        setData(initialData);
+    }, [initialData]);
 
     const filteredData = data.filter((item) =>
         item.name.toLowerCase().includes(searchTerm.toLowerCase())

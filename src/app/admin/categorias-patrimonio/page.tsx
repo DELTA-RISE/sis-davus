@@ -1,31 +1,36 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { CategoryManager } from "@/components/admin/CategoryManager";
-import { saveCategory, deleteCategory, syncCategories } from "@/lib/db";
-import { useCategories } from "@/hooks/use-queries";
-import { Category } from "@/lib/store";
+import {
+    Category,
+    createCategory,
+    deleteCategory,
+    getCategories,
+    updateCategory,
+} from "@/actions/categories";
 
 export default function CategoriasPatrimonioPage() {
-    const { categories, isLoading } = useCategories("patrimonio");
+    const [categories, setCategories] = useState<Category[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        syncCategories();
+        getCategories("patrimonio")
+            .then(setCategories)
+            .finally(() => setIsLoading(false));
     }, []);
 
     const handleCreate = async (data: Partial<Category>) => {
-        const created = await saveCategory({ ...data, type: "patrimonio" });
-        return created as Category;
+        return await createCategory({ ...data, type: "patrimonio" });
     };
 
     const handleUpdate = async (id: string, data: Partial<Category>) => {
-        const updated = await saveCategory({ ...data, id });
-        return updated as Category;
-    }
+        return await updateCategory(id, { ...data, type: "patrimonio" });
+    };
 
     const handleDelete = async (id: string) => {
         return await deleteCategory(id);
-    }
+    };
 
     if (isLoading) {
         return <div className="p-8 text-center text-muted-foreground">Carregando categorias...</div>;
@@ -33,9 +38,9 @@ export default function CategoriasPatrimonioPage() {
 
     return (
         <div className="p-6">
-            <h1 className="text-3xl font-bold tracking-tight mb-6">Categorias de Patrimônio</h1>
+            <h1 className="text-3xl font-bold tracking-tight mb-6">Categorias de Patrimonio</h1>
             <CategoryManager
-                title="Gerenciar Categorias de Patrimônio"
+                title="Gerenciar Categorias de Patrimonio"
                 initialData={categories}
                 createAction={handleCreate}
                 updateAction={handleUpdate}
