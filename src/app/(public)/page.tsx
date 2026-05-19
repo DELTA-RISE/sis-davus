@@ -116,24 +116,6 @@ export default function LandingPage() {
       <section className="border-b border-border">
         <div className="mx-auto grid min-h-[calc(100vh-5rem)] max-w-7xl grid-cols-1 items-center gap-8 px-5 py-10 sm:px-6 sm:py-14 lg:grid-cols-[1.05fr_0.95fr] lg:gap-12 lg:px-8">
           <div className="max-w-3xl">
-            <div className="mb-6 flex items-center gap-3 sm:mb-8">
-              <Image
-                src="/davus-logo.svg"
-                alt="SIS DAVUS"
-                width={48}
-                height={48}
-                priority
-                className="h-12 w-12"
-              />
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">
-                  SIS DAVUS
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Patrimônio, estoque e operação
-                </p>
-              </div>
-            </div>
 
             <h1 className="max-w-4xl text-3xl font-semibold leading-tight tracking-normal text-foreground sm:text-4xl md:text-6xl">
               Controle operacional completo, direto e leve para a Davus.
