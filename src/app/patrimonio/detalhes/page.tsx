@@ -648,12 +648,12 @@ export default function AssetHubPage() {
             </DialogContent>
           </Dialog>
 
-          <Link href={`/manutencao/nova?assetId=${asset.id}`}>
-            <Button variant="outline" className="h-12 w-full gap-2 border-orange-500/30 text-orange-600 hover:bg-orange-500/10">
-              <Wrench className="h-4 w-4" />
-              Solicitar Manutenção
-            </Button>
-          </Link>
+          <Button asChild variant="outline" className="h-12 w-full gap-2 border-orange-500/30 text-orange-600 hover:bg-orange-500/10">
+            <Link href={`/manutencao/nova?assetId=${asset.id}`}>
+              <Wrench className="h-4 w-4 shrink-0" />
+              <span className="truncate">Solicitar Manutenção</span>
+            </Link>
+          </Button>
 
           <Dialog open={checkoutDialogOpen} onOpenChange={setCheckoutDialogOpen}>
             <DialogTrigger asChild>
