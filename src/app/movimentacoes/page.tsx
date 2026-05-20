@@ -79,6 +79,7 @@ export default function MovementsPage() {
   // const [deleteMovementId, setDeleteMovementId] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [openProductSelect, setOpenProductSelect] = useState(false);
+  const [prefillApplied, setPrefillApplied] = useState(false);
   const [newMovement, setNewMovement] = useState<Partial<StockMovement>>({
     type: "entrada",
   });
@@ -106,6 +107,21 @@ export default function MovementsPage() {
       supabase.removeChannel(channel);
     };
   }, [loadData]);
+
+  useEffect(() => {
+    if (prefillApplied || products.length === 0 || typeof window === "undefined") return;
+
+    const params = new URLSearchParams(window.location.search);
+    const productId = params.get("productId");
+    if (!productId || !products.some((product) => product.id === productId)) return;
+
+    setNewMovement({
+      type: params.get("type") === "saida" ? "saida" : "entrada",
+      product_id: productId,
+    });
+    setIsDialogOpen(true);
+    setPrefillApplied(true);
+  }, [products, prefillApplied]);
 
   const filteredMovements = useMemo(() => {
     return movements.filter((m) => {
@@ -157,6 +173,14 @@ export default function MovementsPage() {
 
     const product = products.find((p) => p.id === newMovement.product_id);
     if (!product) return;
+
+    if (newMovement.type === "saida" && (newMovement.quantity || 0) > (product.quantity || 0)) {
+      toast.error("Saldo insuficiente", {
+        description: `Este item possui ${product.quantity || 0} unidades disponíveis.`
+      });
+      return;
+    }
+
     const payload: Partial<StockMovement> = {
       ...newMovement,
       product_name: product.name,
@@ -168,12 +192,13 @@ export default function MovementsPage() {
     const saved = await saveMovement(payload, { name: userName, id: user?.id || "" });
     if (saved) {
       if (isPendingSync(saved)) {
-        toast.warning("Movimentacao registrada localmente.", {
-          description: "A sincronizacao com o Supabase ainda esta pendente.",
+        toast.warning("Movimentação registrada localmente.", {
+          description: "A sincronização com o Supabase ainda está pendente.",
         });
       } else {
-        toast.success("Movimentacao registrada com sucesso!");
+        toast.success("Movimentação registrada com sucesso!");
       }
+      await loadData(true);
       setIsDialogOpen(false);
       setNewMovement({ type: "entrada" });
     } else {

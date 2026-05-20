@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import Link from "next/link";
 import { Product } from "@/lib/store";
 import { getProducts, isPendingSync, saveProduct, deleteProduct } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
@@ -44,6 +45,8 @@ import {
   Package,
   Search,
   Plus,
+  ArrowDownRight,
+  ArrowUpRight,
   Edit,
   Trash2,
   AlertTriangle,
@@ -538,7 +541,7 @@ export default function EstoquePage() {
               {lowStockCount > 0 && (
                 <Badge variant="destructive" className="flex-shrink-0 gap-1">
                   <AlertTriangle className="h-3 w-3" />
-                  {lowStockCount} em ruptura
+                  {lowStockCount} com estoque baixo
                 </Badge>
               )}
               {highStockCount > 0 && (
@@ -640,6 +643,16 @@ export default function EstoquePage() {
                               Total: R$ {((product.quantity || 0) * (product.unit_price || 0)).toFixed(2)}
                             </p>
                             <div className="flex gap-1 mt-1">
+                              <Button asChild variant="ghost" size="sm" className="h-7 w-7 p-0 text-green-600 hover:text-green-600" title="Registrar entrada">
+                                <Link href={`/movimentacoes?productId=${product.id}&type=entrada`}>
+                                  <ArrowUpRight className="h-4 w-4" />
+                                </Link>
+                              </Button>
+                              <Button asChild variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-600 hover:text-red-600" title="Registrar saída">
+                                <Link href={`/movimentacoes?productId=${product.id}&type=saida`}>
+                                  <ArrowDownRight className="h-4 w-4" />
+                                </Link>
+                              </Button>
                               <Button variant="ghost" size="sm" onClick={() => handleEdit(product)} className="h-7 w-7 p-0">
                                 <Edit className="h-4 w-4" />
                               </Button>

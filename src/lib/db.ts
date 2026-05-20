@@ -496,7 +496,38 @@ export const restoreAsset = async (id: string, userInfo?: { name: string, id: st
 // Movements
 export const getMovements = (forceRefresh = false) => getAll<StockMovement>('stock_movements', 'date', false, forceRefresh);
 export const saveMovement = async (movement: Partial<StockMovement>, userInfo?: { name: string, id: string }) => {
+  const quantity = Number(movement.quantity || 0);
+  const productId = movement.product_id;
+
+  if (!productId || !movement.type || quantity <= 0) return null;
+
+  const currentProduct = await db.products.get(productId);
+  if (!currentProduct) {
+    notifyClientError("Produto não encontrado", "Não foi possível atualizar o saldo do estoque.");
+    return null;
+  }
+
+  const nextQuantity = movement.type === "entrada"
+    ? (currentProduct.quantity || 0) + quantity
+    : (currentProduct.quantity || 0) - quantity;
+
+  if (nextQuantity < 0) {
+    notifyClientError(
+      "Saldo insuficiente",
+      `A saída solicitada excede o saldo atual de ${currentProduct.quantity || 0} unidades.`
+    );
+    return null;
+  }
+
   const result = await upsert<StockMovement>('stock_movements', movement as StockMovement);
+  if (!result) return null;
+
+  await upsert<Product>('products', {
+    ...currentProduct,
+    quantity: nextQuantity,
+    updated_at: new Date().toISOString(),
+  });
+
   if (result && userInfo) {
     await logActivity(
       movement.type === "entrada" ? "CREATE" : "DELETE",
