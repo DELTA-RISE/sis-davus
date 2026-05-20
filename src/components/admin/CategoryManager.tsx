@@ -24,6 +24,8 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { useAuth } from "@/lib/auth-context";
+import { logActivity } from "@/lib/db";
 
 interface Category {
     id: string;
@@ -47,6 +49,7 @@ export function CategoryManager<T extends Category>({
     updateAction,
     deleteAction,
 }: CategoryManagerProps<T>) {
+    const { userName } = useAuth();
     const [data, setData] = useState<T[]>(initialData);
     const [searchTerm, setSearchTerm] = useState("");
     const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -86,10 +89,12 @@ export function CategoryManager<T extends Category>({
             if (editingItem) {
                 const updated = await updateAction(editingItem.id, formData);
                 setData((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+                await logActivity("UPDATE", "CATEGORIA", { name: updated.name, description: updated.description }, updated.id, userName);
                 toast.success("Categoria atualizada com sucesso!");
             } else {
                 const created = await createAction(formData);
                 setData((prev) => [created, ...prev]);
+                await logActivity("CREATE", "CATEGORIA", { name: created.name, description: created.description }, created.id, userName);
                 toast.success("Categoria criada com sucesso!");
             }
             setIsDialogOpen(false);
@@ -107,6 +112,7 @@ export function CategoryManager<T extends Category>({
         try {
             await deleteAction(deleteItem.id);
             setData((prev) => prev.filter((item) => item.id !== deleteItem.id));
+            await logActivity("DELETE", "CATEGORIA", { name: deleteItem.name, description: deleteItem.description }, deleteItem.id, userName);
             toast.success("Categoria excluida com sucesso!");
             setDeleteItem(null);
         } catch (error) {

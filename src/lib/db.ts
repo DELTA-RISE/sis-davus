@@ -687,7 +687,19 @@ export const saveCheckout = async (checkout: Partial<Checkout>, userInfo?: { nam
 // Cost Centers
 export const getCostCenters = (forceRefresh = false) => getAll<CostCenter>('cost_centers', 'name', true, forceRefresh);
 export const syncCostCenters = () => syncTable('cost_centers', 'name', true);
-export const saveCostCenter = (cc: Partial<CostCenter>) => upsert<CostCenter>('cost_centers', cc as CostCenter);
+export const saveCostCenter = async (cc: Partial<CostCenter>, userInfo?: { name: string, id: string }) => {
+  const result = await upsert<CostCenter>('cost_centers', cc as CostCenter);
+  if (result && userInfo) {
+    await logActivity(
+      cc.id ? 'UPDATE' : 'CREATE',
+      'CENTRO_CUSTO',
+      { name: result.name, code: result.code, status: result.status },
+      result.id,
+      userInfo.name
+    );
+  }
+  return result;
+};
 
 // Categories
 export const getCategories = (type: 'insumo' | 'patrimonio', forceRefresh = false) => {
@@ -714,7 +726,7 @@ export const logActivity = async (
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) return null;
 
-    const _deviceInfo = getDeviceInfo();
+    const deviceInfo = getDeviceInfo();
 
     // Construct the log entry matching admin_audit_logs table
     const logEntry = {
@@ -725,9 +737,11 @@ export const logActivity = async (
       action,
       resource,
       resource_id: resourceId,
-      details: details, // Supabase handles object -> JSONB
-      ip_address: await getPublicIp(),
-      user_agent: window.navigator.userAgent
+      details: {
+        ...(typeof details === 'object' && details !== null ? details : { value: details }),
+        device: deviceInfo,
+      },
+      user_agent: typeof window !== 'undefined' ? window.navigator.userAgent : undefined
     };
 
     return upsert<AuditLog>('admin_audit_logs', logEntry as unknown as AuditLog);

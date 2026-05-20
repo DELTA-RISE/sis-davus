@@ -40,6 +40,7 @@ import {
 import { Briefcase, Search, Plus, Edit, User as UserIcon, Check, ChevronsUpDown, Users } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth-context";
 
 function generateCostCenterCode(name?: string) {
   const base = (name || "CENTRO")
@@ -54,6 +55,7 @@ function generateCostCenterCode(name?: string) {
 }
 
 export default function CostCentersPage() {
+  const { user, userName } = useAuth();
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   // const [isLoading, setIsLoading] = useState(true);
@@ -134,7 +136,7 @@ export default function CostCentersPage() {
       };
 
       // 1. Save the Cost Center
-      const savedCenter = await saveCostCenter(payload);
+      const savedCenter = await saveCostCenter(payload, { name: userName, id: user?.id || "" });
 
       if (savedCenter) {
         // 2. If a responsible was selected (and it changed or is new), update the User's cost_center
