@@ -60,6 +60,7 @@ import {
   FileWarning,
   Check,
   ChevronsUpDown,
+  Briefcase,
 } from "lucide-react";
 import {
   Command,
@@ -94,18 +95,18 @@ const conditionColors: Record<string, string> = {
 
 // ... imports
 
-import { getPatrimoniosCategories } from "@/app/actions/categories";
-import { PatrimonioCategory } from "@/lib/store";
+import { getCategories } from "@/lib/db";
+import { Category } from "@/lib/store";
 
 export default function PatrimonioPage() {
   const { userName, user, currentRole } = useAuth();
   // const { isDemoMode } = useOnboarding();
 
   // Categories State
-  const [categories, setCategories] = useState<PatrimonioCategory[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
 
   useEffect(() => {
-    getPatrimoniosCategories().then(setCategories);
+    getCategories("patrimonio").then(setCategories);
   }, []);
 
   const filterConfigs: FilterConfig[] = useMemo(() => [
@@ -860,6 +861,13 @@ export default function PatrimonioPage() {
                         <div className="flex items-start gap-3">
                           <div className="mt-1" onClick={(e) => e.stopPropagation()}>
                             <Checkbox checked={isSelected} onCheckedChange={() => toggleSelect(asset.id)} />
+                          </div>
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-primary/10`}>
+                            {asset.image_url ? (
+                              <img src={asset.image_url} alt={asset.name} className="w-full h-full object-cover rounded-xl" />
+                            ) : (
+                              <Briefcase className="h-5 w-5 text-primary" />
+                            )}
                           </div>
                           <div className="flex-1 min-w-0">
                             <Link href={`/patrimonio/detalhes?id=${asset.id}`} className="block group" onClick={(e) => e.stopPropagation()}>
