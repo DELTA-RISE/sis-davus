@@ -68,8 +68,9 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
 import { motion, AnimatePresence } from "framer-motion";
-import { ImageUpload } from "@/components/ui/image-upload"; // Imported component
-import { Category, getCategories } from "@/actions/categories";
+import { ImageUpload } from "@/components/ui/image-upload";
+import { getCategories } from "@/lib/db";
+import { Category } from "@/lib/store";
 
 // FilterConfigs moved inside component
 
@@ -596,9 +597,13 @@ export default function EstoquePage() {
                           <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${stockStatus === "low" ? "bg-red-500/20" :
                             stockStatus === "high" ? "bg-amber-500/20" : "bg-primary/20"
                             }`}>
+                            {product.image_url ? (
+                              <img src={product.image_url} alt={product.name} className="w-full h-full object-cover rounded-xl" />
+                            ) : (
                             <Package className={`h-5 w-5 ${stockStatus === "low" ? "text-red-500" :
                               stockStatus === "high" ? "text-amber-500" : "text-primary"
                               }`} />
+                            )}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">

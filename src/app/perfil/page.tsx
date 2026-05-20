@@ -101,9 +101,9 @@ export default function PerfilPage() {
           </div>
 
           <CardContent className="p-4 md:p-6 -mt-10 relative">
-            <div className="flex items-end justify-between gap-4">
-              <div className="flex items-end gap-4">
-                <div className="relative">
+            <div className="flex items-start justify-between gap-2 md:gap-4 w-full">
+              <div className="flex items-end gap-3 md:gap-4 flex-1 min-w-0">
+                <div className="relative shrink-0">
                   <Avatar className="w-20 h-20 md:w-24 md:h-24 rounded-2xl border-4 border-card bg-muted shadow-lg">
                     <AvatarImage src={gravatarUrl || undefined} alt={userName} />
                     <AvatarFallback className="rounded-2xl bg-primary/20">
@@ -118,12 +118,12 @@ export default function PerfilPage() {
                     <div className="w-4 h-4 rounded-full bg-green-500 border-2 border-background" title="Gravatar Sync Active" />
                   </div>
                 </div>
-                <div className="flex-1 pb-1">
-                  <h1 className="text-xl md:text-2xl font-bold">{userName}</h1>
+                <div className="flex-1 min-w-0 pb-1 pt-10 sm:pt-0">
+                  <h1 className="text-lg md:text-2xl font-bold break-all leading-tight">{userName}</h1>
                   <div className="flex items-center gap-2 mt-1">
-                    <Badge variant="outline" className="text-xs gap-1 bg-background/50 backdrop-blur-sm">
-                      <Shield className="h-3 w-3" />
-                      {getRoleLabel(currentRole)}
+                    <Badge variant="outline" className="text-[10px] md:text-xs gap-1 bg-background/50 backdrop-blur-sm whitespace-nowrap">
+                      <Shield className="h-3 w-3 shrink-0" />
+                      <span>{getRoleLabel(currentRole)}</span>
                     </Badge>
                   </div>
                 </div>
@@ -182,14 +182,14 @@ export default function PerfilPage() {
             </div>
 
             <div className="flex flex-col gap-1 mt-4">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Mail className="h-4 w-4" />
-                <span>{email || "Nenhum e-mail vinculado"}</span>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground min-w-0">
+                <Mail className="h-4 w-4 shrink-0" />
+                <span className="truncate">{email || "Nenhum e-mail vinculado"}</span>
               </div>
               {gravatarEmail && gravatarEmail !== email && (
-                <div className="flex items-center gap-2 text-[10px] text-muted-foreground/70 ml-6">
-                  <div className="w-1 h-1 rounded-full bg-primary/40" />
-                  Gravatar: {gravatarEmail}
+                <div className="flex items-center gap-2 text-[10px] text-muted-foreground/70 ml-6 min-w-0">
+                  <div className="w-1 h-1 rounded-full bg-primary/40 shrink-0" />
+                  <span className="truncate">Gravatar: {gravatarEmail}</span>
                 </div>
               )}
             </div>

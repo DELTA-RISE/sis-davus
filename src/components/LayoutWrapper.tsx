@@ -61,7 +61,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
       <Sidebar />
 
       <main
-        className={`flex-1 transition-all duration-300 pt-14 md:pt-16 pb-20 md:pb-0 ${isCollapsed ? "md:ml-20" : "md:ml-64"}`}
+        className={`flex-1 transition-all duration-300 pt-14 md:pt-16 pb-20 md:pb-0 min-w-0 overflow-x-hidden ${isCollapsed ? "md:ml-20" : "md:ml-64"}`}
       >
         <div className="md:hidden">
           <TopBar />
@@ -69,7 +69,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
         <DesktopTopBar />
 
         {/* Content Animation Wrapper */}
-        <div className="container mx-auto max-w-7xl h-full">
+        <div className="w-full max-w-7xl mx-auto h-full overflow-x-hidden">
           {children}
         </div>
       </main>

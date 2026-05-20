@@ -187,10 +187,12 @@
   html {
     scroll-behavior: smooth;
     position: relative;
+    overflow-x: hidden;
   }
 
   body {
     position: relative;
+    overflow-x: hidden;
   }
 }
 
@@ -408,4 +410,10 @@ nextjs-portal {
 
 .glass-card-border:hover::before {
   opacity: 1;
+}
+
+/* Remove native password reveal icon */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
 }
