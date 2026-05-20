@@ -12,7 +12,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useDashboardData } from "@/hooks/useDashboardData";
-import { isCostCenterScopedRole, isOperatorRole } from "@/lib/roles";
+import { isOperatorRole } from "@/lib/roles";
 
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { PageTransition, SlideUp, StaggerContainer, StaggerItem } from "@/components/PageTransition";
@@ -91,7 +91,7 @@ const categoryChartConfig = {
 } satisfies ChartConfig;
 
 export default function DashboardPage() {
-  const { currentRole, costCenter } = useAuth();
+  const { currentRole } = useAuth();
   const [costCenters, setCostCenters] = useState<{ id: string, name: string }[]>([]);
   const [selectedCostCenter, setSelectedCostCenter] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
@@ -120,7 +120,7 @@ export default function DashboardPage() {
     movementsData
   } = useDashboardData({
     role: currentRole || undefined,
-    costCenterId: isCostCenterScopedRole(currentRole) ? costCenter : selectedCostCenter,
+    costCenterId: selectedCostCenter,
     dateRange
   });
 

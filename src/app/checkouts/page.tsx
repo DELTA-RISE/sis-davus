@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Checkout, Product, Asset, User as AppUser } from "@/lib/store";
 import { getCheckouts, isPendingSync, saveCheckout, getProducts, getAssets, getUsers } from "@/lib/db";
-import { isCostCenterScopedRole } from "@/lib/roles";
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -79,7 +78,7 @@ const statusIcons = {
 };
 
 export default function CheckoutsPage() {
-  const { userName, user, costCenter } = useAuth();
+  const { userName, user } = useAuth();
   const [checkouts, setCheckouts] = useState<Checkout[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -131,34 +130,6 @@ export default function CheckoutsPage() {
     const items = newCheckout.item_type === "asset" ? assets : products;
     const item = items.find((i) => i.id === newCheckout.item_id);
     if (!item) return;
-
-    // Restriction: Manager can only checkout items assigned to them (Assets) or their Cost Center (Products)
-    if (isCostCenterScopedRole(user?.role)) {
-      if (newCheckout.item_type === 'asset') {
-        // For assets, must be assigned to the manager? Or is "associado a ele" meaning assigned to him?
-        // User request: "caso esteja associado a ele e não necessariamente a obra"
-        const assetItem = item as Asset;
-        // Check if assigned_to matches user.id OR maybe user.name if ids aren't consistent, but prefer ID.
-        // If assigned_to is a name, we might have issues. store.ts says assigned_to?: string.
-        // Let's assume it stores ID or Name. The save operation uses userName usually.
-        // But strict reading: "associado a ele" -> assigned_to check.
-
-        // Restriction: Manager can only checkout items assigned to them (Assets) or their Cost Center (Products)
-        const isAssignedToUser = assetItem.assigned_to === user?.id || assetItem.assigned_to === userName;
-
-        if (!isAssignedToUser) {
-          toast.error("Você só pode realizar empréstimos de patrimônios associados a você.");
-          return;
-        }
-      } else if (newCheckout.item_type === 'product') {
-        const prodItem = item as Product;
-        if (costCenter && prodItem.cost_center !== costCenter) {
-          toast.error(`Você só pode realizar empréstimos de insumos do seu Centro de Custo (${costCenter}).`);
-          return;
-        }
-      }
-    }
-
     const payload: Partial<Checkout> = {
       ...newCheckout,
       item_name: item.name,

@@ -6,7 +6,6 @@ import { createUserAction, deleteUserAction, updateUserPasswordAction } from "@/
 import { useAuth } from "@/lib/auth-context";
 import { useUsers, useCostCenters } from "@/hooks/use-queries";
 import { User, UserRole } from "@/lib/store";
-import { isCostCenterScopedRole } from "@/lib/roles";
 import { userSchema } from "@/lib/validations";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -229,7 +228,7 @@ export default function UsersPage() {
           email: newUser.email || "",
           role: newUser.role || 'gestor',
           status: (newUser.status === 'ativo' || newUser.status === 'inativo') ? newUser.status : 'ativo',
-          cost_center: isCostCenterScopedRole(newUser.role) && newUser.cost_center ? newUser.cost_center : null
+          cost_center: newUser.cost_center || null
         }, {
           userName,
           userId: user?.id || "",

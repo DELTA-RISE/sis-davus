@@ -15,7 +15,7 @@ import {
   WriteOffRequest,
   Category
 } from './store';
-import { isCostCenterScopedRole, normalizeRole } from './roles';
+import { normalizeRole } from './roles';
 
 const notifyClientError = (title: string, description?: string) => {
   if (typeof window === 'undefined') return;
@@ -171,7 +171,7 @@ async function getAllFiltered<T>(
     const localData = await db.table(table).toArray();
     let filtered = localData.filter((item) => !item.deleted_at); // Exclude soft deleted
 
-    if (isCostCenterScopedRole(userInfo.role) && userInfo.cost_center) {
+    if (userInfo.cost_center) {
       filtered = filtered.filter((item) => item.cost_center === userInfo.cost_center);
     }
 
@@ -192,7 +192,7 @@ async function getAllFiltered<T>(
       .is('deleted_at', null) // Exclude soft deleted
       .order(orderColumn as string, { ascending });
 
-    if (isCostCenterScopedRole(userInfo.role) && userInfo.cost_center) {
+    if (userInfo.cost_center) {
       query = query.eq('cost_center', userInfo.cost_center);
     }
 
@@ -348,30 +348,7 @@ async function remove(table: string, id: string): Promise<boolean> {
 // Products
 // Products
 export const getProducts = async (_forceRefresh = false, costCenterId?: string | null) => {
-  const { data: { session } } = await supabase.auth.getSession();
-  const userRole = session?.user?.user_metadata?.role || null;
-  const userCostCenter = session?.user?.user_metadata?.cost_center || null;
-
-  let role = userRole;
-  let costCenter = userCostCenter;
-
-  if (session?.user?.id) {
-    const profile = await getProfile(session.user.id);
-    if (profile) {
-      role = profile.role;
-      // If user is manager, force their cost center. If admin, allow override via argument.
-      if (isCostCenterScopedRole(role)) {
-        costCenter = (profile as unknown as { cost_center: string }).cost_center;
-      } else if (role === 'admin' && costCenterId) {
-        costCenter = costCenterId;
-      }
-    }
-  }
-
-  // If explicitly passed (e.g. from admin dashboard) and user is admin (checked above implicitly or by caller trusting admin role), use it.
-  // The above logic handles: Manager -> forced to own CC. Admin -> uses arg if present.
-
-  return getAllFiltered<Product>('products', { role, cost_center: costCenter }, 'name', true);
+  return getAllFiltered<Product>('products', { role: null, cost_center: costCenterId || null }, 'name', true);
 };
 
 export const saveProduct = async (product: Partial<Product>, userInfo?: { name: string, id: string }) => {
@@ -419,50 +396,17 @@ export const restoreProduct = async (id: string, userInfo?: { name: string, id: 
 
 // Assets
 export const getAssets = async (_forceRefresh = false, costCenterId?: string | null) => {
-  const { data: { session } } = await supabase.auth.getSession();
-  let role = session?.user?.user_metadata?.role;
-  let costCenter = session?.user?.user_metadata?.cost_center;
-
-  if (session?.user?.id) {
-    const profile = await getProfile(session.user.id);
-    if (profile) {
-      role = profile.role;
-      if (isCostCenterScopedRole(role)) {
-        costCenter = (profile as unknown as { cost_center: string }).cost_center;
-      } else if (role === 'admin' && costCenterId) {
-        costCenter = costCenterId;
-      }
-    }
-  }
-  return getAllFiltered<Asset>('assets', { role, cost_center: costCenter }, 'name', true);
+  return getAllFiltered<Asset>('assets', { role: null, cost_center: costCenterId || null }, 'name', true);
 };
 
 export const syncAssets = async () => {
   if (!isOnline()) return;
 
-  const { data: { session } } = await supabase.auth.getSession();
-  let role = session?.user?.user_metadata?.role;
-  let costCenter = session?.user?.user_metadata?.cost_center;
-
-  if (session?.user?.id) {
-    const profile = await getProfile(session.user.id);
-    if (profile) {
-      role = profile.role;
-      if (isCostCenterScopedRole(role)) {
-        costCenter = (profile as unknown as { cost_center: string }).cost_center;
-      }
-    }
-  }
-
   try {
-    let query = supabase
+    const query = supabase
       .from('assets')
       .select('*')
       .is('deleted_at', null);
-
-    if (isCostCenterScopedRole(role) && costCenter) {
-      query = query.eq('cost_center', costCenter);
-    }
 
     const { data, error } = await withTimeout(query);
 
@@ -567,26 +511,6 @@ export const saveMovement = async (movement: Partial<StockMovement>, userInfo?: 
 
 // Maintenance
 export const getMaintenanceTasks = async (assetId?: string, forceRefresh = false) => {
-  const { data: { session } } = await supabase.auth.getSession();
-  let role = session?.user?.user_metadata?.role;
-  let costCenter = session?.user?.user_metadata?.cost_center;
-
-  if (session?.user?.id) {
-    // If getProfile is available in scope (it is exported below, but imported ones work too)
-    // Note: getProfile is defined below. To avoid issues, we can try to rely on session or just use supabase direct.
-    // getAssets uses getProfile so it should be fine if function hoisting works or if we are careful.
-    // However, to be safe and consistent with getAssets:
-    try {
-      const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
-      if (data) {
-        role = data.role;
-        if (isCostCenterScopedRole(role)) {
-          costCenter = (data as unknown as { cost_center: string }).cost_center;
-        }
-      }
-    } catch (_e) { /* ignore */ }
-  }
-
   // Offline / Dexie
   if (!isOnline()) {
     const tasks = await getAll<MaintenanceTask>('maintenance_tasks', 'due_date', true, forceRefresh);
@@ -596,28 +520,14 @@ export const getMaintenanceTasks = async (assetId?: string, forceRefresh = false
       filtered = filtered.filter(t => t.asset_id === assetId);
     }
 
-    if (isCostCenterScopedRole(role) && costCenter) {
-      try {
-        const myAssets = await db.assets.where('cost_center').equals(costCenter).toArray();
-        const myAssetIds = new Set(myAssets.map(a => a.id));
-        filtered = filtered.filter(t => myAssetIds.has(t.asset_id));
-      } catch (e) {
-        console.warn("Offline filtering failed", e);
-      }
-    }
     return filtered;
   }
 
   // Online / Supabase
-  // We use !inner join to filter tasks ensuring the related asset belongs to the cost center.
   let query = supabase.from('maintenance_tasks').select('*, assets!inner(cost_center)').order('due_date', { ascending: true });
 
   if (assetId) {
     query = query.eq('asset_id', assetId);
-  }
-
-  if (isCostCenterScopedRole(role) && costCenter) {
-    query = query.eq('assets.cost_center', costCenter);
   }
 
   try {
