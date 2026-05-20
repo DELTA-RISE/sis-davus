@@ -4,6 +4,8 @@ import { toast } from "sonner";
 import { db } from "./dexie-db";
 import { supabase } from "./supabase";
 
+const pluralizeChanges = (count: number) => `${count} ${count === 1 ? "alteração" : "alterações"}`;
+
 export async function addToSyncQueue(action: {
   table: string;
   action: 'upsert' | 'delete';
@@ -17,13 +19,15 @@ export async function addToSyncQueue(action: {
       timestamp: Date.now(),
       status: 'pending'
     });
-    toast.info("Alteracao salva offline.", {
-      description: "Sera sincronizada quando a conexao retornar."
+    toast.info("Alteração salva localmente", {
+      description: "O SIS DAVUS sincronizará os dados assim que a conexão for restabelecida."
     });
     return true;
   } catch (error) {
     console.error("Failed to add to sync queue:", error);
-    toast.error("Erro ao salvar alteracao offline.");
+    toast.error("Erro ao salvar alteração local", {
+      description: "Não foi possível preservar essa ação para sincronização."
+    });
     return false;
   }
 }
@@ -39,7 +43,9 @@ export async function processSyncQueue() {
 
   if (pendingActions.length === 0) return;
 
-  const toastId = toast.loading(`Sincronizando ${pendingActions.length} alteracoes...`);
+  const toastId = toast.loading("SIS DAVUS sincronizando dados", {
+    description: `${pluralizeChanges(pendingActions.length)} pendentes na fila de sincronização.`
+  });
   let successCount = 0;
 
   for (const item of pendingActions) {
@@ -73,7 +79,9 @@ export async function processSyncQueue() {
       if (isPermanentError) {
         console.warn(`Cleaned up failing sync item ${item.id} due to permanent error:`, item.payload);
         await db.sync_queue.delete(item.id!);
-        toast.error(`Erro permanente de sincronizacao: ${error.message}`);
+        toast.error("Falha permanente na sincronização", {
+          description: error.message || "A alteração foi removida da fila por incompatibilidade com o banco de dados."
+        });
       } else {
         await db.sync_queue.update(item.id!, { status: 'pending' });
       }
@@ -81,7 +89,10 @@ export async function processSyncQueue() {
   }
 
   if (successCount > 0) {
-    toast.success(`${successCount} alteracoes sincronizadas!`, { id: toastId });
+    toast.success("Sincronização concluída", {
+      id: toastId,
+      description: `${pluralizeChanges(successCount)} enviadas com sucesso para o Supabase.`
+    });
   } else {
     toast.dismiss(toastId);
   }

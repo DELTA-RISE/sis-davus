@@ -1,34 +1,36 @@
 "use client";
 
 import { useEffect } from "react";
-
-import { processSyncQueue } from "@/lib/offline-sync";
 import { toast } from "sonner";
 
 import { RealtimeManager } from "@/components/RealtimeManager";
+import { processSyncQueue } from "@/lib/offline-sync";
 
 export function SyncProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const handleOnline = () => {
-      toast.success("Conexão restaurada! Sincronizando dados...");
+      toast.success("Conexão restabelecida", {
+        description: "O SIS DAVUS verificará se existem alterações pendentes.",
+      });
       processSyncQueue();
     };
 
     const handleOffline = () => {
-      toast.error("Você está offline. Alterações serão salvas localmente.");
+      toast.warning("Conexão indisponível", {
+        description: "As próximas alterações serão salvas localmente até a reconexão.",
+      });
     };
 
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
 
-    // Initial check
     if (navigator.onLine) {
       processSyncQueue();
     }
 
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
     };
   }, []);
 
