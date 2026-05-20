@@ -25,30 +25,32 @@ export function CalendarDateRangePicker({
 }) {
 
     return (
-        <div className={cn("grid gap-2", className)}>
+        <div className={cn("grid gap-2 w-[260px] max-w-full min-w-0", className)}>
             <Popover>
                 <PopoverTrigger asChild>
                     <Button
                         id="date"
                         variant={"outline"}
                         className={cn(
-                            "w-[260px] justify-start text-left font-normal",
+                            "w-full min-w-0 justify-start text-left font-normal",
                             !date && "text-muted-foreground"
                         )}
                     >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {date?.from ? (
-                            date.to ? (
-                                <>
-                                    {format(date.from, "LLL dd, y", { locale: ptBR })} -{" "}
-                                    {format(date.to, "LLL dd, y", { locale: ptBR })}
-                                </>
+                        <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+                        <span className="truncate">
+                            {date?.from ? (
+                                date.to ? (
+                                    <>
+                                        {format(date.from, "LLL dd, y", { locale: ptBR })} -{" "}
+                                        {format(date.to, "LLL dd, y", { locale: ptBR })}
+                                    </>
+                                ) : (
+                                    format(date.from, "LLL dd, y", { locale: ptBR })
+                                )
                             ) : (
-                                format(date.from, "LLL dd, y", { locale: ptBR })
-                            )
-                        ) : (
-                            <span>Selecione uma data</span>
-                        )}
+                                "Selecione uma data"
+                            )}
+                        </span>
                     </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="end">

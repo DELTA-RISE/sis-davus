@@ -18,7 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { useSidebar } from "@/lib/sidebar-context";
-import { isCostCenterScopedRole } from "@/lib/roles";
+import { isCostCenterScopedRole, isOperatorRole } from "@/lib/roles";
 
 const adminItems = [
   { href: "/admin/logs", icon: FileText, label: "Logs de Auditoria" },
@@ -42,7 +42,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const { isCollapsed, setIsCollapsed } = useSidebar();
   const { currentRole, costCenter } = useAuth();
-  const visibleGestaoItems = currentRole === "operador" || currentRole === "user" ? operadorItems : gestorItems;
+  const visibleGestaoItems = isOperatorRole(currentRole) || currentRole === "user" ? operadorItems : gestorItems;
 
   return (
     <aside

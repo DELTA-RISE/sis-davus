@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
+import { isOperatorRole } from "@/lib/roles";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 
@@ -48,7 +49,7 @@ export function BottomNav() {
   const ferramentasOperador = ferramentasGestor.filter((item) => item.href !== "/relatorios");
   const ferramentas = currentRole === "admin"
     ? ferramentasAdmin
-    : currentRole === "operador" || currentRole === "user"
+    : isOperatorRole(currentRole) || currentRole === "user"
       ? ferramentasOperador
       : ferramentasGestor;
 

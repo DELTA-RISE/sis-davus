@@ -12,7 +12,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useDashboardData } from "@/hooks/useDashboardData";
-import { isCostCenterScopedRole } from "@/lib/roles";
+import { isCostCenterScopedRole, isOperatorRole } from "@/lib/roles";
 
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { PageTransition, SlideUp, StaggerContainer, StaggerItem } from "@/components/PageTransition";
@@ -130,7 +130,7 @@ export default function DashboardPage() {
 
   const getMenuItems = () => {
     if (currentRole === "admin") return [...adminMenuItems, ...gestorMenuItems];
-    if (currentRole === "operador" || currentRole === "user") return operadorMenuItems;
+    if (isOperatorRole(currentRole) || currentRole === "user") return operadorMenuItems;
     return gestorMenuItems;
   };
 
@@ -193,10 +193,10 @@ export default function DashboardPage() {
                 <p className="text-xs text-muted-foreground">Bem-vindo ao SIS DAVUS</p>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap md:flex-nowrap items-center justify-end gap-2 min-w-0 max-w-full">
                 {currentRole === 'admin' && (
                   <select
-                    className="bg-background border border-border text-sm rounded-md px-3 py-1.5 focus:ring-2 focus:ring-primary h-9 outline-none"
+                    className="bg-background border border-border text-sm rounded-md px-3 py-1.5 focus:ring-2 focus:ring-primary h-9 outline-none max-w-full md:max-w-[260px]"
                     value={selectedCostCenter || ""}
                     onChange={(e) => setSelectedCostCenter(e.target.value || null)}
                   >
@@ -210,7 +210,7 @@ export default function DashboardPage() {
                   <Zap className="h-3 w-3 text-primary animate-pulse" />
                   Sincronizado
                 </Badge>
-                <div className="hidden md:block">
+                <div className="hidden md:block min-w-0">
                   <CalendarDateRangePicker date={dateRange} setDate={setDateRange} />
                 </div>
                 <NotificationCenter />
