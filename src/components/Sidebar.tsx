@@ -43,6 +43,7 @@ export function Sidebar() {
   const { isCollapsed, setIsCollapsed } = useSidebar();
   const { currentRole, costCenter } = useAuth();
   const visibleGestaoItems = isOperatorRole(currentRole) || currentRole === "user" ? operadorItems : gestorItems;
+  const sectionLabel = isOperatorRole(currentRole) || currentRole === "user" ? "Operação" : "Gestão";
 
   return (
     <aside
@@ -111,7 +112,7 @@ export function Sidebar() {
 
         {!isCollapsed && (
           <p className="px-3 pt-4 pb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Gestão
+            {sectionLabel}
           </p>
         )}
         {isCollapsed && <div className="h-px bg-sidebar-border my-2" />}

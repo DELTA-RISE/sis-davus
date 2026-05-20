@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import { db } from './dexie-db';
 import { addToSyncQueue } from './offline-sync';
+import { toast } from 'sonner';
 import {
   Product,
   Asset,
@@ -15,6 +16,11 @@ import {
   Category
 } from './store';
 import { isCostCenterScopedRole, normalizeRole } from './roles';
+
+const notifyClientError = (title: string, description?: string) => {
+  if (typeof window === 'undefined') return;
+  toast.error(title, description ? { description } : undefined);
+};
 
 // Helper to parse User Agent
 export const getDeviceInfo = () => {
@@ -744,9 +750,32 @@ export const logActivity = async (
       user_agent: typeof window !== 'undefined' ? window.navigator.userAgent : undefined
     };
 
-    return upsert<AuditLog>('admin_audit_logs', logEntry as unknown as AuditLog);
+    if (!isOnline()) {
+      notifyClientError(
+        "Falha ao registrar log de auditoria",
+        "Sem conexão no momento. A ação principal foi concluída, mas o log não foi enviado."
+      );
+      return null;
+    }
+
+    const { error } = await withTimeout(
+      supabase
+        .from('admin_audit_logs')
+        .insert(logEntry)
+    );
+
+    if (error) {
+      notifyClientError("Falha ao registrar log de auditoria", error.message);
+      return null;
+    }
+
+    return logEntry as unknown as AuditLog;
   } catch (error) {
     console.error("Failed to log activity:", error);
+    notifyClientError(
+      "Falha ao registrar log de auditoria",
+      error instanceof Error ? error.message : "Erro inesperado ao salvar o registro."
+    );
     return null;
   }
 };

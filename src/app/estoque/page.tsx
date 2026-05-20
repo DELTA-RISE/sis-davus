@@ -71,11 +71,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { getCategories } from "@/lib/db";
 import { Category } from "@/lib/store";
+import { isCostCenterScopedRole } from "@/lib/roles";
 
 // FilterConfigs moved inside component
 
 export default function EstoquePage() {
-  const { userName, user } = useAuth();
+  const { userName, user, currentRole, costCenter } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const { costCenters } = useCostCenters();
   const [categories, setCategories] = useState<Category[]>([]);
@@ -233,6 +234,7 @@ export default function EstoquePage() {
     setIsSaving(true);
     const payload: Partial<Product> = {
       ...newProduct,
+      cost_center: isCostCenterScopedRole(currentRole) && costCenter ? costCenter : newProduct.cost_center,
       updated_at: new Date().toISOString(),
     };
 

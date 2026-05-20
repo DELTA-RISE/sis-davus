@@ -87,13 +87,3 @@ export async function processSyncQueue() {
   }
 }
 
-if (typeof window !== 'undefined') {
-  window.addEventListener('online', () => {
-    toast.success("Conexao restaurada. Sincronizando...");
-    processSyncQueue();
-  });
-
-  window.addEventListener('offline', () => {
-    toast.warning("Voce esta offline. Alteracoes serao salvas localmente.");
-  });
-}
