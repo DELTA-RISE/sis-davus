@@ -42,13 +42,13 @@ export function AssetLabel({ asset, layout = 'standard' }: AssetLabelProps) {
                         <Building2 className="w-3.5 h-3.5 text-black" />
                         <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-black">Davus</span>
                     </div>
-                    <h2 className="text-sm font-bold leading-tight text-black line-clamp-3 mb-1">{asset.name}</h2>
+                    <h2 className="mb-1 line-clamp-3 break-words text-sm font-bold leading-tight text-black">{asset.name}</h2>
                     <p className="text-[10px] text-gray-600 truncate">{asset.category}</p>
                 </div>
 
                 <div>
                     <p className="text-[8px] text-gray-500 uppercase tracking-wider mb-0.5">Patrimônio</p>
-                    <p className="text-xl font-mono font-black text-black tracking-tight">{asset.code}</p>
+                    <p className="truncate font-mono text-xl font-black tracking-tight text-black">{asset.code}</p>
                 </div>
             </div>
 
