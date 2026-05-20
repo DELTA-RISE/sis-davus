@@ -14,7 +14,7 @@ import {
   WriteOffRequest,
   Category
 } from './store';
-import { isCostCenterScopedRole } from './roles';
+import { isCostCenterScopedRole, normalizeRole } from './roles';
 
 // Helper to parse User Agent
 export const getDeviceInfo = () => {
@@ -745,7 +745,8 @@ export const syncUsers = () => syncTable('profiles', 'name', true);
 
 export const saveUser = async (user: Partial<User>, userInfo?: { name: string, id: string }) => {
   if (!user.id && !user.email) return Promise.resolve(null); // Basic validation
-  const result = await upsert<User>('profiles', user as User);
+  const normalizedUser = user.role ? { ...user, role: normalizeRole(user.role) } : user;
+  const result = await upsert<User>('profiles', normalizedUser as User);
   if (result && userInfo) {
     await logActivity(
       "UPDATE",
@@ -766,7 +767,7 @@ export const getProfile = async (id: string): Promise<User | null> => {
       .eq('id', id)
       .maybeSingle());
     if (error) return null;
-    return data as User;
+    return data ? { ...data, role: normalizeRole((data as User).role) } as User : null;
   } catch (_error) {
     return null;
   }

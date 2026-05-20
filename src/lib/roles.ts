@@ -10,10 +10,19 @@ export function isOperatorRole(role?: string | null): boolean {
   return role === "operador" || role === "operator";
 }
 
+export function normalizeRole(role?: string | null): UserRole {
+  if (role === "operator") return "operador";
+  if (role === "admin" || role === "gestor" || role === "operador" || role === "user" || role === "manager") {
+    return role;
+  }
+  return "gestor";
+}
+
 export function getRoleLabel(role?: string | null): string {
-  if (role === "admin") return "Administrador";
-  if (isOperatorRole(role)) return "Operador";
-  if (role === "manager") return "Gerente";
-  if (role === "user") return "Usuario";
+  const normalizedRole = normalizeRole(role);
+  if (normalizedRole === "admin") return "Administrador";
+  if (normalizedRole === "operador") return "Operador";
+  if (normalizedRole === "manager") return "Gerente";
+  if (normalizedRole === "user") return "Usuario";
   return "Gestor";
 }

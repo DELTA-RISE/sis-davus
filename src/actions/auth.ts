@@ -2,6 +2,7 @@
 
 import { UserRole } from '@/lib/store';
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { normalizeRole } from '@/lib/roles';
 
 interface CreateUserData {
     name: string;
@@ -33,7 +34,7 @@ export async function createUserAction(data: CreateUserData, _audit: AuditContex
             email_confirm: true,
             user_metadata: {
                 name: data.name,
-                role: data.role,
+                role: normalizeRole(data.role),
                 status: data.status,
                 cost_center: data.cost_center
             }
