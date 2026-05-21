@@ -647,6 +647,19 @@ export const saveCostCenter = async (cc: Partial<CostCenter>, userInfo?: { name:
   }
   return result;
 };
+export const deleteCostCenter = async (id: string, userInfo?: { name: string, id: string }) => {
+  const success = await remove('cost_centers', id);
+  if (success && userInfo) {
+    await logActivity(
+      "DELETE",
+      "CENTRO_CUSTO",
+      `Centro de custo (ID: ${id}) excluído por ${userInfo.name}.`,
+      id,
+      userInfo.name
+    );
+  }
+  return success;
+};
 
 // Categories
 export const getCategories = (type: 'insumo' | 'patrimonio', forceRefresh = false) => {

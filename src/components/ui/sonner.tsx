@@ -19,7 +19,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
       className="toaster group"
       toastOptions={{
         classNames: {
-          toast: "group/toast rounded-lg border border-border/70 bg-card px-4 py-3 shadow-xl shadow-black/10 dark:shadow-black/30",
+          toast: "group/toast w-fit min-w-[240px] max-w-[calc(100vw-2rem)] rounded-lg border border-border/70 bg-card px-4 py-3 shadow-xl shadow-black/10 sm:max-w-[360px] dark:shadow-black/30",
           title: "text-sm font-semibold tracking-normal text-foreground",
           description: "mt-1 text-xs leading-relaxed text-muted-foreground",
           icon: "text-primary",
@@ -38,7 +38,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
           "--normal-text": "var(--popover-foreground)",
           "--normal-border": "var(--border)",
           "--border-radius": "var(--radius)",
-          "--width": "min(360px, calc(100vw - 32px))",
+          "--width": "auto",
         } as React.CSSProperties
       }
       {...props}

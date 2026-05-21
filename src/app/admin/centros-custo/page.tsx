@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getCostCenters, saveCostCenter, getUsers, saveUser } from "@/lib/db";
+import { deleteCostCenter, getCostCenters, saveCostCenter, getUsers } from "@/lib/db";
 import { CostCenter, User } from "@/lib/store";
 import { costCenterSchema } from "@/lib/validations";
 import { ZodError } from "zod";
@@ -37,10 +37,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Briefcase, Search, Plus, Edit, User as UserIcon, Check, ChevronsUpDown, Users } from "lucide-react";
+import { Briefcase, Search, Plus, Edit, User as UserIcon, Check, ChevronsUpDown, Users, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 function generateCostCenterCode(name?: string) {
   const base = (name || "CENTRO")
@@ -52,6 +53,10 @@ function generateCostCenterCode(name?: string) {
     .slice(0, 24);
 
   return base || "CENTRO";
+}
+
+function normalizeCostCenterStatus(status?: string): CostCenter["status"] {
+  return status?.toLowerCase() === "inativo" ? "inativo" : "ativo";
 }
 
 export default function CostCentersPage() {
@@ -69,6 +74,7 @@ export default function CostCentersPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [openCombobox, setOpenCombobox] = useState(false);
   const [selectedCenterForDetails, setSelectedCenterForDetails] = useState<CostCenter | null>(null);
+  const [centerToDelete, setCenterToDelete] = useState<CostCenter | null>(null);
 
   const loadData = async () => {
     // setIsLoading(true);
@@ -91,22 +97,13 @@ export default function CostCentersPage() {
       (c.responsible && c.responsible.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  // Filter users for the combobox:
-  // Show users who are NOT assigned to a cost center,
-  // OR users who are ALREADY assigned to the current center (members),
-  // OR the user who is ALREADY the responsible.
-  const availableUsers = users.filter((u) => {
-    const isUnassigned = !u.cost_center;
-    const isMemberOfCurrent = editingCenter && u.cost_center === editingCenter.id;
-    const isCurrentResponsible = editingCenter && u.id === editingCenter.responsible_id;
-    return isUnassigned || isMemberOfCurrent || isCurrentResponsible;
-  });
+  const availableUsers = users;
 
 
   const validateForm = () => {
     const payload = {
       ...newCenter,
-      status: newCenter.status || 'ativo'
+      status: normalizeCostCenterStatus(newCenter.status)
     };
 
     const result = costCenterSchema.safeParse(payload);
@@ -133,39 +130,14 @@ export default function CostCentersPage() {
       const payload: Partial<CostCenter> = {
         ...newCenter,
         code: newCenter.code || generateCostCenterCode(newCenter.name),
+        status: normalizeCostCenterStatus(newCenter.status),
       };
 
-      // 1. Save the Cost Center
       const savedCenter = await saveCostCenter(payload, { name: userName, id: user?.id || "" });
 
       if (savedCenter) {
-        // 2. If a responsible was selected (and it changed or is new), update the User's cost_center
-        // We need to verify if the responsible changed.
-
-        // If there was a previous responsible and it's different from the new one, 
-        // we should probably clear the old responsible's cost_center?
-        // For now, let's focus on assigning the new one.
-
-        if (newCenter.responsible_id) {
-          const responsibleUser = users.find(u => u.id === newCenter.responsible_id);
-          if (responsibleUser) {
-            // Assign user to this cost center
-            await saveUser({ ...responsibleUser, cost_center: savedCenter.id });
-          }
-        }
-
-        // If we changed responsible, we might want to unassign the previous one if strictly 1:1.
-        // But the requirement says "possible responsibles that are not already assigned", implying 1:1.
-        if (editingCenter && editingCenter.responsible_id && editingCenter.responsible_id !== newCenter.responsible_id) {
-          const previousResponsible = users.find(u => u.id === editingCenter.responsible_id);
-          if (previousResponsible) {
-            // Unassign previous responsible
-            await saveUser({ ...previousResponsible, cost_center: undefined }); // or null if type allows
-          }
-        }
-
         toast.success(editingCenter ? "Centro de custo atualizado" : "Centro de custo criado");
-        await loadData(); // Reload to get fresh users state
+        await loadData();
         setIsDialogOpen(false);
       } else {
         toast.error("Erro ao salvar centro de custo");
@@ -184,7 +156,8 @@ export default function CostCentersPage() {
     setNewCenter({
       ...center,
       responsible_id: center.responsible_id, // Ensure these are carried over
-      responsible: center.responsible
+      responsible: center.responsible,
+      status: normalizeCostCenterStatus(center.status),
     });
     setIsDialogOpen(true);
   };
@@ -195,6 +168,25 @@ export default function CostCentersPage() {
     setErrors({});
     setIsDialogOpen(true);
   }
+
+  const handleDeleteCenter = async () => {
+    if (!centerToDelete) return;
+
+    try {
+      const success = await deleteCostCenter(centerToDelete.id, { name: userName, id: user?.id || "" });
+      if (!success) {
+        toast.error("Erro ao excluir centro de custo");
+        return;
+      }
+
+      toast.success("Centro de custo excluído");
+      setCenterToDelete(null);
+      await loadData();
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao excluir centro de custo");
+    }
+  };
 
   return (
     <div className="min-h-screen">
@@ -281,9 +273,6 @@ export default function CostCentersPage() {
                                   <Badge variant="secondary" className="ml-2 text-[10px] h-5 px-1.5">
                                     {user.role || 'user'}
                                   </Badge>
-                                  {user.cost_center && user.cost_center !== editingCenter?.id && (
-                                    <span className="ml-2 text-xs text-muted-foreground">(Atualmente em outro CC)</span>
-                                  )}
                                 </CommandItem>
                               ))}
                             </CommandGroup>
@@ -292,14 +281,14 @@ export default function CostCentersPage() {
                       </PopoverContent>
                     </Popover>
                     <p className="text-[10px] text-muted-foreground">
-                      Exibindo apenas usuários não atribuídos a outros centros de custo.
+                      Um responsável pode acompanhar mais de um centro de custo.
                     </p>
                   </div>
 
                   <div className="space-y-2">
                     <Label>Status</Label>
                     <Select
-                      value={newCenter.status}
+                      value={normalizeCostCenterStatus(newCenter.status)}
                       onValueChange={(v) => setNewCenter({ ...newCenter, status: v as CostCenter["status"] })}
                     >
                       <SelectTrigger>
@@ -344,9 +333,9 @@ export default function CostCentersPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3">
           {filteredCenters.map((center) => (
-            <Card key={center.id} className="border-border/50 bg-card/50">
-              <CardContent className="p-3 md:p-4">
-                <div className="flex items-center gap-3">
+            <Card key={center.id} className="h-full border-border/50 bg-card/50">
+              <CardContent className="flex h-full flex-col p-3 md:p-4">
+                <div className="flex flex-1 items-start gap-3">
                   <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center flex-shrink-0">
                     <Briefcase className="h-5 w-5 text-amber-500" />
                   </div>
@@ -361,7 +350,7 @@ export default function CostCentersPage() {
                       </Badge>
                     </div>
                     {center.description && (
-                      <p className="text-xs text-muted-foreground truncate">{center.description}</p>
+                      <p className="line-clamp-3 text-xs leading-relaxed text-muted-foreground">{center.description}</p>
                     )}
                     <div className="flex items-center gap-2 mt-2">
                       <span className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -371,7 +360,7 @@ export default function CostCentersPage() {
                     </div>
                   </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="mt-5 flex gap-2">
                   <Button
                     variant="ghost"
                     size="sm"
@@ -390,11 +379,30 @@ export default function CostCentersPage() {
                   >
                     <Users className="h-4 w-4" />
                   </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setCenterToDelete(center)}
+                    className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    title="Excluir"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
+
+        <ConfirmDialog
+          open={!!centerToDelete}
+          onOpenChange={(open) => !open && setCenterToDelete(null)}
+          title="Excluir centro de custo"
+          description={`Deseja excluir "${centerToDelete?.name || "este centro de custo"}"? Essa ação remove o centro da lista de obras e escritórios.`}
+          confirmText="Excluir"
+          variant="destructive"
+          onConfirm={handleDeleteCenter}
+        />
 
         {/* Details Dialog */}
         <Dialog open={!!selectedCenterForDetails} onOpenChange={(open) => !open && setSelectedCenterForDetails(null)}>
