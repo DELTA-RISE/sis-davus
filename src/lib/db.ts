@@ -209,21 +209,26 @@ async function getAllFiltered<T>(
 
 async function upsert<T extends { id?: string }>(table: string, item: Partial<T>): Promise<Persisted<T> | null> {
   const tableRef = db.table(table);
+  const localItem = item as Partial<T>;
+  const remoteItem = Object.fromEntries(
+    Object.entries(item).filter(([key]) => !key.startsWith('__'))
+  ) as Partial<T>;
 
   // 1. Optimistic Update (Local)
   try {
-    if (!item.id) {
-      item.id = crypto.randomUUID();
+    if (!localItem.id) {
+      localItem.id = crypto.randomUUID();
     }
-    await tableRef.put(item);
+    remoteItem.id = localItem.id;
+    await tableRef.put(localItem);
   } catch (e) {
     console.warn("Local update failed", e);
   }
 
   // 2. Offline Handling
   if (!isOnline()) {
-    const queued = await addToSyncQueue({ table, action: 'upsert', payload: item });
-    return queued ? withPersistenceStatus(item as T, 'queued') : null;
+    const queued = await addToSyncQueue({ table, action: 'upsert', payload: remoteItem });
+    return queued ? withPersistenceStatus(localItem as T, 'queued') : null;
   }
 
   // 3. Online Handling
@@ -231,7 +236,7 @@ async function upsert<T extends { id?: string }>(table: string, item: Partial<T>
     const { data, error } = await withTimeout(
       supabase
         .from(table)
-        .upsert(item as never)
+        .upsert(remoteItem as never)
         .select()
         .single()
     );
@@ -244,8 +249,8 @@ async function upsert<T extends { id?: string }>(table: string, item: Partial<T>
     return withPersistenceStatus(data as T, 'synced');
   } catch (err) {
     console.error(`Sync error ${table}, queuing:`, err);
-    const queued = await addToSyncQueue({ table, action: 'upsert', payload: item });
-    return queued ? withPersistenceStatus(item as T, 'queued', err) : null;
+    const queued = await addToSyncQueue({ table, action: 'upsert', payload: remoteItem });
+    return queued ? withPersistenceStatus(localItem as T, 'queued', err) : null;
   }
 }
 

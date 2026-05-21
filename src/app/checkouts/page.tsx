@@ -175,6 +175,11 @@ export default function CheckoutsPage() {
       } else {
         toast.success("Item devolvido!");
       }
+      setCheckouts((current) =>
+        current.map((item) => (item.id === updated.id ? { ...item, ...updated } : item))
+      );
+    } else {
+      toast.error("Erro ao registrar devolucao");
     }
   };
 
