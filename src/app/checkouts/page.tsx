@@ -170,7 +170,7 @@ export default function CheckoutsPage() {
     if (updated) {
       if (isPendingSync(updated)) {
         toast.warning("Devolucao salva localmente.", {
-          description: "A sincronizacao com o Supabase ainda esta pendente.",
+          description: updated.__persistenceError || "A sincronizacao com o Supabase ainda esta pendente.",
         });
       } else {
         toast.success("Item devolvido!");

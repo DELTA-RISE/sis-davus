@@ -73,6 +73,16 @@ export type Persisted<T> = T & {
   __persistenceError?: string;
 };
 
+const getErrorMessage = (error: unknown) => {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string') return message;
+  }
+  if (typeof error === 'string') return error;
+  return undefined;
+};
+
 export function isPendingSync<T>(item: Persisted<T> | null | undefined): boolean {
   return item?.__persistenceStatus === 'queued';
 }
@@ -82,7 +92,7 @@ function withPersistenceStatus<T extends object>(
   status: PersistenceStatus,
   error?: unknown
 ): Persisted<T> {
-  const message = error instanceof Error ? error.message : undefined;
+  const message = getErrorMessage(error);
   return {
     ...item,
     __persistenceStatus: status,
@@ -249,6 +259,10 @@ async function upsert<T extends { id?: string }>(table: string, item: Partial<T>
     return withPersistenceStatus(data as T, 'synced');
   } catch (err) {
     console.error(`Sync error ${table}, queuing:`, err);
+    notifyClientError(
+      "Falha ao sincronizar com o Supabase",
+      getErrorMessage(err) || "A alteracao foi salva localmente para nova tentativa."
+    );
     const queued = await addToSyncQueue({ table, action: 'upsert', payload: remoteItem });
     return queued ? withPersistenceStatus(localItem as T, 'queued', err) : null;
   }
