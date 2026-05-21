@@ -29,7 +29,6 @@ import { PageTransition, StaggerContainer, StaggerItem } from "@/components/Page
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 import { AssetLabel, AssetLabelLayout } from "@/components/AssetLabel";
-import { exportAssets } from "@/lib/export-utils";
 import { useAuth } from "@/lib/auth-context";
 import {
   Dialog,
@@ -400,6 +399,7 @@ export default function PatrimonioPage() {
   });
 
   const filteredAssets = useMemo(() => {
+    const search = debouncedSearch.trim().toLowerCase();
     return assets.filter((a) => {
       const name = a.name || "";
       const code = a.code || "";
@@ -407,10 +407,11 @@ export default function PatrimonioPage() {
       const location = a.location || "";
 
       const matchesSearch =
-        name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-        code.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-        category.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-        location.toLowerCase().includes(debouncedSearch.toLowerCase());
+        !search ||
+        name.toLowerCase().includes(search) ||
+        code.toLowerCase().includes(search) ||
+        category.toLowerCase().includes(search) ||
+        location.toLowerCase().includes(search);
 
       const matchesFilters = activeFilters.every((filter) => {
         if (filter.key === "category") return a.category === filter.value;
@@ -516,8 +517,23 @@ export default function PatrimonioPage() {
     setIsBulkDeleteOpen(false);
   };
 
-  const totalValue = assets.reduce((acc, a) => acc + (a.value || 0), 0);
-  const assetsInMaintenance = assets.filter((a) => normalizeAssetCondition(a.condition) === "Manutenção").length;
+  const assetSummary = useMemo(() => {
+    return assets.reduce(
+      (summary, asset) => {
+        summary.totalValue += asset.value || 0;
+        if (normalizeAssetCondition(asset.condition) === "Manutenção") {
+          summary.inMaintenance += 1;
+        }
+        return summary;
+      },
+      { totalValue: 0, inMaintenance: 0 }
+    );
+  }, [assets]);
+
+  const exportFilteredAssets = useCallback(async (format: "xlsx" | "csv" | "json") => {
+    const { exportAssets } = await import("@/lib/export-utils");
+    exportAssets(filteredAssets, format);
+  }, [filteredAssets]);
 
   return (
     <PageTransition>
@@ -540,25 +556,25 @@ export default function PatrimonioPage() {
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {assets.length} bens • R$ {totalValue.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
+                    {assets.length} bens • R$ {assetSummary.totalValue.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
                   </p>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
                 <ExportMenu
-                  onExportXLSX={() => exportAssets(filteredAssets, "xlsx")}
-                  onExportCSV={() => exportAssets(filteredAssets, "csv")}
-                  onExportJSON={() => exportAssets(filteredAssets, "json")}
+                  onExportXLSX={() => exportFilteredAssets("xlsx")}
+                  onExportCSV={() => exportFilteredAssets("csv")}
+                  onExportJSON={() => exportFilteredAssets("json")}
                   itemCount={filteredAssets.length}
                 />
                 <Link href="/patrimonio/manutencao">
                   <Button variant="outline" size="sm" className="h-9 gap-1">
                     <Wrench className="h-4 w-4" />
                     <span className="hidden sm:inline">Manutenções</span>
-                    {assetsInMaintenance > 0 && (
+                    {assetSummary.inMaintenance > 0 && (
                       <Badge className="ml-1 h-5 w-5 p-0 flex items-center justify-center bg-purple-500 text-[10px]">
-                        {assetsInMaintenance}
+                        {assetSummary.inMaintenance}
                       </Badge>
                     )}
                   </Button>

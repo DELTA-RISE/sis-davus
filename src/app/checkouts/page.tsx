@@ -127,12 +127,20 @@ export default function CheckoutsPage() {
       return;
     }
 
+    const selectedUser = users.find((candidate) => candidate.name === newCheckout.user_name);
+    if (!selectedUser?.id) {
+      toast.error("Selecione um responsável válido");
+      return;
+    }
+
     const items = newCheckout.item_type === "asset" ? assets : products;
     const item = items.find((i) => i.id === newCheckout.item_id);
     if (!item) return;
     const payload: Partial<Checkout> = {
       ...newCheckout,
       item_name: item.name,
+      user_id: selectedUser.id,
+      quantity: newCheckout.quantity || 1,
       checkout_date: new Date().toISOString(),
       status: "Ativo",
     };
@@ -146,6 +154,7 @@ export default function CheckoutsPage() {
       } else {
         toast.success("Checkout realizado!");
       }
+      setCheckouts((current) => [saved, ...current.filter((checkout) => checkout.id !== saved.id)]);
       setIsDialogOpen(false);
       setNewCheckout({ item_type: "asset", quantity: 1 });
     } else {
@@ -277,7 +286,7 @@ export default function CheckoutsPage() {
                                       key={u.id}
                                       value={u.name}
                                       onSelect={() => {
-                                        setNewCheckout({ ...newCheckout, user_name: u.name });
+                                        setNewCheckout({ ...newCheckout, user_id: u.id, user_name: u.name });
                                         setOpenUserSelect(false);
                                       }}
                                     >

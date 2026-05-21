@@ -23,7 +23,7 @@ import {
 
 import { getReadNotifications, saveReadNotifications, getDismissedNotifications } from "@/lib/localStorage";
 import { getProducts, getAssets, getWriteOffRequests, getMaintenanceTasks } from "@/lib/db";
-import { Product, Asset, mockProducts, mockAssets } from "@/lib/store";
+import { Product, Asset } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { DialogTitle } from "@/components/ui/dialog";
@@ -54,8 +54,8 @@ export function DesktopTopBar() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [hasUnread, setHasUnread] = useState(false);
   const [isBellAnimating, setIsBellAnimating] = useState(false);
-  const [prevUnreadCount, setPrevUnreadCount] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const prevUnreadCountRef = useRef(0);
 
   const [products, setProducts] = useState<Product[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -127,7 +127,7 @@ export function DesktopTopBar() {
       setNotifications(allNotifs);
 
       const unreadCount = allNotifs.filter(n => n.unread).length;
-      const hasNewUnread = unreadCount > prevUnreadCount;
+      const hasNewUnread = unreadCount > prevUnreadCountRef.current;
 
       if (hasNewUnread) {
         setIsBellAnimating(true);
@@ -138,18 +138,24 @@ export function DesktopTopBar() {
       }
 
       setHasUnread(unreadCount > 0);
-      setPrevUnreadCount(unreadCount);
+      prevUnreadCountRef.current = unreadCount;
     };
 
     fetchRequests();
-  }, [products, assets, prevUnreadCount]);
+  }, [products, assets]);
 
   const markAsRead = (id: string) => {
     const readIds = getReadNotifications();
     if (!readIds.includes(id)) {
       const newReadIds = [...readIds, id];
       saveReadNotifications(newReadIds);
-      setPrevUnreadCount(prev => prev - 1); // Trigger re-render
+      setNotifications((current) =>
+        current.map((notification) =>
+          notification.id === id ? { ...notification, unread: false } : notification
+        )
+      );
+      prevUnreadCountRef.current = Math.max(0, prevUnreadCountRef.current - 1);
+      setHasUnread(prevUnreadCountRef.current > 0);
     }
   };
 
@@ -158,7 +164,9 @@ export function DesktopTopBar() {
     const readIds = getReadNotifications();
     const newReadIds = Array.from(new Set([...readIds, ...allIds]));
     saveReadNotifications(newReadIds);
-    setPrevUnreadCount(0); // Trigger re-render
+    setNotifications((current) => current.map((notification) => ({ ...notification, unread: false })));
+    prevUnreadCountRef.current = 0;
+    setHasUnread(false);
     setIsBellAnimating(false);
   };
 

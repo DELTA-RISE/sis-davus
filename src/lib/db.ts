@@ -602,19 +602,38 @@ export const getWriteOffRequests = async () => {
 
 // Checkouts
 export const getCheckouts = async (itemId?: string, itemType?: 'product' | 'asset', forceRefresh = false) => {
-  if (!itemId && !itemType) {
-    return getAll<Checkout>('checkouts', 'checkout_date', false, forceRefresh);
+  const sortByCheckoutDate = (items: Checkout[]) =>
+    items.sort((a, b) => new Date(b.checkout_date || 0).getTime() - new Date(a.checkout_date || 0).getTime());
+
+  const filterCheckout = (checkout: Checkout) => {
+    if (!itemId || !itemType) return true;
+    return checkout.item_id === itemId && checkout.item_type === itemType;
+  };
+
+  const localData = (await db.checkouts.toArray()).filter(filterCheckout);
+
+  if (!isOnline()) {
+    return sortByCheckoutDate(localData);
   }
+
   let query = supabase.from('checkouts').select('*').order('checkout_date', { ascending: false });
-  if (itemId && itemType) {
-    query = query.eq('item_id', itemId).eq('item_type', itemType);
-  }
+  if (itemId && itemType) query = query.eq('item_id', itemId).eq('item_type', itemType);
+
   try {
     const { data, error } = await withTimeout(query);
-    if (error) return [];
-    return data as Checkout[];
+    if (error) throw error;
+
+    const remoteData = (data || []) as Checkout[];
+    const remoteIds = new Set(remoteData.map((checkout) => checkout.id));
+    const localOnly = localData.filter((checkout) => !remoteIds.has(checkout.id));
+
+    if (!itemId && !itemType && !forceRefresh) {
+      await db.checkouts.bulkPut(remoteData);
+    }
+
+    return sortByCheckoutDate([...remoteData, ...localOnly]);
   } catch (_error) {
-    return [];
+    return sortByCheckoutDate(localData);
   }
 };
 export const saveCheckout = async (checkout: Partial<Checkout>, userInfo?: { name: string, id: string }) => {

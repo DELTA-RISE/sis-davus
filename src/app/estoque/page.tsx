@@ -26,7 +26,6 @@ import { AdvancedFilters, FilterConfig, ActiveFilter } from "@/components/Advanc
 import { InfiniteScrollLoader } from "@/components/InfiniteScrollLoader";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { PageTransition, StaggerContainer, StaggerItem } from "@/components/PageTransition";
-import { exportProducts } from "@/lib/export-utils";
 import {
   Dialog,
   DialogContent,
@@ -167,16 +166,22 @@ export default function EstoquePage() {
     return "normal";
   };
 
+  const costCenterNameById = useMemo(() => {
+    return new Map(costCenters.map((center) => [center.id, center.name.toLowerCase()]));
+  }, [costCenters]);
+
   const filteredProducts = useMemo(() => {
+    const search = debouncedSearch.trim().toLowerCase();
     return products.filter((p) => {
       const name = p.name || "";
       const sku = p.sku || "";
       const category = p.category || "";
 
       const matchesSearch =
-        name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-        sku.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-        category.toLowerCase().includes(debouncedSearch.toLowerCase());
+        !search ||
+        name.toLowerCase().includes(search) ||
+        sku.toLowerCase().includes(search) ||
+        category.toLowerCase().includes(search);
 
       const matchesFilters = activeFilters.every((filter) => {
         if (filter.key === "category") return category === filter.value;
@@ -186,7 +191,7 @@ export default function EstoquePage() {
           // Let's check against resolving the name if we can, or strict if assuming value is ID.
           // Given type='text' in filter config, user types a string.
           // So we check if cost_center ID resolves to a name that contains the string.
-          const ccName = costCenters.find(c => c.id === p.cost_center)?.name || "";
+          const ccName = costCenterNameById.get(p.cost_center || "") || "";
           return ccName.toLowerCase().includes(filter.value.toLowerCase());
         }
         if (filter.key === "stockStatus") return getStockStatus(p) === filter.value;
@@ -195,15 +200,28 @@ export default function EstoquePage() {
 
       return matchesSearch && matchesFilters;
     });
-  }, [products, debouncedSearch, activeFilters, costCenters]);
+  }, [products, debouncedSearch, activeFilters, costCenterNameById]);
 
   const { displayedItems, hasMore, loaderRef } = useInfiniteScroll({
     data: filteredProducts,
     pageSize: 12,
   });
 
-  const lowStockCount = products.filter((p) => p.quantity < (p.min_stock || 0)).length;
-  const highStockCount = products.filter((p) => p.quantity > (p.max_stock || 9999)).length;
+  const stockCounts = useMemo(() => {
+    return products.reduce(
+      (acc, product) => {
+        if (product.quantity < (product.min_stock || 0)) acc.low += 1;
+        if (product.quantity > (product.max_stock || 9999)) acc.high += 1;
+        return acc;
+      },
+      { low: 0, high: 0 }
+    );
+  }, [products]);
+
+  const exportFilteredProducts = useCallback(async (format: "xlsx" | "csv" | "json") => {
+    const { exportProducts } = await import("@/lib/export-utils");
+    exportProducts(filteredProducts, format);
+  }, [filteredProducts]);
 
   const validateForm = () => {
     const result = productSchema.safeParse({
@@ -325,9 +343,9 @@ export default function EstoquePage() {
               </div>
               <div className="flex items-center gap-2">
                 <ExportMenu
-                  onExportXLSX={() => exportProducts(filteredProducts, "xlsx")}
-                  onExportCSV={() => exportProducts(filteredProducts, "csv")}
-                  onExportJSON={() => exportProducts(filteredProducts, "json")}
+                  onExportXLSX={() => exportFilteredProducts("xlsx")}
+                  onExportCSV={() => exportFilteredProducts("csv")}
+                  onExportJSON={() => exportFilteredProducts("json")}
                   itemCount={filteredProducts.length}
                 />
                 <Dialog open={isDialogOpen} onOpenChange={(open) => {
@@ -536,18 +554,18 @@ export default function EstoquePage() {
             )}
           </AnimatePresence>
 
-          {(lowStockCount > 0 || highStockCount > 0) && selectedIds.length === 0 && (
+          {(stockCounts.low > 0 || stockCounts.high > 0) && selectedIds.length === 0 && (
             <div className="flex gap-2 overflow-x-auto pb-2">
-              {lowStockCount > 0 && (
+              {stockCounts.low > 0 && (
                 <Badge variant="destructive" className="flex-shrink-0 gap-1">
                   <AlertTriangle className="h-3 w-3" />
-                  {lowStockCount} com estoque baixo
+                  {stockCounts.low} com estoque baixo
                 </Badge>
               )}
-              {highStockCount > 0 && (
+              {stockCounts.high > 0 && (
                 <Badge className="flex-shrink-0 gap-1 bg-amber-500/20 text-amber-500 border-none">
                   <TrendingUp className="h-3 w-3" />
-                  {highStockCount} em excesso
+                  {stockCounts.high} em excesso
                 </Badge>
               )}
             </div>
