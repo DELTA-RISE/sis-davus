@@ -335,10 +335,10 @@ export default function CostCentersPage() {
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3">
+        <div className="grid auto-rows-min grid-cols-1 items-start gap-2 md:grid-cols-2 md:gap-3 lg:grid-cols-3">
           {filteredCenters.map((center) => (
-            <Card key={center.id} className="h-full border-border/50 bg-card/50">
-              <CardContent className="flex h-full flex-col p-3 md:p-4">
+            <Card key={center.id} className="border-border/50 bg-card/50">
+              <CardContent className="p-3 md:p-4">
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center flex-shrink-0">
                     <Briefcase className="h-5 w-5 text-amber-500" />
@@ -364,7 +364,7 @@ export default function CostCentersPage() {
                     </div>
                   </div>
                 </div>
-                <div className="mt-3 flex gap-2 pl-11">
+                <div className="mt-2 flex gap-2 pl-11">
                   <Button
                     variant="ghost"
                     size="sm"
