@@ -99,6 +99,25 @@ const conditionColors: Record<string, string> = {
 import { getCategories } from "@/lib/db";
 import { Category } from "@/lib/store";
 
+function normalizeAssetCondition(condition?: string): Asset["condition"] {
+  const value = condition
+    ?.normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+  if (value?.includes("manutencao")) return "Manutenção";
+  if (value === "excelente") return "Excelente";
+  if (value === "regular") return "Regular";
+  if (value === "ruim") return "Ruim";
+  return "Bom";
+}
+
+function deriveAssetStatus(asset: Partial<Asset>, condition: Asset["condition"]): Asset["status"] {
+  if (condition === "Manutenção") return "Em Manutenção";
+  if (asset.status === "Em Manutenção") return "Disponível";
+  return asset.status || "Disponível";
+}
+
 export default function PatrimonioPage() {
   const { userName, user, currentRole } = useAuth();
   // const { isDemoMode } = useOnboarding();
@@ -196,9 +215,12 @@ export default function PatrimonioPage() {
   };
 
   const validateForm = () => {
+    const condition = normalizeAssetCondition(newAsset.condition);
     // Ensure all required fields for Zod are present or have defaults
     const payload = {
       ...newAsset,
+      condition,
+      status: deriveAssetStatus(newAsset, condition),
       value: newAsset.value ?? 0,
       // Ensure strings that might be empty are treated correctly if optional in schema but required in form
     };
@@ -208,7 +230,7 @@ export default function PatrimonioPage() {
     if (!result.success) {
       const fieldErrors: Record<string, string> = {};
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (result.error as any).errors.forEach((err: any) => {
+      (result.error as any).issues.forEach((err: any) => {
         if (err.path[0]) fieldErrors[err.path[0] as string] = err.message;
       });
       setErrors(fieldErrors);
@@ -412,7 +434,15 @@ export default function PatrimonioPage() {
       return;
     }
 
-    const saved = await saveAsset(newAsset, { name: userName, id: user?.id || "" });
+    const condition = normalizeAssetCondition(newAsset.condition);
+    const assetToSave: Partial<Asset> = {
+      ...newAsset,
+      condition,
+      status: deriveAssetStatus(newAsset, condition),
+      value: newAsset.value ?? 0,
+    };
+
+    const saved = await saveAsset(assetToSave, { name: userName, id: user?.id || "" });
 
     if (saved) {
       if (isPendingSync(saved)) {
@@ -487,7 +517,7 @@ export default function PatrimonioPage() {
   };
 
   const totalValue = assets.reduce((acc, a) => acc + (a.value || 0), 0);
-  const assetsInMaintenance = assets.filter((a) => a.condition === "Manutenção").length;
+  const assetsInMaintenance = assets.filter((a) => normalizeAssetCondition(a.condition) === "Manutenção").length;
 
   return (
     <PageTransition>
@@ -600,7 +630,7 @@ export default function PatrimonioPage() {
                         </div>
                         <div className="space-y-2">
                           <Label>Estado</Label>
-                          <Select value={newAsset.condition} onValueChange={(v) => setNewAsset({ ...newAsset, condition: v as Asset["condition"] })}>
+                          <Select value={normalizeAssetCondition(newAsset.condition)} onValueChange={(v) => setNewAsset({ ...newAsset, condition: normalizeAssetCondition(v) })}>
                             <SelectTrigger><SelectValue /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="Excelente">Excelente</SelectItem>

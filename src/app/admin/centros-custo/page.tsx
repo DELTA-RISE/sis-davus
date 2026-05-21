@@ -103,6 +103,8 @@ export default function CostCentersPage() {
   const validateForm = () => {
     const payload = {
       ...newCenter,
+      responsible_id: newCenter.responsible_id || undefined,
+      responsible: newCenter.responsible || undefined,
       status: normalizeCostCenterStatus(newCenter.status)
     };
 
@@ -130,6 +132,8 @@ export default function CostCentersPage() {
       const payload: Partial<CostCenter> = {
         ...newCenter,
         code: newCenter.code || generateCostCenterCode(newCenter.name),
+        responsible_id: newCenter.responsible_id || undefined,
+        responsible: newCenter.responsible || undefined,
         status: normalizeCostCenterStatus(newCenter.status),
       };
 
@@ -335,7 +339,7 @@ export default function CostCentersPage() {
           {filteredCenters.map((center) => (
             <Card key={center.id} className="h-full border-border/50 bg-card/50">
               <CardContent className="flex h-full flex-col p-3 md:p-4">
-                <div className="flex flex-1 items-start gap-3">
+                <div className="flex items-start gap-3">
                   <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center flex-shrink-0">
                     <Briefcase className="h-5 w-5 text-amber-500" />
                   </div>
@@ -360,7 +364,7 @@ export default function CostCentersPage() {
                     </div>
                   </div>
                 </div>
-                <div className="mt-5 flex gap-2">
+                <div className="mt-3 flex gap-2 pl-11">
                   <Button
                     variant="ghost"
                     size="sm"

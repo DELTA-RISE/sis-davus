@@ -24,7 +24,7 @@ export interface Asset {
   name: string;
   code: string;
   location: string;
-  condition: 'Novo' | 'Bom' | 'Regular' | 'Ruim' | 'Manutenção';
+  condition: 'Novo' | 'Excelente' | 'Bom' | 'Regular' | 'Ruim' | 'Manutenção';
   status: 'Disponível' | 'Em Uso' | 'Em Manutenção' | 'Baixado';
   purchase_date?: string;
   value?: number;
