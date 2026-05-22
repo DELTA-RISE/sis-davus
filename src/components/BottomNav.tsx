@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
+import { isOperatorRole } from "@/lib/roles";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 
@@ -45,7 +46,12 @@ export function BottomNav() {
     { href: "/admin/hub", icon: Shield, label: "Hub Admin" },
   ];
 
-  const ferramentas = currentRole === "admin" ? ferramentasAdmin : ferramentasGestor;
+  const ferramentasOperador = ferramentasGestor.filter((item) => item.href !== "/relatorios");
+  const ferramentas = currentRole === "admin"
+    ? ferramentasAdmin
+    : isOperatorRole(currentRole) || currentRole === "user"
+      ? ferramentasOperador
+      : ferramentasGestor;
 
   const handleNavClick = (key: string) => {
     if (activeSubmenu === key) {

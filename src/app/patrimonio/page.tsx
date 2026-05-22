@@ -3,7 +3,7 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { Asset } from "@/lib/store";
-import { saveAsset, deleteAsset, syncAssets } from "@/lib/db";
+import { isPendingSync, saveAsset, deleteAsset, syncAssets } from "@/lib/db";
 import { requestWriteOff } from "@/actions/write-off";
 import { db } from "@/lib/dexie-db";
 import { supabase } from "@/lib/supabase";
@@ -26,9 +26,9 @@ import { AdvancedFilters, FilterConfig, ActiveFilter } from "@/components/Advanc
 import { InfiniteScrollLoader } from "@/components/InfiniteScrollLoader";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { PageTransition, StaggerContainer, StaggerItem } from "@/components/PageTransition";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 import { AssetLabel, AssetLabelLayout } from "@/components/AssetLabel";
-import { exportAssets } from "@/lib/export-utils";
 import { useAuth } from "@/lib/auth-context";
 import {
   Dialog,
@@ -97,7 +97,24 @@ const conditionColors: Record<string, string> = {
 
 import { getCategories } from "@/lib/db";
 import { Category } from "@/lib/store";
+function normalizeAssetCondition(condition?: string): Asset["condition"] {
+  const value = condition
+    ?.normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
 
+  if (value?.includes("manutencao")) return "Manutenção";
+  if (value === "excelente") return "Excelente";
+  if (value === "regular") return "Regular";
+  if (value === "ruim") return "Ruim";
+  return "Bom";
+}
+
+function deriveAssetStatus(asset: Partial<Asset>, condition: Asset["condition"]): Asset["status"] {
+  if (condition === "Manutenção") return "Em Manutenção";
+  if (asset.status === "Em Manutenção") return "Disponível";
+  return asset.status || "Disponível";
+}
 export default function PatrimonioPage() {
   const { userName, user, currentRole } = useAuth();
   // const { isDemoMode } = useOnboarding();
@@ -153,6 +170,7 @@ export default function PatrimonioPage() {
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
   const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [newAsset, setNewAsset] = useState<Partial<Asset>>({
@@ -194,9 +212,12 @@ export default function PatrimonioPage() {
   };
 
   const validateForm = () => {
+    const condition = normalizeAssetCondition(newAsset.condition);
     // Ensure all required fields for Zod are present or have defaults
     const payload = {
       ...newAsset,
+      condition,
+      status: deriveAssetStatus(newAsset, condition),
       value: newAsset.value ?? 0,
       // Ensure strings that might be empty are treated correctly if optional in schema but required in form
     };
@@ -206,7 +227,7 @@ export default function PatrimonioPage() {
     if (!result.success) {
       const fieldErrors: Record<string, string> = {};
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (result.error as any).errors.forEach((err: any) => {
+      (result.error as any).issues.forEach((err: any) => {
         if (err.path[0]) fieldErrors[err.path[0] as string] = err.message;
       });
       setErrors(fieldErrors);
@@ -376,6 +397,7 @@ export default function PatrimonioPage() {
   });
 
   const filteredAssets = useMemo(() => {
+    const search = debouncedSearch.trim().toLowerCase();
     return assets.filter((a) => {
       const name = a.name || "";
       const code = a.code || "";
@@ -383,10 +405,11 @@ export default function PatrimonioPage() {
       const location = a.location || "";
 
       const matchesSearch =
-        name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-        code.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-        category.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-        location.toLowerCase().includes(debouncedSearch.toLowerCase());
+        !search ||
+        name.toLowerCase().includes(search) ||
+        code.toLowerCase().includes(search) ||
+        category.toLowerCase().includes(search) ||
+        location.toLowerCase().includes(search);
 
       const matchesFilters = activeFilters.every((filter) => {
         if (filter.key === "category") return a.category === filter.value;
@@ -410,10 +433,24 @@ export default function PatrimonioPage() {
       return;
     }
 
-    const saved = await saveAsset(newAsset, { name: userName, id: user?.id || "" });
+    const condition = normalizeAssetCondition(newAsset.condition);
+    const assetToSave: Partial<Asset> = {
+      ...newAsset,
+      condition,
+      status: deriveAssetStatus(newAsset, condition),
+      value: newAsset.value ?? 0,
+    };
+
+    const saved = await saveAsset(assetToSave, { name: userName, id: user?.id || "" });
 
     if (saved) {
-      toast.success(editingAsset ? "Patrimônio atualizado com sucesso!" : "Patrimônio cadastrado com sucesso!");
+      if (isPendingSync(saved)) {
+        toast.warning(editingAsset ? "Patrimonio atualizado localmente." : "Patrimonio cadastrado localmente.", {
+          description: "A sincronizacao com o Supabase ainda esta pendente.",
+        });
+      } else {
+        toast.success(editingAsset ? "Patrimonio atualizado com sucesso!" : "Patrimonio cadastrado com sucesso!");
+      }
 
       addHistoryEntry({
         item_id: saved.id,
@@ -471,21 +508,30 @@ export default function PatrimonioPage() {
       return;
     }
 
-    if (confirm(`Deseja excluir ${selectedIds.length} patrimônios?`)) {
-      const results = await Promise.all(selectedIds.map(id => deleteAsset(id, { name: userName, id: user?.id || "" })));
-      const successCount = results.filter(Boolean).length;
-      toast.success(`${successCount} itens excluídos.`);
-      setSelectedIds([]);
-      toast.success(`${successCount} itens excluídos.`);
-      setSelectedIds([]);
-      // loadData(); // No need to reload, sync covers it or soft delete updates local?
-      // deleteAsset calls softDelete which updates Dexie locally immediately.
-      // So UI should update automatically via useLiveQuery.
-    }
+    const results = await Promise.all(selectedIds.map(id => deleteAsset(id, { name: userName, id: user?.id || "" })));
+    const successCount = results.filter(Boolean).length;
+    toast.success(`${successCount} itens excluidos.`);
+    setSelectedIds([]);
+    setIsBulkDeleteOpen(false);
   };
 
-  const totalValue = assets.reduce((acc, a) => acc + (a.value || 0), 0);
-  const assetsInMaintenance = assets.filter((a) => a.condition === "Manutenção").length;
+  const assetSummary = useMemo(() => {
+    return assets.reduce(
+      (summary, asset) => {
+        summary.totalValue += asset.value || 0;
+        if (normalizeAssetCondition(asset.condition) === "Manutenção") {
+          summary.inMaintenance += 1;
+        }
+        return summary;
+      },
+      { totalValue: 0, inMaintenance: 0 }
+    );
+  }, [assets]);
+
+  const exportFilteredAssets = useCallback(async (format: "xlsx" | "csv" | "json") => {
+    const { exportAssets } = await import("@/lib/export-utils");
+    exportAssets(filteredAssets, format);
+  }, [filteredAssets]);
 
   return (
     <PageTransition>
@@ -508,25 +554,25 @@ export default function PatrimonioPage() {
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {assets.length} bens • R$ {totalValue.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
+                    {assets.length} bens • R$ {assetSummary.totalValue.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
                   </p>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
                 <ExportMenu
-                  onExportXLSX={() => exportAssets(filteredAssets, "xlsx")}
-                  onExportCSV={() => exportAssets(filteredAssets, "csv")}
-                  onExportJSON={() => exportAssets(filteredAssets, "json")}
+                  onExportXLSX={() => exportFilteredAssets("xlsx")}
+                  onExportCSV={() => exportFilteredAssets("csv")}
+                  onExportJSON={() => exportFilteredAssets("json")}
                   itemCount={filteredAssets.length}
                 />
                 <Link href="/patrimonio/manutencao">
                   <Button variant="outline" size="sm" className="h-9 gap-1">
                     <Wrench className="h-4 w-4" />
                     <span className="hidden sm:inline">Manutenções</span>
-                    {assetsInMaintenance > 0 && (
+                    {assetSummary.inMaintenance > 0 && (
                       <Badge className="ml-1 h-5 w-5 p-0 flex items-center justify-center bg-purple-500 text-[10px]">
-                        {assetsInMaintenance}
+                        {assetSummary.inMaintenance}
                       </Badge>
                     )}
                   </Button>
@@ -598,7 +644,7 @@ export default function PatrimonioPage() {
                         </div>
                         <div className="space-y-2">
                           <Label>Estado</Label>
-                          <Select value={newAsset.condition} onValueChange={(v) => setNewAsset({ ...newAsset, condition: v as Asset["condition"] })}>
+                          <Select value={normalizeAssetCondition(newAsset.condition)} onValueChange={(v) => setNewAsset({ ...newAsset, condition: normalizeAssetCondition(v) })}>
                             <SelectTrigger><SelectValue /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="Excelente">Excelente</SelectItem>
@@ -714,7 +760,7 @@ export default function PatrimonioPage() {
                             </Command>
                           </PopoverContent>
                         </Popover>
-                        {errors.responsible && <p className="text-xs text-destructive">{errors.responsible}</p>}
+                        {errors.assigned_to && <p className="text-xs text-destructive">{errors.assigned_to}</p>}
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
@@ -789,7 +835,7 @@ export default function PatrimonioPage() {
                 <div className="flex items-center gap-2">
                   <Button variant="ghost" size="sm" onClick={() => setSelectedIds([])}>Cancelar</Button>
                   <Button variant="outline" size="sm" onClick={() => setBulkPrintOpen(true)} className="gap-1.5"><Printer className="h-4 w-4" />Gerar Etiquetas</Button>
-                  <Button variant="destructive" size="sm" onClick={bulkDelete} className="gap-1.5 border-none"><Trash2 className="h-4 w-4" />Excluir</Button>
+                  <Button variant="destructive" size="sm" onClick={() => setIsBulkDeleteOpen(true)} className="gap-1.5 border-none"><Trash2 className="h-4 w-4" />Excluir</Button>
                 </div>
               </motion.div>
             )}
@@ -909,8 +955,15 @@ export default function PatrimonioPage() {
 
           <InfiniteScrollLoader ref={loaderRef} hasMore={hasMore} />
         </div>
-
-
+        <ConfirmDialog
+          open={isBulkDeleteOpen}
+          onOpenChange={setIsBulkDeleteOpen}
+          title="Excluir Patrimonios"
+          description={`Tem certeza que deseja excluir ${selectedIds.length} patrimonio(s)? Esta acao nao pode ser desfeita.`}
+          onConfirm={bulkDelete}
+          confirmText="Excluir"
+          variant="destructive"
+        />
       </div >
     </PageTransition >
   );

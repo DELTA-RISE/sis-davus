@@ -4,8 +4,9 @@ import { InsumoCategory, PatrimonioCategory } from "@/lib/store";
 export async function getInsumosCategories(): Promise<InsumoCategory[]> {
     try {
         const { data, error } = await supabase
-            .from('insumo_categories')
+            .from('categories')
             .select('*')
+            .eq('type', 'insumo')
             .order('name');
 
         if (error) {
@@ -22,8 +23,9 @@ export async function getInsumosCategories(): Promise<InsumoCategory[]> {
 export async function getPatrimoniosCategories(): Promise<PatrimonioCategory[]> {
     try {
         const { data, error } = await supabase
-            .from('patrimonio_categories')
+            .from('categories')
             .select('*')
+            .eq('type', 'patrimonio')
             .order('name');
 
         if (error) {

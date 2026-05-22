@@ -24,7 +24,7 @@ export interface Asset {
   name: string;
   code: string;
   location: string;
-  condition: 'Novo' | 'Bom' | 'Regular' | 'Ruim' | 'Manutenção';
+  condition: 'Novo' | 'Excelente' | 'Bom' | 'Regular' | 'Ruim' | 'Manutenção';
   status: 'Disponível' | 'Em Uso' | 'Em Manutenção' | 'Baixado';
   purchase_date?: string;
   value?: number;
@@ -77,7 +77,7 @@ export interface Checkout {
 export interface CostCenter {
   id: string;
   name: string;
-  // code removed
+  code?: string;
   responsible_id?: string;
   responsible?: string;
   description?: string;
@@ -102,7 +102,7 @@ export interface AuditLog {
   user_name?: string;
 }
 
-export type UserRole = 'admin' | 'user' | 'manager' | 'gestor';
+export type UserRole = 'admin' | 'user' | 'manager' | 'gestor' | 'operador';
 
 export interface User {
   id: string;

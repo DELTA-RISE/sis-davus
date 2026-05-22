@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import { db } from './dexie-db';
 import { addToSyncQueue } from './offline-sync';
+import { toast } from 'sonner';
 import {
   Product,
   Asset,
@@ -14,6 +15,12 @@ import {
   WriteOffRequest,
   Category
 } from './store';
+import { normalizeRole } from './roles';
+
+const notifyClientError = (title: string, description?: string) => {
+  if (typeof window === 'undefined') return;
+  toast.error(title, description ? { description } : undefined);
+};
 
 // Helper to parse User Agent
 export const getDeviceInfo = () => {
@@ -59,6 +66,39 @@ const isOnline = () => typeof window !== 'undefined' && window.navigator.onLine;
 
 const TIMEOUT_MS = 15000;
 // memoryCache removed in favor of Dexie
+
+export type PersistenceStatus = 'synced' | 'queued';
+export type Persisted<T> = T & {
+  __persistenceStatus?: PersistenceStatus;
+  __persistenceError?: string;
+};
+
+const getErrorMessage = (error: unknown) => {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string') return message;
+  }
+  if (typeof error === 'string') return error;
+  return undefined;
+};
+
+export function isPendingSync<T>(item: Persisted<T> | null | undefined): boolean {
+  return item?.__persistenceStatus === 'queued';
+}
+
+function withPersistenceStatus<T extends object>(
+  item: T,
+  status: PersistenceStatus,
+  error?: unknown
+): Persisted<T> {
+  const message = getErrorMessage(error);
+  return {
+    ...item,
+    __persistenceStatus: status,
+    ...(message ? { __persistenceError: message } : {}),
+  };
+}
 
 async function withTimeout<T>(promise: PromiseLike<T>, timeoutMs: number = TIMEOUT_MS): Promise<T> {
   let timeoutId: NodeJS.Timeout;
@@ -141,7 +181,7 @@ async function getAllFiltered<T>(
     const localData = await db.table(table).toArray();
     let filtered = localData.filter((item) => !item.deleted_at); // Exclude soft deleted
 
-    if (userInfo.role === 'gestor' && userInfo.cost_center) {
+    if (userInfo.cost_center) {
       filtered = filtered.filter((item) => item.cost_center === userInfo.cost_center);
     }
 
@@ -162,7 +202,7 @@ async function getAllFiltered<T>(
       .is('deleted_at', null) // Exclude soft deleted
       .order(orderColumn as string, { ascending });
 
-    if (userInfo.role === 'gestor' && userInfo.cost_center) {
+    if (userInfo.cost_center) {
       query = query.eq('cost_center', userInfo.cost_center);
     }
 
@@ -177,23 +217,28 @@ async function getAllFiltered<T>(
   }
 }
 
-async function upsert<T extends { id?: string }>(table: string, item: Partial<T>): Promise<T | null> {
+async function upsert<T extends { id?: string }>(table: string, item: Partial<T>): Promise<Persisted<T> | null> {
   const tableRef = db.table(table);
+  const localItem = item as Partial<T>;
+  const remoteItem = Object.fromEntries(
+    Object.entries(item).filter(([key]) => !key.startsWith('__'))
+  ) as Partial<T>;
 
   // 1. Optimistic Update (Local)
   try {
-    if (!item.id) {
-      item.id = crypto.randomUUID();
+    if (!localItem.id) {
+      localItem.id = crypto.randomUUID();
     }
-    await tableRef.put(item);
+    remoteItem.id = localItem.id;
+    await tableRef.put(localItem);
   } catch (e) {
     console.warn("Local update failed", e);
   }
 
   // 2. Offline Handling
   if (!isOnline()) {
-    await addToSyncQueue({ table, action: 'upsert', payload: item });
-    return item as T;
+    const queued = await addToSyncQueue({ table, action: 'upsert', payload: remoteItem });
+    return queued ? withPersistenceStatus(localItem as T, 'queued') : null;
   }
 
   // 3. Online Handling
@@ -201,7 +246,7 @@ async function upsert<T extends { id?: string }>(table: string, item: Partial<T>
     const { data, error } = await withTimeout(
       supabase
         .from(table)
-        .upsert(item as never)
+        .upsert(remoteItem as never)
         .select()
         .single()
     );
@@ -211,11 +256,15 @@ async function upsert<T extends { id?: string }>(table: string, item: Partial<T>
     // Update local with confirmed server data (e.g. correct ID, timestamps)
     await tableRef.put(data);
 
-    return data as T;
+    return withPersistenceStatus(data as T, 'synced');
   } catch (err) {
     console.error(`Sync error ${table}, queuing:`, err);
-    await addToSyncQueue({ table, action: 'upsert', payload: item });
-    return item as T;
+    notifyClientError(
+      "Falha ao sincronizar com o Supabase",
+      getErrorMessage(err) || "A alteracao foi salva localmente para nova tentativa."
+    );
+    const queued = await addToSyncQueue({ table, action: 'upsert', payload: remoteItem });
+    return queued ? withPersistenceStatus(localItem as T, 'queued', err) : null;
   }
 }
 
@@ -318,30 +367,7 @@ async function remove(table: string, id: string): Promise<boolean> {
 // Products
 // Products
 export const getProducts = async (_forceRefresh = false, costCenterId?: string | null) => {
-  const { data: { session } } = await supabase.auth.getSession();
-  const userRole = session?.user?.user_metadata?.role || null;
-  const userCostCenter = session?.user?.user_metadata?.cost_center || null;
-
-  let role = userRole;
-  let costCenter = userCostCenter;
-
-  if (session?.user?.id) {
-    const profile = await getProfile(session.user.id);
-    if (profile) {
-      role = profile.role;
-      // If user is manager, force their cost center. If admin, allow override via argument.
-      if (role === 'gestor') {
-        costCenter = (profile as unknown as { cost_center: string }).cost_center;
-      } else if (role === 'admin' && costCenterId) {
-        costCenter = costCenterId;
-      }
-    }
-  }
-
-  // If explicitly passed (e.g. from admin dashboard) and user is admin (checked above implicitly or by caller trusting admin role), use it.
-  // The above logic handles: Manager -> forced to own CC. Admin -> uses arg if present.
-
-  return getAllFiltered<Product>('products', { role, cost_center: costCenter }, 'name', true);
+  return getAllFiltered<Product>('products', { role: null, cost_center: costCenterId || null }, 'name', true);
 };
 
 export const saveProduct = async (product: Partial<Product>, userInfo?: { name: string, id: string }) => {
@@ -389,50 +415,17 @@ export const restoreProduct = async (id: string, userInfo?: { name: string, id: 
 
 // Assets
 export const getAssets = async (_forceRefresh = false, costCenterId?: string | null) => {
-  const { data: { session } } = await supabase.auth.getSession();
-  let role = session?.user?.user_metadata?.role;
-  let costCenter = session?.user?.user_metadata?.cost_center;
-
-  if (session?.user?.id) {
-    const profile = await getProfile(session.user.id);
-    if (profile) {
-      role = profile.role;
-      if (role === 'gestor') {
-        costCenter = (profile as unknown as { cost_center: string }).cost_center;
-      } else if (role === 'admin' && costCenterId) {
-        costCenter = costCenterId;
-      }
-    }
-  }
-  return getAllFiltered<Asset>('assets', { role, cost_center: costCenter }, 'name', true);
+  return getAllFiltered<Asset>('assets', { role: null, cost_center: costCenterId || null }, 'name', true);
 };
 
 export const syncAssets = async () => {
   if (!isOnline()) return;
 
-  const { data: { session } } = await supabase.auth.getSession();
-  let role = session?.user?.user_metadata?.role;
-  let costCenter = session?.user?.user_metadata?.cost_center;
-
-  if (session?.user?.id) {
-    const profile = await getProfile(session.user.id);
-    if (profile) {
-      role = profile.role;
-      if (role === 'gestor') {
-        costCenter = (profile as unknown as { cost_center: string }).cost_center;
-      }
-    }
-  }
-
   try {
-    let query = supabase
+    const query = supabase
       .from('assets')
       .select('*')
       .is('deleted_at', null);
-
-    if (role === 'gestor' && costCenter) {
-      query = query.eq('cost_center', costCenter);
-    }
 
     const { data, error } = await withTimeout(query);
 
@@ -522,7 +515,38 @@ export const restoreAsset = async (id: string, userInfo?: { name: string, id: st
 // Movements
 export const getMovements = (forceRefresh = false) => getAll<StockMovement>('stock_movements', 'date', false, forceRefresh);
 export const saveMovement = async (movement: Partial<StockMovement>, userInfo?: { name: string, id: string }) => {
+  const quantity = Number(movement.quantity || 0);
+  const productId = movement.product_id;
+
+  if (!productId || !movement.type || quantity <= 0) return null;
+
+  const currentProduct = await db.products.get(productId);
+  if (!currentProduct) {
+    notifyClientError("Produto não encontrado", "Não foi possível atualizar o saldo do estoque.");
+    return null;
+  }
+
+  const nextQuantity = movement.type === "entrada"
+    ? (currentProduct.quantity || 0) + quantity
+    : (currentProduct.quantity || 0) - quantity;
+
+  if (nextQuantity < 0) {
+    notifyClientError(
+      "Saldo insuficiente",
+      `A saída solicitada excede o saldo atual de ${currentProduct.quantity || 0} unidades.`
+    );
+    return null;
+  }
+
   const result = await upsert<StockMovement>('stock_movements', movement as StockMovement);
+  if (!result) return null;
+
+  await upsert<Product>('products', {
+    ...currentProduct,
+    quantity: nextQuantity,
+    updated_at: new Date().toISOString(),
+  });
+
   if (result && userInfo) {
     await logActivity(
       movement.type === "entrada" ? "CREATE" : "DELETE",
@@ -537,26 +561,6 @@ export const saveMovement = async (movement: Partial<StockMovement>, userInfo?: 
 
 // Maintenance
 export const getMaintenanceTasks = async (assetId?: string, forceRefresh = false) => {
-  const { data: { session } } = await supabase.auth.getSession();
-  let role = session?.user?.user_metadata?.role;
-  let costCenter = session?.user?.user_metadata?.cost_center;
-
-  if (session?.user?.id) {
-    // If getProfile is available in scope (it is exported below, but imported ones work too)
-    // Note: getProfile is defined below. To avoid issues, we can try to rely on session or just use supabase direct.
-    // getAssets uses getProfile so it should be fine if function hoisting works or if we are careful.
-    // However, to be safe and consistent with getAssets:
-    try {
-      const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
-      if (data) {
-        role = data.role;
-        if (role === 'gestor') {
-          costCenter = (data as unknown as { cost_center: string }).cost_center;
-        }
-      }
-    } catch (_e) { /* ignore */ }
-  }
-
   // Offline / Dexie
   if (!isOnline()) {
     const tasks = await getAll<MaintenanceTask>('maintenance_tasks', 'due_date', true, forceRefresh);
@@ -566,28 +570,14 @@ export const getMaintenanceTasks = async (assetId?: string, forceRefresh = false
       filtered = filtered.filter(t => t.asset_id === assetId);
     }
 
-    if (role === 'gestor' && costCenter) {
-      try {
-        const myAssets = await db.assets.where('cost_center').equals(costCenter).toArray();
-        const myAssetIds = new Set(myAssets.map(a => a.id));
-        filtered = filtered.filter(t => myAssetIds.has(t.asset_id));
-      } catch (e) {
-        console.warn("Offline filtering failed", e);
-      }
-    }
     return filtered;
   }
 
   // Online / Supabase
-  // We use !inner join to filter tasks ensuring the related asset belongs to the cost center.
   let query = supabase.from('maintenance_tasks').select('*, assets!inner(cost_center)').order('due_date', { ascending: true });
 
   if (assetId) {
     query = query.eq('asset_id', assetId);
-  }
-
-  if (role === 'gestor' && costCenter) {
-    query = query.eq('assets.cost_center', costCenter);
   }
 
   try {
@@ -631,19 +621,38 @@ export const getWriteOffRequests = async () => {
 
 // Checkouts
 export const getCheckouts = async (itemId?: string, itemType?: 'product' | 'asset', forceRefresh = false) => {
-  if (!itemId && !itemType) {
-    return getAll<Checkout>('checkouts', 'checkout_date', false, forceRefresh);
+  const sortByCheckoutDate = (items: Checkout[]) =>
+    items.sort((a, b) => new Date(b.checkout_date || 0).getTime() - new Date(a.checkout_date || 0).getTime());
+
+  const filterCheckout = (checkout: Checkout) => {
+    if (!itemId || !itemType) return true;
+    return checkout.item_id === itemId && checkout.item_type === itemType;
+  };
+
+  const localData = (await db.checkouts.toArray()).filter(filterCheckout);
+
+  if (!isOnline()) {
+    return sortByCheckoutDate(localData);
   }
+
   let query = supabase.from('checkouts').select('*').order('checkout_date', { ascending: false });
-  if (itemId && itemType) {
-    query = query.eq('item_id', itemId).eq('item_type', itemType);
-  }
+  if (itemId && itemType) query = query.eq('item_id', itemId).eq('item_type', itemType);
+
   try {
     const { data, error } = await withTimeout(query);
-    if (error) return [];
-    return data as Checkout[];
+    if (error) throw error;
+
+    const remoteData = (data || []) as Checkout[];
+    const remoteIds = new Set(remoteData.map((checkout) => checkout.id));
+    const localOnly = localData.filter((checkout) => !remoteIds.has(checkout.id));
+
+    if (!itemId && !itemType && !forceRefresh) {
+      await db.checkouts.bulkPut(remoteData);
+    }
+
+    return sortByCheckoutDate([...remoteData, ...localOnly]);
   } catch (_error) {
-    return [];
+    return sortByCheckoutDate(localData);
   }
 };
 export const saveCheckout = async (checkout: Partial<Checkout>, userInfo?: { name: string, id: string }) => {
@@ -663,7 +672,32 @@ export const saveCheckout = async (checkout: Partial<Checkout>, userInfo?: { nam
 // Cost Centers
 export const getCostCenters = (forceRefresh = false) => getAll<CostCenter>('cost_centers', 'name', true, forceRefresh);
 export const syncCostCenters = () => syncTable('cost_centers', 'name', true);
-export const saveCostCenter = (cc: Partial<CostCenter>) => upsert<CostCenter>('cost_centers', cc as CostCenter);
+export const saveCostCenter = async (cc: Partial<CostCenter>, userInfo?: { name: string, id: string }) => {
+  const result = await upsert<CostCenter>('cost_centers', cc as CostCenter);
+  if (result && userInfo) {
+    await logActivity(
+      cc.id ? 'UPDATE' : 'CREATE',
+      'CENTRO_CUSTO',
+      { name: result.name, code: result.code, status: result.status },
+      result.id,
+      userInfo.name
+    );
+  }
+  return result;
+};
+export const deleteCostCenter = async (id: string, userInfo?: { name: string, id: string }) => {
+  const success = await remove('cost_centers', id);
+  if (success && userInfo) {
+    await logActivity(
+      "DELETE",
+      "CENTRO_CUSTO",
+      `Centro de custo (ID: ${id}) excluído por ${userInfo.name}.`,
+      id,
+      userInfo.name
+    );
+  }
+  return success;
+};
 
 // Categories
 export const getCategories = (type: 'insumo' | 'patrimonio', forceRefresh = false) => {
@@ -690,7 +724,7 @@ export const logActivity = async (
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) return null;
 
-    const _deviceInfo = getDeviceInfo();
+    const deviceInfo = getDeviceInfo();
 
     // Construct the log entry matching admin_audit_logs table
     const logEntry = {
@@ -701,14 +735,39 @@ export const logActivity = async (
       action,
       resource,
       resource_id: resourceId,
-      details: details, // Supabase handles object -> JSONB
-      ip_address: await getPublicIp(),
-      user_agent: window.navigator.userAgent
+      details: {
+        ...(typeof details === 'object' && details !== null ? details : { value: details }),
+        device: deviceInfo,
+      },
+      user_agent: typeof window !== 'undefined' ? window.navigator.userAgent : undefined
     };
 
-    return upsert<AuditLog>('admin_audit_logs', logEntry as unknown as AuditLog);
+    if (!isOnline()) {
+      notifyClientError(
+        "Falha ao registrar log de auditoria",
+        "Sem conexão no momento. A ação principal foi concluída, mas o log não foi enviado."
+      );
+      return null;
+    }
+
+    const { error } = await withTimeout(
+      supabase
+        .from('admin_audit_logs')
+        .insert(logEntry)
+    );
+
+    if (error) {
+      notifyClientError("Falha ao registrar log de auditoria", error.message);
+      return null;
+    }
+
+    return logEntry as unknown as AuditLog;
   } catch (error) {
     console.error("Failed to log activity:", error);
+    notifyClientError(
+      "Falha ao registrar log de auditoria",
+      error instanceof Error ? error.message : "Erro inesperado ao salvar o registro."
+    );
     return null;
   }
 };
@@ -721,7 +780,8 @@ export const syncUsers = () => syncTable('profiles', 'name', true);
 
 export const saveUser = async (user: Partial<User>, userInfo?: { name: string, id: string }) => {
   if (!user.id && !user.email) return Promise.resolve(null); // Basic validation
-  const result = await upsert<User>('profiles', user as User);
+  const normalizedUser = user.role ? { ...user, role: normalizeRole(user.role) } : user;
+  const result = await upsert<User>('profiles', normalizedUser as User);
   if (result && userInfo) {
     await logActivity(
       "UPDATE",
@@ -742,7 +802,7 @@ export const getProfile = async (id: string): Promise<User | null> => {
       .eq('id', id)
       .maybeSingle());
     if (error) return null;
-    return data as User;
+    return data ? { ...data, role: normalizeRole((data as User).role) } as User : null;
   } catch (_error) {
     return null;
   }

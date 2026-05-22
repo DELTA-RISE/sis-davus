@@ -19,6 +19,7 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 interface ScannedDoc {
     name: string;
@@ -46,6 +47,7 @@ export default function DocumentsPage() {
     const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set());
     const [linkDialogOpen, setLinkDialogOpen] = useState(false);
     const [assetCode, setAssetCode] = useState("");
+    const [deletePaths, setDeletePaths] = useState<string[]>([]);
 
     // Sorting
     const [sortBy, setSortBy] = useState<SortOption>("date");
@@ -77,8 +79,6 @@ export default function DocumentsPage() {
     }, [isElectron, loadDocuments]);
 
     const handleDelete = async (pathsToDelete: string[]) => {
-        if (!confirm(`Tem certeza que deseja excluir ${pathsToDelete.length} arquivo(s)?`)) return;
-
         let successCount = 0;
         for (const path of pathsToDelete) {
             const res = await deleteDocument(path);
@@ -92,6 +92,7 @@ export default function DocumentsPage() {
         } else {
             toast.error("Erro ao excluir arquivos.");
         }
+        setDeletePaths([]);
     };
 
 
@@ -208,7 +209,7 @@ export default function DocumentsPage() {
                                 <LinkIcon className="w-4 h-4" />
                                 Vincular
                             </Button>
-                            <Button onClick={() => handleDelete(Array.from(selectedPaths))} variant="destructive" className="gap-2 animate-in fade-in zoom-in-95">
+                            <Button onClick={() => setDeletePaths(Array.from(selectedPaths))} variant="destructive" className="gap-2 animate-in fade-in zoom-in-95">
                                 <Trash2 className="w-4 h-4" />
                                 Excluir ({selectedPaths.size})
                             </Button>
@@ -348,6 +349,15 @@ export default function DocumentsPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+            <ConfirmDialog
+                open={deletePaths.length > 0}
+                onOpenChange={(open) => !open && setDeletePaths([])}
+                title="Excluir Arquivos"
+                description={`Tem certeza que deseja excluir ${deletePaths.length} arquivo(s)? Esta acao nao pode ser desfeita.`}
+                onConfirm={() => handleDelete(deletePaths)}
+                confirmText="Excluir"
+                variant="destructive"
+            />
         </div>
     );
 }

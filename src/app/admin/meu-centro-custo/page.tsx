@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Briefcase, Mail, User as UserIcon, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { getRoleLabel } from "@/lib/roles";
 
 export default function MyCostCenterPage() {
     const { costCenter, isLoading: authLoading } = useAuth();
@@ -119,7 +120,7 @@ export default function MyCostCenterPage() {
                                                 </div>
                                             </div>
                                             <Badge variant="secondary" className="bg-amber-100 text-amber-700 border-amber-200">
-                                                Gestor
+                                                {getRoleLabel(responsible.role)}
                                             </Badge>
                                         </div>
                                     </div>
@@ -144,7 +145,7 @@ export default function MyCostCenterPage() {
                                                         <p className="text-xs text-muted-foreground truncate">{member.email}</p>
                                                     </div>
                                                     <Badge variant="outline" className="text-[10px]">
-                                                        {member.role}
+                                                        {getRoleLabel(member.role)}
                                                     </Badge>
                                                 </div>
                                             ))}

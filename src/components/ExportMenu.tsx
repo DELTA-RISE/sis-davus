@@ -12,26 +12,26 @@ import { Download, FileSpreadsheet, FileJson, FileText } from "lucide-react";
 import { toast } from "sonner";
 
 interface ExportMenuProps {
-  onExportCSV: () => void;
-  onExportJSON: () => void;
-  onExportXLSX?: () => void;
+  onExportCSV: () => void | Promise<void>;
+  onExportJSON: () => void | Promise<void>;
+  onExportXLSX?: () => void | Promise<void>;
   itemCount: number;
 }
 
 export function ExportMenu({ onExportCSV, onExportJSON, onExportXLSX, itemCount }: ExportMenuProps) {
-  const handleExportCSV = () => {
-    onExportCSV();
+  const handleExportCSV = async () => {
+    await onExportCSV();
     toast.success(`${itemCount} itens exportados para CSV`);
   };
 
-  const handleExportJSON = () => {
-    onExportJSON();
+  const handleExportJSON = async () => {
+    await onExportJSON();
     toast.success(`${itemCount} itens exportados para JSON`);
   };
 
-  const handleExportXLSX = () => {
+  const handleExportXLSX = async () => {
     if (onExportXLSX) {
-      onExportXLSX();
+      await onExportXLSX();
       toast.success(`${itemCount} itens exportados para Excel`);
     }
   };
