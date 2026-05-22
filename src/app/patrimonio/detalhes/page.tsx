@@ -692,24 +692,36 @@ export default function AssetHubPage() {
                 QR Code
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md border-border">
+            <DialogContent className="w-[calc(100vw-2rem)] max-w-[calc(100vw-2rem)] overflow-hidden border-border p-4 sm:max-w-md sm:p-6">
               <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <QrCode className="w-5 h-5" />
-                  Etiqueta de Patrimônio
+                <DialogTitle className="flex min-w-0 items-center gap-2">
+                  <QrCode className="h-5 w-5 shrink-0" />
+                  <span className="truncate">Etiqueta de Patrimônio</span>
                 </DialogTitle>
               </DialogHeader>
 
-              <Tabs value={labelLayout} onValueChange={(v) => setLabelLayout(v as AssetLabelLayout)} className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
+              <Tabs value={labelLayout} onValueChange={(v) => setLabelLayout(v as AssetLabelLayout)} className="w-full min-w-0">
+                <TabsList className="grid h-11 w-full grid-cols-2">
                   <TabsTrigger value="standard">Padrão</TabsTrigger>
                   <TabsTrigger value="compact">Compacto</TabsTrigger>
                 </TabsList>
               </Tabs>
 
-              <div className="flex flex-col items-center gap-6 py-6" id="qr-content">
-                <div ref={printRef} className="print:m-0 border shadow-sm flex justify-center items-center p-4 bg-gray-50 rounded-lg">
-                  <AssetLabel asset={asset} layout={labelLayout} />
+              <div className="flex w-full min-w-0 flex-col items-center gap-4 py-4 sm:gap-6 sm:py-6" id="qr-content">
+                <div className="flex w-full justify-center overflow-hidden rounded-lg border bg-gray-50 px-2 py-3 shadow-sm sm:p-4">
+                  <div
+                    className={
+                      labelLayout === 'compact'
+                        ? "h-[100px] w-[200px] overflow-visible"
+                        : "h-[132px] w-[264px] overflow-visible sm:h-[150px] sm:w-[300px]"
+                    }
+                  >
+                    <div className={labelLayout === 'compact' ? "origin-top-left" : "origin-top-left scale-[0.88] sm:scale-100"}>
+                      <div ref={printRef} className="print:m-0 flex items-center justify-center">
+                        <AssetLabel asset={asset} layout={labelLayout} />
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Invisible canvas for download */}
@@ -723,23 +735,23 @@ export default function AssetHubPage() {
                   />
                 </div>
 
-                <div className="flex items-center gap-2 mb-4 w-full justify-center">
-                  <div className="flex items-center space-x-2">
+                <div className="flex w-full items-center justify-center">
+                  <div className="flex min-w-0 items-center gap-2">
                     <input
                       type="checkbox"
                       id="fillPage"
-                      className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                      className="h-4 w-4 shrink-0 rounded border-gray-300 text-primary focus:ring-primary"
                       checked={fillPage}
                       onChange={(e) => setFillPage(e.target.checked)}
                     />
-                    <Label htmlFor="fillPage" className="text-sm font-medium cursor-pointer">
+                    <Label htmlFor="fillPage" className="cursor-pointer text-sm font-medium leading-snug">
                       Preencher página (A4)
                     </Label>
                   </div>
                 </div>
 
-                <div className="flex gap-2 w-full">
-                  <Button className="flex-1 gap-2" onClick={async () => {
+                <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-[1fr_auto_auto]">
+                  <Button className="w-full gap-2" onClick={async () => {
                     try {
                       const { toPng } = await import('html-to-image');
                       const jsPDF = (await import('jspdf')).default;
@@ -809,11 +821,11 @@ export default function AssetHubPage() {
                     <Download className="h-4 w-4" />
                     Salvar PDF
                   </Button>
-                  <Button variant="outline" onClick={handlePrint}>
+                  <Button variant="outline" className="w-full gap-2 sm:w-auto" onClick={handlePrint}>
                     <Printer className="h-4 w-4" />
                     Imprimir
                   </Button>
-                  <Button variant="outline" onClick={downloadQR}>
+                  <Button variant="outline" className="w-full gap-2 sm:w-auto" onClick={downloadQR}>
                     <Save className="h-4 w-4" />
                     PNG
                   </Button>

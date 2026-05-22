@@ -33,6 +33,7 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { getRoleLabel } from "@/lib/roles";
 
 const steps = [
     { id: 1, title: "Identificação", description: "Selecione o patrimônio e prioridade" },
@@ -51,7 +52,7 @@ const maintenanceFormSchema = z.object({
 });
 
 function NewMaintenanceContent() {
-    const { user, userName } = useAuth();
+    const { user, userName, currentRole } = useAuth();
     const router = useRouter();
     const searchParams = useSearchParams();
     const preSelectedAssetId = searchParams.get("assetId");
@@ -61,6 +62,7 @@ function NewMaintenanceContent() {
     const [isLoading, setIsLoading] = useState(false);
     const [evidenceFiles, setEvidenceFiles] = useState<File[]>([]);
     const [openAssetSelect, setOpenAssetSelect] = useState(false);
+    const signerRoleLabel = getRoleLabel(currentRole);
 
     const form = useForm({
         resolver: zodResolver(maintenanceFormSchema),
@@ -314,7 +316,7 @@ function NewMaintenanceContent() {
                                         <span>{evidenceFiles.length} anexos</span>
                                     </div>
                                     <div className="pt-2 border-t text-xs text-muted-foreground">
-                                        Ao confirmar, você assinará digitalmente esta solicitação como Gestor Responsável.
+                                        Ao confirmar, você assinará digitalmente esta solicitação como {signerRoleLabel} Responsável.
                                     </div>
                                 </div>
                             </div>

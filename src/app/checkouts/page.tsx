@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Checkout, Product, Asset, User as AppUser } from "@/lib/store";
-import { getCheckouts, saveCheckout, getProducts, getAssets, getUsers } from "@/lib/db";
+import { getCheckouts, isPendingSync, saveCheckout, getProducts, getAssets, getUsers } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -78,7 +78,7 @@ const statusIcons = {
 };
 
 export default function CheckoutsPage() {
-  const { userName, user, costCenter } = useAuth();
+  const { userName, user } = useAuth();
   const [checkouts, setCheckouts] = useState<Checkout[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -127,47 +127,34 @@ export default function CheckoutsPage() {
       return;
     }
 
+    const selectedUser = users.find((candidate) => candidate.name === newCheckout.user_name);
+    if (!selectedUser?.id) {
+      toast.error("Selecione um responsável válido");
+      return;
+    }
+
     const items = newCheckout.item_type === "asset" ? assets : products;
     const item = items.find((i) => i.id === newCheckout.item_id);
     if (!item) return;
-
-    // Restriction: Manager can only checkout items assigned to them (Assets) or their Cost Center (Products)
-    if (user?.role === 'gestor' || user?.role === 'manager') {
-      if (newCheckout.item_type === 'asset') {
-        // For assets, must be assigned to the manager? Or is "associado a ele" meaning assigned to him?
-        // User request: "caso esteja associado a ele e não necessariamente a obra"
-        const assetItem = item as Asset;
-        // Check if assigned_to matches user.id OR maybe user.name if ids aren't consistent, but prefer ID.
-        // If assigned_to is a name, we might have issues. store.ts says assigned_to?: string.
-        // Let's assume it stores ID or Name. The save operation uses userName usually.
-        // But strict reading: "associado a ele" -> assigned_to check.
-
-        // Restriction: Manager can only checkout items assigned to them (Assets) or their Cost Center (Products)
-        const isAssignedToUser = assetItem.assigned_to === user?.id || assetItem.assigned_to === userName;
-
-        if (!isAssignedToUser) {
-          toast.error("Você só pode realizar empréstimos de patrimônios associados a você.");
-          return;
-        }
-      } else if (newCheckout.item_type === 'product') {
-        const prodItem = item as Product;
-        if (costCenter && prodItem.cost_center !== costCenter) {
-          toast.error(`Você só pode realizar empréstimos de insumos do seu Centro de Custo (${costCenter}).`);
-          return;
-        }
-      }
-    }
-
     const payload: Partial<Checkout> = {
       ...newCheckout,
       item_name: item.name,
+      user_id: selectedUser.id,
+      quantity: newCheckout.quantity || 1,
       checkout_date: new Date().toISOString(),
       status: "Ativo",
     };
 
     const saved = await saveCheckout(payload, { name: userName, id: user?.id || "" });
     if (saved) {
-      toast.success("Checkout realizado!");
+      if (isPendingSync(saved)) {
+        toast.warning("Checkout salvo localmente.", {
+          description: "A sincronizacao com o Supabase ainda esta pendente.",
+        });
+      } else {
+        toast.success("Checkout realizado!");
+      }
+      setCheckouts((current) => [saved, ...current.filter((checkout) => checkout.id !== saved.id)]);
       setIsDialogOpen(false);
       setNewCheckout({ item_type: "asset", quantity: 1 });
     } else {
@@ -180,7 +167,20 @@ export default function CheckoutsPage() {
     if (!checkout) return;
 
     const updated = await saveCheckout({ ...checkout, status: "Devolvido", return_date: new Date().toISOString() }, { name: userName, id: user?.id || "" });
-    if (updated) toast.success("Item devolvido!");
+    if (updated) {
+      if (isPendingSync(updated)) {
+        toast.warning("Devolucao salva localmente.", {
+          description: updated.__persistenceError || "A sincronizacao com o Supabase ainda esta pendente.",
+        });
+      } else {
+        toast.success("Item devolvido!");
+      }
+      setCheckouts((current) =>
+        current.map((item) => (item.id === updated.id ? { ...item, ...updated } : item))
+      );
+    } else {
+      toast.error("Erro ao registrar devolucao");
+    }
   };
 
   const currentItems = newCheckout.item_type === "asset" ? assets : products;
@@ -291,7 +291,7 @@ export default function CheckoutsPage() {
                                       key={u.id}
                                       value={u.name}
                                       onSelect={() => {
-                                        setNewCheckout({ ...newCheckout, user_name: u.name });
+                                        setNewCheckout({ ...newCheckout, user_id: u.id, user_name: u.name });
                                         setOpenUserSelect(false);
                                       }}
                                     >

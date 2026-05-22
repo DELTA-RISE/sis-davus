@@ -46,6 +46,7 @@ import {
   Calendar,
   Shield,
   UserCog,
+  HardHat,
   Trash2,
   Lock,
   User as UserIcon,
@@ -75,6 +76,7 @@ import { supabase } from "@/lib/supabase";
 const roleLabels: Record<UserRole, string> = {
   admin: "Administrador",
   gestor: "Gestor",
+  operador: "Operador",
   user: "Usuário",
   manager: "Gerente",
 };
@@ -82,6 +84,7 @@ const roleLabels: Record<UserRole, string> = {
 const roleColors: Record<UserRole, string> = {
   admin: "bg-purple-500/20 text-purple-500 border-purple-500/30",
   gestor: "bg-blue-500/20 text-blue-500 border-blue-500/30",
+  operador: "bg-emerald-500/20 text-emerald-600 border-emerald-500/30",
   user: "bg-gray-500/20 text-gray-500 border-gray-500/30",
   manager: "bg-orange-500/20 text-orange-500 border-orange-500/30",
 };
@@ -93,6 +96,7 @@ type DependencyDetails = {
 const roleIcons: Record<UserRole, LucideIcon> = {
   admin: Shield,
   gestor: UserCog,
+  operador: HardHat,
   user: UserIcon,
   manager: Shield,
 };
@@ -224,7 +228,7 @@ export default function UsersPage() {
           email: newUser.email || "",
           role: newUser.role || 'gestor',
           status: (newUser.status === 'ativo' || newUser.status === 'inativo') ? newUser.status : 'ativo',
-          cost_center: newUser.role === 'gestor' && newUser.cost_center ? newUser.cost_center : null
+          cost_center: newUser.cost_center || null
         }, {
           userName,
           userId: user?.id || "",
@@ -381,6 +385,7 @@ export default function UsersPage() {
                         <SelectContent>
                           <SelectItem value="admin">Administrador</SelectItem>
                           <SelectItem value="gestor">Gestor</SelectItem>
+                          <SelectItem value="operador">Operador</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

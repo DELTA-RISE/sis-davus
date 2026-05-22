@@ -5,6 +5,7 @@ import { UserRole } from "./store";
 import { supabase } from "./supabase";
 import { User as SupabaseUser } from "@supabase/supabase-js";
 import { getProfile, saveUser, logActivity } from "./db";
+import { normalizeRole } from "./roles";
 
 import { getGravatarUrl } from "./gravatar";
 
@@ -159,7 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(null);
         } else {
           console.log("[AuthContext] Setting user data:", profile.name);
-          setCurrentRole(profile.role);
+          setCurrentRole(normalizeRole(profile.role));
           setCostCenter(profile.cost_center);
           setUserName(profile.name);
           setEmail(profile.email);

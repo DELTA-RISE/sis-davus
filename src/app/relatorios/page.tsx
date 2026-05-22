@@ -4,8 +4,6 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 // import { useAuth } from "@/lib/auth-context";
 import { Product, Asset, StockMovement, MaintenanceTask } from "@/lib/store";
 import { getProducts, getAssets, getMovements, getMaintenanceTasks } from "@/lib/db";
-import { exportProducts, exportAssets, exportMaintenance, exportOverview } from "@/lib/export-utils";
-import { exportProductsPDF, exportAssetsPDF, exportMaintenancePDF, exportOverviewPDF } from "@/lib/export-pdf";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -64,6 +62,26 @@ export default function RelatoriosPage() {
 
   const [activeTab, setActiveTab] = useState("overview");
 
+  const exportReport = useCallback(async (
+    type: "overview" | "assets" | "products" | "maintenance",
+    format: "pdf" | "xlsx"
+  ) => {
+    if (format === "pdf") {
+      const pdf = await import("@/lib/export-pdf");
+      if (type === "overview") pdf.exportOverviewPDF(products, assets, maintenanceTasks);
+      if (type === "assets") pdf.exportAssetsPDF(assets);
+      if (type === "products") pdf.exportProductsPDF(products);
+      if (type === "maintenance") pdf.exportMaintenancePDF(maintenanceTasks);
+      return;
+    }
+
+    const xlsx = await import("@/lib/export-utils");
+    if (type === "overview") xlsx.exportOverview(products, assets, maintenanceTasks, "xlsx");
+    if (type === "assets") xlsx.exportAssets(assets, "xlsx");
+    if (type === "products") xlsx.exportProducts(products, "xlsx");
+    if (type === "maintenance") xlsx.exportMaintenance(maintenanceTasks, "xlsx");
+  }, [products, assets, maintenanceTasks]);
+
   // Progressive loading - each query loads independently
   const loadData = useCallback(async (silent = false) => {
     // Set all loading states if not silent
@@ -116,6 +134,11 @@ export default function RelatoriosPage() {
     loadData();
   }, [loadData]);
 
+  const visibleMovements = useMemo(() => {
+    const visibleProductIds = new Set(products.map((product) => product.id));
+    return movements.filter((movement) => visibleProductIds.has(movement.product_id));
+  }, [movements, products]);
+
   // Derived Data Calculations
   const metrics = useMemo(() => {
     // Stock Metrics
@@ -132,11 +155,11 @@ export default function RelatoriosPage() {
     const assetsInMaintenance = assets.filter(a => a.condition === "Manutenção").length;
 
     // Movement Metrics
-    const entries = movements.filter(m => m.type === "entrada");
-    const exits = movements.filter(m => m.type === "saida");
+    const entries = visibleMovements.filter(m => m.type === "entrada");
+    const exits = visibleMovements.filter(m => m.type === "saida");
     const currentMonth = new Date().getMonth();
     const currentYear = new Date().getFullYear();
-    const monthlyMovements = movements.filter(m => {
+    const monthlyMovements = visibleMovements.filter(m => {
       if (!m.date) return false;
       const moveDate = new Date(m.date);
       return moveDate.getMonth() === currentMonth && moveDate.getFullYear() === currentYear;
@@ -179,7 +202,7 @@ export default function RelatoriosPage() {
       topProducts,
       topAssets
     };
-  }, [products, assets, movements, maintenanceTasks]);
+  }, [products, assets, visibleMovements, maintenanceTasks]);
 
   // Charts Data
   const chartsData = useMemo(() => {
@@ -197,7 +220,7 @@ export default function RelatoriosPage() {
     ).map(([name, value]) => ({ name, value }));
 
     const movementTrend = Object.values(
-      movements.reduce((acc, m) => {
+      visibleMovements.reduce((acc, m) => {
         const date = m.date?.split("T")[0] || "";
         if (!acc[date]) acc[date] = { date, entrada: 0, saida: 0 };
         if (m.type === "entrada") acc[date].entrada += m.quantity;
@@ -220,7 +243,7 @@ export default function RelatoriosPage() {
       movementTrend,
       maintenanceStatus
     };
-  }, [products, assets, movements, metrics]);
+  }, [products, assets, visibleMovements, metrics]);
 
   // Helper to determine if critical data for overview is loaded
   // const hasOverviewData = !loadingProducts && !loadingAssets && !loadingMaintenance;
@@ -254,10 +277,10 @@ export default function RelatoriosPage() {
           {/* OVERVIEW TAB */}
           <TabsContent value="overview" className="space-y-6">
             <div className="flex justify-end gap-2">
-              <Button size="sm" variant="outline" onClick={() => exportOverviewPDF(products, assets, maintenanceTasks)}>
+              <Button size="sm" variant="outline" onClick={() => exportReport("overview", "pdf")}>
                 <FileBarChart className="h-4 w-4 mr-2" /> PDF
               </Button>
-              <Button size="sm" variant="outline" onClick={() => exportOverview(products, assets, maintenanceTasks, 'xlsx')}>
+              <Button size="sm" variant="outline" onClick={() => exportReport("overview", "xlsx")}>
                 <Download className="h-4 w-4 mr-2" /> Excel
               </Button>
             </div>
@@ -687,10 +710,10 @@ export default function RelatoriosPage() {
           {/* ASSETS TAB */}
           <TabsContent value="assets" className="space-y-6">
             <div className="flex justify-end gap-2">
-              <Button size="sm" variant="outline" onClick={() => exportAssetsPDF(assets)}>
+              <Button size="sm" variant="outline" onClick={() => exportReport("assets", "pdf")}>
                 <FileBarChart className="h-4 w-4 mr-2" /> PDF
               </Button>
-              <Button size="sm" variant="outline" onClick={() => exportAssets(assets, 'xlsx')}>
+              <Button size="sm" variant="outline" onClick={() => exportReport("assets", "xlsx")}>
                 <Download className="h-4 w-4 mr-2" /> Excel
               </Button>
             </div>
@@ -754,10 +777,10 @@ export default function RelatoriosPage() {
           {/* STOCK TAB */}
           <TabsContent value="stock" className="space-y-6">
             <div className="flex justify-end gap-2">
-              <Button size="sm" variant="outline" onClick={() => exportProductsPDF(products)}>
+              <Button size="sm" variant="outline" onClick={() => exportReport("products", "pdf")}>
                 <FileBarChart className="h-4 w-4 mr-2" /> PDF
               </Button>
-              <Button size="sm" variant="outline" onClick={() => exportProducts(products, 'xlsx')}>
+              <Button size="sm" variant="outline" onClick={() => exportReport("products", "xlsx")}>
                 <Download className="h-4 w-4 mr-2" /> Excel
               </Button>
             </div>
@@ -820,10 +843,10 @@ export default function RelatoriosPage() {
           {/* MAINTENANCE TAB */}
           <TabsContent value="maintenance" className="space-y-6">
             <div className="flex justify-end gap-2">
-              <Button size="sm" variant="outline" onClick={() => exportMaintenancePDF(maintenanceTasks)}>
+              <Button size="sm" variant="outline" onClick={() => exportReport("maintenance", "pdf")}>
                 <FileBarChart className="h-4 w-4 mr-2" /> PDF
               </Button>
-              <Button size="sm" variant="outline" onClick={() => exportMaintenance(maintenanceTasks, 'xlsx')}>
+              <Button size="sm" variant="outline" onClick={() => exportReport("maintenance", "xlsx")}>
                 <Download className="h-4 w-4 mr-2" /> Excel
               </Button>
             </div>

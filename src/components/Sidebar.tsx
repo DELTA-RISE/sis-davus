@@ -18,6 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { useSidebar } from "@/lib/sidebar-context";
+import { isCostCenterScopedRole, isOperatorRole } from "@/lib/roles";
 
 const adminItems = [
   { href: "/admin/logs", icon: FileText, label: "Logs de Auditoria" },
@@ -35,10 +36,14 @@ const gestorItems = [
   { href: "/relatorios", icon: FileBarChart, label: "Relatórios" },
 ];
 
+const operadorItems = gestorItems.filter((item) => item.href !== "/relatorios");
+
 export function Sidebar() {
   const pathname = usePathname();
   const { isCollapsed, setIsCollapsed } = useSidebar();
   const { currentRole, costCenter } = useAuth();
+  const visibleGestaoItems = isOperatorRole(currentRole) || currentRole === "user" ? operadorItems : gestorItems;
+  const sectionLabel = isOperatorRole(currentRole) || currentRole === "user" ? "Operação" : "Gestão";
 
   return (
     <aside
@@ -107,11 +112,11 @@ export function Sidebar() {
 
         {!isCollapsed && (
           <p className="px-3 pt-4 pb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Gestão
+            {sectionLabel}
           </p>
         )}
         {isCollapsed && <div className="h-px bg-sidebar-border my-2" />}
-        {gestorItems.map((item) => {
+        {visibleGestaoItems.map((item) => {
           const isActive = pathname === item.href;
           return (
             <Link
@@ -134,7 +139,7 @@ export function Sidebar() {
         })}
 
 
-        {currentRole === 'gestor' && costCenter && (
+        {isCostCenterScopedRole(currentRole) && costCenter && (
           <>
             {isCollapsed && <div className="h-px bg-sidebar-border my-2" />}
             <Link

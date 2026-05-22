@@ -64,7 +64,7 @@ export type MaintenanceFormData = z.infer<typeof maintenanceSchema>;
 export const userSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
   email: z.string().email("Email inválido"),
-  role: z.enum(["admin", "gestor", "user", "manager"]),
+  role: z.enum(["admin", "gestor", "operador", "user", "manager"]),
   status: z.enum(["ativo", "inativo"]),
   cost_center: z.string().nullable().optional(), // Can be null for admins or if not assigned
 });

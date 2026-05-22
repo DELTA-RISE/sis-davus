@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { StockMovement, Product } from "@/lib/store";
-import { getMovements, saveMovement, getProducts } from "@/lib/db";
+import { getMovements, isPendingSync, saveMovement, getProducts } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { movementSchema } from "@/lib/validations";
@@ -67,7 +67,7 @@ import { DateRange } from "react-day-picker";
 import { PageTransition, StaggerContainer, StaggerItem } from "@/components/PageTransition";
 
 export default function MovementsPage() {
-  const { userName, user, currentRole, costCenter } = useAuth();
+  const { userName, user } = useAuth();
   const [movements, setMovements] = useState<StockMovement[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -79,6 +79,7 @@ export default function MovementsPage() {
   // const [deleteMovementId, setDeleteMovementId] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [openProductSelect, setOpenProductSelect] = useState(false);
+  const [prefillApplied, setPrefillApplied] = useState(false);
   const [newMovement, setNewMovement] = useState<Partial<StockMovement>>({
     type: "entrada",
   });
@@ -106,6 +107,21 @@ export default function MovementsPage() {
       supabase.removeChannel(channel);
     };
   }, [loadData]);
+
+  useEffect(() => {
+    if (prefillApplied || products.length === 0 || typeof window === "undefined") return;
+
+    const params = new URLSearchParams(window.location.search);
+    const productId = params.get("productId");
+    if (!productId || !products.some((product) => product.id === productId)) return;
+
+    setNewMovement({
+      type: params.get("type") === "saida" ? "saida" : "entrada",
+      product_id: productId,
+    });
+    setIsDialogOpen(true);
+    setPrefillApplied(true);
+  }, [products, prefillApplied]);
 
   const filteredMovements = useMemo(() => {
     return movements.filter((m) => {
@@ -158,16 +174,11 @@ export default function MovementsPage() {
     const product = products.find((p) => p.id === newMovement.product_id);
     if (!product) return;
 
-    // Restriction: Manager can only move stock if product belongs to their Cost Center
-    if (currentRole === 'gestor' || currentRole === 'manager') {
-      if (!costCenter) {
-        toast.error("Seu usuário não possui Centro de Custo vinculado.");
-        return;
-      }
-      if (product.cost_center !== costCenter) {
-        toast.error(`Você só pode movimentar insumos do seu Centro de Custo (${costCenter}). Produto pertence a: ${product.cost_center || 'Nenhum'}`);
-        return;
-      }
+    if (newMovement.type === "saida" && (newMovement.quantity || 0) > (product.quantity || 0)) {
+      toast.error("Saldo insuficiente", {
+        description: `Este item possui ${product.quantity || 0} unidades disponíveis.`
+      });
+      return;
     }
 
     const payload: Partial<StockMovement> = {
@@ -180,7 +191,14 @@ export default function MovementsPage() {
 
     const saved = await saveMovement(payload, { name: userName, id: user?.id || "" });
     if (saved) {
-      toast.success("Movimentação registrada com sucesso!");
+      if (isPendingSync(saved)) {
+        toast.warning("Movimentação registrada localmente.", {
+          description: "A sincronização com o Supabase ainda está pendente.",
+        });
+      } else {
+        toast.success("Movimentação registrada com sucesso!");
+      }
+      await loadData(true);
       setIsDialogOpen(false);
       setNewMovement({ type: "entrada" });
     } else {

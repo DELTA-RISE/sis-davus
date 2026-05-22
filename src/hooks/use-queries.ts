@@ -7,16 +7,16 @@ import { db } from "@/lib/dexie-db";
 
 export function useProducts(searchTerm = "") {
     const products = useLiveQuery(async () => {
-        const all = await db.products.toArray();
+        const all = await db.products.orderBy('name').toArray();
         const active = all.filter((p) => !p.deleted_at);
 
-        if (!searchTerm) return active.sort((a, b) => a.name.localeCompare(b.name));
+        if (!searchTerm) return active;
 
         const lower = searchTerm.toLowerCase();
         return active.filter(p =>
             p.name.toLowerCase().includes(lower) ||
             p.sku.toLowerCase().includes(lower)
-        ).sort((a, b) => a.name.localeCompare(b.name));
+        );
     }, [searchTerm]);
 
     return { products: products || [], isLoading: products === undefined };
@@ -24,16 +24,16 @@ export function useProducts(searchTerm = "") {
 
 export function useUsers(searchTerm = "") {
     const users = useLiveQuery(async () => {
-        const all = await db.profiles.toArray();
+        const all = await db.profiles.orderBy('name').toArray();
         const active = all.filter((u) => u.status !== 'inativo'); // Or whatever logic for active users
 
-        if (!searchTerm) return active.sort((a, b) => a.name.localeCompare(b.name));
+        if (!searchTerm) return active;
 
         const lower = searchTerm.toLowerCase();
         return active.filter((u) =>
             u.name.toLowerCase().includes(lower) ||
             u.email.toLowerCase().includes(lower)
-        ).sort((a, b) => a.name.localeCompare(b.name));
+        );
     }, [searchTerm]);
 
     return { users: users || [], isLoading: users === undefined };
@@ -41,16 +41,16 @@ export function useUsers(searchTerm = "") {
 
 export function useAssets(searchTerm = "") {
     const assets = useLiveQuery(async () => {
-        const all = await db.assets.toArray();
+        const all = await db.assets.orderBy('name').toArray();
         const active = all.filter((a) => !a.deleted_at);
 
-        if (!searchTerm) return active.sort((a, b) => a.name.localeCompare(b.name));
+        if (!searchTerm) return active;
 
         const lower = searchTerm.toLowerCase();
         return active.filter(a =>
             a.name.toLowerCase().includes(lower) ||
             (a.code && a.code.toLowerCase().includes(lower))
-        ).sort((a, b) => a.name.localeCompare(b.name));
+        );
     }, [searchTerm]);
 
     return { assets: assets || [], isLoading: assets === undefined };

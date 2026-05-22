@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
+import { isOperatorRole } from "@/lib/roles";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Package,
@@ -36,6 +37,9 @@ export default function MenuPage() {
   const getMenuItems = () => {
     const geral = allMenuItems.filter(i => i.category === "geral");
     if (currentRole === "admin") return [...geral, ...allMenuItems.filter(i => i.category !== "geral")];
+    if (isOperatorRole(currentRole) || currentRole === "user") {
+      return [...geral, ...allMenuItems.filter(i => i.category === "gestor" && i.href !== "/relatorios")];
+    }
     return [...geral, ...allMenuItems.filter(i => i.category === "gestor")];
   };
 

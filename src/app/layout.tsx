@@ -8,7 +8,7 @@ import { SyncProvider } from "@/components/SyncProvider";
 import { SoundProvider } from "@/components/SoundProvider";
 
 import { JsonLd } from "@/components/JsonLd";
-import { Toaster } from "sonner";
+import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "next-themes";
 import { GlobalDropZone } from "@/components/GlobalDropZone";
 import { LockScreen } from "@/components/LockScreen";
