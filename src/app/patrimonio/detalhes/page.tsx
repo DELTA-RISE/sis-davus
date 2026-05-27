@@ -804,7 +804,7 @@ export default function AssetHubPage() {
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Nome do Bem</Label>
+                    <Label>Equipamento</Label>
                     <Input value={editForm.name || ""} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
                   </div>
                   <div className="space-y-2">
@@ -888,7 +888,7 @@ export default function AssetHubPage() {
                 Transferir
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
               <DialogHeader><DialogTitle>Transferir Patrimônio</DialogTitle></DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
@@ -937,14 +937,18 @@ export default function AssetHubPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>Foto da Observação (Opcional)</Label>
-                  <ImageUpload
-                    bucket="public-assets"
-                    folder="asset-movements"
-                    defaultImage={transferData.image_url}
-                    onImageChange={(url) => setTransferData({ ...transferData, image_url: url || "" })}
-                  />
+                  <div className="flex justify-center">
+                    <ImageUpload
+                      bucket="public-assets"
+                      folder="asset-movements"
+                      defaultImage={transferData.image_url}
+                      onImageChange={(url) => setTransferData({ ...transferData, image_url: url || "" })}
+                    />
+                  </div>
                 </div>
-                <Button onClick={handleTransfer}>Confirmar Transferência</Button>
+                <div className="flex justify-center">
+                  <Button onClick={handleTransfer} className="w-full sm:w-auto">Confirmar Transferência</Button>
+                </div>
               </div>
             </DialogContent>
           </Dialog>

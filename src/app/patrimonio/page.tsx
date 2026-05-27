@@ -58,7 +58,6 @@ import {
   Edit,
   User,
   Wrench,
-  ChevronRight,
   // QrCode,
   Trash2,
   Zap,
@@ -719,7 +718,7 @@ export default function PatrimonioPage() {
 
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label>Nome do Bem</Label>
+                          <Label>Equipamento</Label>
                           <Input
                             value={newAsset.name || ""}
                             onChange={(e) => setNewAsset({ ...newAsset, name: e.target.value })}
@@ -1049,7 +1048,6 @@ export default function PatrimonioPage() {
                                   <ArrowLeftRight className="h-4 w-4" />
                                 </Link>
                               </Button>
-                              <Link href={`/patrimonio/detalhes?id=${asset.id}`}><ChevronRight className="h-4 w-4 text-muted-foreground hover:text-primary" /></Link>
                               {(currentRole === 'gestor' || currentRole === 'manager') && (
                                 <Button variant="ghost" size="sm" onClick={(e) => handleOpenWriteOff(e, asset)} className="h-7 w-7 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50" title="Solicitar Baixa">
                                   <FileWarning className="h-4 w-4" />
