@@ -336,7 +336,7 @@ export default function AssetHubPage() {
 
       await saveAssetTimeline({
         asset_id: asset.id,
-        type: "assignment",
+        type: "movimentacao",
         date: new Date(`${transferData.movement_date}T12:00:00`).toISOString(),
         title: "Movimentação de patrimônio",
         user_name: userName,
