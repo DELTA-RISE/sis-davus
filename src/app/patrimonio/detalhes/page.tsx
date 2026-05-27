@@ -10,6 +10,7 @@ import {
   getAssetTimelines,
   getCheckouts,
   saveAsset,
+  saveAssetTimeline,
   saveCheckout,
   saveMaintenanceTask,
 
@@ -116,11 +117,13 @@ export default function AssetHubPage() {
   // Dialog States
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [generalInfoDialogOpen, setGeneralInfoDialogOpen] = useState(false);
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   const [checkoutDialogOpen, setCheckoutDialogOpen] = useState(false);
 
   // Form Data
   const [editForm, setEditForm] = useState<Partial<Asset>>({});
+  const [generalInfoForm, setGeneralInfoForm] = useState<Partial<Asset>>({});
   const [transferData, setTransferData] = useState({ location: "", cost_center: "", responsible: "", reason: "" });
   const [checkoutData, setCheckoutData] = useState({ user_name: "", expected_return: "", notes: "" });
   const [labelLayout, setLabelLayout] = useState<AssetLabelLayout>('standard');
@@ -256,6 +259,37 @@ export default function AssetHubPage() {
       loadData();
     } else {
       toast.error("Erro ao salvar alterações");
+    }
+  };
+
+  const handleSaveGeneralInfo = async () => {
+    if (!asset) return;
+
+    const updated = await saveAsset({
+      ...asset,
+      category: generalInfoForm.category?.trim() || "",
+      brand: generalInfoForm.brand?.trim() || "",
+      model: generalInfoForm.model?.trim() || "",
+      serial_number: generalInfoForm.serial_number?.trim() || "",
+      description: generalInfoForm.description?.trim() || "",
+    }, { name: userName, id: user?.id || "" });
+
+    if (updated) {
+      await saveAssetTimeline({
+        asset_id: asset.id,
+        type: "audit",
+        date: new Date().toISOString(),
+        title: "Informações gerais atualizadas",
+        user_name: userName,
+        description: "Categoria, marca, modelo, número de série ou descrição do patrimônio foram revisados.",
+      });
+
+      setAsset(updated);
+      setGeneralInfoDialogOpen(false);
+      toast.success("Informações gerais atualizadas!");
+      loadData();
+    } else {
+      toast.error("Erro ao salvar informações gerais");
     }
   };
 
@@ -404,16 +438,89 @@ export default function AssetHubPage() {
           <div className="lg:col-span-2 space-y-4">
             <Card className="border-border/50 bg-card/50">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                  <Tag className="h-4 w-4" />
-                  Informações Gerais
-                </CardTitle>
+                <div className="flex items-center justify-between gap-3">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <Tag className="h-4 w-4" />
+                    Informações Gerais
+                  </CardTitle>
+                  <Dialog open={generalInfoDialogOpen} onOpenChange={(open) => {
+                    setGeneralInfoDialogOpen(open);
+                    if (open && asset) {
+                      setGeneralInfoForm({
+                        category: asset.category || "",
+                        brand: asset.brand || "",
+                        model: asset.model || "",
+                        serial_number: asset.serial_number || "",
+                        description: asset.description || "",
+                      });
+                    }
+                  }}>
+                    <DialogTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-8 gap-2 px-2 text-xs">
+                        <Edit className="h-3.5 w-3.5" />
+                        Editar
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-2xl">
+                      <DialogHeader>
+                        <DialogTitle>Editar Informações Gerais</DialogTitle>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Categoria</Label>
+                            <Input
+                              value={generalInfoForm.category || ""}
+                              onChange={(e) => setGeneralInfoForm({ ...generalInfoForm, category: e.target.value })}
+                              placeholder="Opcional"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Marca</Label>
+                            <Input
+                              value={generalInfoForm.brand || ""}
+                              onChange={(e) => setGeneralInfoForm({ ...generalInfoForm, brand: e.target.value })}
+                              placeholder="Opcional"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Modelo</Label>
+                            <Input
+                              value={generalInfoForm.model || ""}
+                              onChange={(e) => setGeneralInfoForm({ ...generalInfoForm, model: e.target.value })}
+                              placeholder="Opcional"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Nº Série</Label>
+                            <Input
+                              value={generalInfoForm.serial_number || ""}
+                              onChange={(e) => setGeneralInfoForm({ ...generalInfoForm, serial_number: e.target.value })}
+                              placeholder="Opcional"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Descrição</Label>
+                          <Textarea
+                            value={generalInfoForm.description || ""}
+                            onChange={(e) => setGeneralInfoForm({ ...generalInfoForm, description: e.target.value })}
+                            placeholder="Opcional"
+                          />
+                        </div>
+                        <Button onClick={handleSaveGeneralInfo}>Salvar Informações</Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div className="space-y-1">
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Categoria</p>
-                    <p className="text-sm font-medium">{asset.category}</p>
+                    <p className="text-sm font-medium">{asset.category || "N/A"}</p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Marca</p>
@@ -430,7 +537,7 @@ export default function AssetHubPage() {
                 </div>
                 <div className="pt-2 border-t border-border/50">
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Descrição</p>
-                  <p className="text-sm">{asset.description}</p>
+                  <p className="text-sm">{asset.description || "N/A"}</p>
                 </div>
               </CardContent>
             </Card>
