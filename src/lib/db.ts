@@ -667,12 +667,16 @@ export const getCheckouts = async (itemId?: string, itemType?: 'product' | 'asse
   }
 };
 export const saveCheckout = async (checkout: Partial<Checkout>, userInfo?: { name: string, id: string }) => {
-  const result = await upsert<Checkout>('checkouts', checkout as Checkout);
+  const payload: Partial<Checkout> = {
+    ...checkout,
+    quantity: checkout.quantity ?? 1,
+  };
+  const result = await upsert<Checkout>('checkouts', payload as Checkout);
   if (result && userInfo) {
     await logActivity(
-      checkout.id ? "UPDATE" : "CHECKOUT",
+      payload.id ? "UPDATE" : "CHECKOUT",
       "CHECKOUT",
-      `Checkout de "${result.item_name}" ${checkout.id ? "atualizado" : "realizado"} para ${result.user_name} por ${userInfo.name}.`,
+      `Checkout de "${result.item_name}" ${payload.id ? "atualizado" : "realizado"} para ${result.user_name} por ${userInfo.name}.`,
       result.id,
       userInfo.name
     );

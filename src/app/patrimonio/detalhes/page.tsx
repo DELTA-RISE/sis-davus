@@ -289,6 +289,7 @@ export default function AssetHubPage() {
       item_type: "asset",
       item_name: asset.name,
       user_name: checkoutData.user_name,
+      quantity: 1,
       checkout_date: new Date().toISOString(),
       expected_return_date: checkoutData.expected_return || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // Default 7 days
       status: "Ativo",
