@@ -151,6 +151,15 @@ export async function syncTable(table: string, orderColumn: string = 'created_at
   if (!isOnline()) return;
 
   try {
+    const queuedUpserts = await db.sync_queue
+      .where('table')
+      .equals(table)
+      .filter((item) => item.action === 'upsert' && item.status !== 'failed')
+      .toArray();
+    const queuedPayloads = queuedUpserts
+      .map((item) => item.payload)
+      .filter((payload): payload is Record<string, unknown> => Boolean(payload && payload.id));
+
     const { data, error } = await withTimeout(
       supabase
         .from(table)
@@ -163,6 +172,9 @@ export async function syncTable(table: string, orderColumn: string = 'created_at
     await db.transaction('rw', db.table(table), async () => {
       await db.table(table).clear();
       await db.table(table).bulkAdd(data);
+      if (queuedPayloads.length > 0) {
+        await db.table(table).bulkPut(queuedPayloads);
+      }
     });
   } catch (error) {
     console.error(`Sync failed for ${table}:`, error);
