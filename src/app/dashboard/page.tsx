@@ -91,7 +91,7 @@ const categoryChartConfig = {
 } satisfies ChartConfig;
 
 export default function DashboardPage() {
-  const { currentRole } = useAuth();
+  const { currentRole, user, userName } = useAuth();
   const [costCenters, setCostCenters] = useState<{ id: string, name: string }[]>([]);
   const [selectedCostCenter, setSelectedCostCenter] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
@@ -121,6 +121,8 @@ export default function DashboardPage() {
   } = useDashboardData({
     role: currentRole || undefined,
     costCenterId: selectedCostCenter,
+    userId: user?.id,
+    userName,
     dateRange
   });
 
