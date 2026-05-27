@@ -24,8 +24,8 @@ export const movementSchema = z.object({
 export const assetSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
   code: z.string().min(3, "Código deve ter pelo menos 3 caracteres"),
-  category: z.string().min(1, "Selecione uma categoria"),
-  location: z.string().min(1, "Informe a localização"),
+  category: z.string().optional().default(""),
+  location: z.string().optional().default(""),
   cost_center: z.string().min(1, "Selecione um centro de custo"),
   condition: z.enum(["Excelente", "Bom", "Regular", "Ruim", "Manutenção"]),
   purchase_date: z.string().optional(),
