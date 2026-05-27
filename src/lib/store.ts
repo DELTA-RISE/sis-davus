@@ -171,7 +171,7 @@ export interface AssetTimeline {
   date: string;
   title: string;
   description: string;
-  type: 'maintenance' | 'assignment' | 'location' | 'status' | 'audit';
+  type: 'criacao' | 'movimentacao' | 'manutencao' | 'checkout' | 'devolucao' | 'atualizacao' | 'maintenance' | 'assignment' | 'location' | 'status' | 'audit';
   user_name?: string;
   image_url?: string;
   created_at?: string;

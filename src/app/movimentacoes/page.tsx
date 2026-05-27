@@ -95,7 +95,9 @@ export default function MovementsPage() {
     const [m, p, assetTimeline] = await Promise.all([getMovements(), getProducts(), getAssetTimelines()]);
     setMovements(m);
     setProducts(p);
-    setAssetMovements(assetTimeline.filter((event) => event.type === "assignment" || event.type === "location"));
+    setAssetMovements(assetTimeline.filter((event) =>
+      event.type === "movimentacao" || event.type === "assignment" || event.type === "location"
+    ));
     if (!silent) setIsLoading(false);
   }, []);
 
