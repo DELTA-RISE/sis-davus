@@ -18,6 +18,7 @@ import {
 } from "@/lib/db";
 import { useAuth } from "@/lib/auth-context";
 import { AssetLabel, AssetLabelLayout } from "@/components/AssetLabel";
+import { ImageUpload } from "@/components/ui/image-upload";
 import { useReactToPrint } from "react-to-print";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -124,7 +125,14 @@ export default function AssetHubPage() {
   // Form Data
   const [editForm, setEditForm] = useState<Partial<Asset>>({});
   const [generalInfoForm, setGeneralInfoForm] = useState<Partial<Asset>>({});
-  const [transferData, setTransferData] = useState({ location: "", cost_center: "", responsible: "", reason: "" });
+  const [transferData, setTransferData] = useState({
+    origin: "",
+    cost_center: "",
+    responsible: "",
+    movement_date: new Date().toISOString().split("T")[0],
+    notes: "",
+    image_url: "",
+  });
   const [checkoutData, setCheckoutData] = useState({ user_name: "", expected_return: "", notes: "" });
   const [labelLayout, setLabelLayout] = useState<AssetLabelLayout>('standard');
   const [fillPage, setFillPage] = useState(false);
@@ -294,20 +302,43 @@ export default function AssetHubPage() {
   };
 
   const handleTransfer = async () => {
-    if (!asset || !transferData.location) return;
+    if (!asset || !transferData.origin || !transferData.cost_center) {
+      toast.error("Informe a origem e o destino da movimentação");
+      return;
+    }
 
-    // Update asset
+    const destination = costCenters.find((cc) => cc.id === transferData.cost_center);
+    const originName = transferData.origin.trim();
+    const destinationName = destination?.name || transferData.cost_center;
+
     const updated = await saveAsset({
       ...asset,
-      location: transferData.location,
-      cost_center: transferData.cost_center || asset.cost_center,
+      location: originName,
+      cost_center: transferData.cost_center,
       assigned_to: transferData.responsible || asset.assigned_to
     }, { name: userName, id: user?.id || "" });
 
     if (updated) {
+      await saveAssetTimeline({
+        asset_id: asset.id,
+        type: "location",
+        date: new Date(`${transferData.movement_date}T12:00:00`).toISOString(),
+        title: "Transferência de patrimônio",
+        user_name: userName,
+        description: `Origem: ${originName}. Destino: ${destinationName}.${transferData.notes.trim() ? ` Observações: ${transferData.notes.trim()}` : ""}`,
+        image_url: transferData.image_url || undefined,
+      });
+
       setAsset(updated);
       setTransferDialogOpen(false);
-      setTransferData({ location: "", cost_center: "", responsible: "", reason: "" });
+      setTransferData({
+        origin: "",
+        cost_center: "",
+        responsible: "",
+        movement_date: new Date().toISOString().split("T")[0],
+        notes: "",
+        image_url: "",
+      });
       toast.success("Transferência realizada!");
       loadData();
     } else {
@@ -572,6 +603,32 @@ export default function AssetHubPage() {
                 </CardContent>
               </Card>
               <Card className="border-border/50 bg-card/50">
+                <CardContent className="p-4 h-full flex items-center">
+                  <div className="flex items-center gap-3 w-full">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0">
+                      <Tag className="h-5 w-5 text-amber-500" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground uppercase">Nota Fiscal</p>
+                      <p className="text-lg font-bold">{asset.invoice_number || "N/A"}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border-border/50 bg-card/50">
+                <CardContent className="p-4 h-full flex items-center">
+                  <div className="flex items-center gap-3 w-full">
+                    <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center shrink-0">
+                      <Clock className="h-5 w-5 text-purple-500" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground uppercase">Garantia</p>
+                      <p className="text-lg font-bold">{asset.warranty_months ? `${asset.warranty_months} meses` : "N/A"}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border-border/50 bg-card/50">
                 <CardContent className="p-4">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
@@ -707,6 +764,14 @@ export default function AssetHubPage() {
                             <div className="flex-1 min-w-0 pt-1">
                               <p className="text-sm font-medium">{event.title}</p>
                               <p className="text-xs text-muted-foreground">{event.description}</p>
+                              {event.image_url && (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={event.image_url}
+                                  alt={event.title}
+                                  className="mt-2 h-16 w-24 rounded-md object-cover border border-border/60"
+                                />
+                              )}
                               <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
                                 <span>{new Date(event.date).toLocaleDateString("pt-BR")}</span>
                                 <span>•</span>
@@ -732,7 +797,7 @@ export default function AssetHubPage() {
                 Editar
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Editar Patrimônio</DialogTitle>
               </DialogHeader>
@@ -755,7 +820,7 @@ export default function AssetHubPage() {
                       onChange={(v) => setEditForm({ ...editForm, assigned_to: v })}
                     />
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-2 hidden">
                     <Label>Estado</Label>
                     <Select value={editForm.condition} onValueChange={(v) => setEditForm({ ...editForm, condition: v as Asset["condition"] })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
@@ -773,6 +838,32 @@ export default function AssetHubPage() {
                   <Label>Descrição</Label>
                   <Textarea value={editForm.description || ""} onChange={e => setEditForm({ ...editForm, description: e.target.value })} />
                 </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Data Aquisição</Label>
+                    <Input type="date" value={editForm.purchase_date || ""} onChange={(e) => setEditForm({ ...editForm, purchase_date: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Valor (R$)</Label>
+                    <Input type="number" step="0.01" value={editForm.value ?? ""} onChange={(e) => setEditForm({ ...editForm, value: parseFloat(e.target.value) || 0 })} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Nota Fiscal</Label>
+                    <Input value={editForm.invoice_number || ""} onChange={(e) => setEditForm({ ...editForm, invoice_number: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Garantia (meses)</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={editForm.warranty_months ?? ""}
+                      onChange={(e) => setEditForm({ ...editForm, warranty_months: e.target.value ? parseInt(e.target.value, 10) : undefined })}
+                    />
+                  </div>
+                </div>
                 <Button onClick={handleSaveEdit}>Salvar Alterações</Button>
               </div>
             </DialogContent>
@@ -782,10 +873,12 @@ export default function AssetHubPage() {
             setTransferDialogOpen(open);
             if (open && asset) {
               setTransferData({
-                location: asset.location || "",
+                origin: asset.location || "",
                 cost_center: asset.cost_center || "",
                 responsible: asset.assigned_to || "",
-                reason: "",
+                movement_date: new Date().toISOString().split("T")[0],
+                notes: "",
+                image_url: "",
               });
             }
           }}>
@@ -799,11 +892,11 @@ export default function AssetHubPage() {
               <DialogHeader><DialogTitle>Transferir Patrimônio</DialogTitle></DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label>Novo Local</Label>
+                  <Label>Origem</Label>
                   <Input
-                    placeholder="Digite o local..."
-                    value={transferData.location}
-                    onChange={e => setTransferData({ ...transferData, location: e.target.value })}
+                    placeholder="Informe a origem..."
+                    value={transferData.origin}
+                    onChange={e => setTransferData({ ...transferData, origin: e.target.value })}
                   />
                 </div>
                 <div className="space-y-2">
@@ -815,7 +908,7 @@ export default function AssetHubPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Novo Centro de Custo (Opcional)</Label>
+                  <Label>Destino</Label>
                   <Select
                     value={transferData.cost_center}
                     onValueChange={(v) => setTransferData({ ...transferData, cost_center: v })}
@@ -827,8 +920,29 @@ export default function AssetHubPage() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Motivo</Label>
-                  <Textarea value={transferData.reason} onChange={e => setTransferData({ ...transferData, reason: e.target.value })} />
+                  <Label>Data da Movimentação</Label>
+                  <Input
+                    type="date"
+                    value={transferData.movement_date}
+                    onChange={e => setTransferData({ ...transferData, movement_date: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Observações</Label>
+                  <Textarea
+                    value={transferData.notes}
+                    onChange={e => setTransferData({ ...transferData, notes: e.target.value })}
+                    placeholder="Descreva avarias, contexto da transferência ou observações relevantes..."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Foto da Observação (Opcional)</Label>
+                  <ImageUpload
+                    bucket="public-assets"
+                    folder="asset-movements"
+                    defaultImage={transferData.image_url}
+                    onImageChange={(url) => setTransferData({ ...transferData, image_url: url || "" })}
+                  />
                 </div>
                 <Button onClick={handleTransfer}>Confirmar Transferência</Button>
               </div>
