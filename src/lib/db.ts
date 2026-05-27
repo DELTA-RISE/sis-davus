@@ -574,7 +574,7 @@ export const getMaintenanceTasks = async (assetId?: string, forceRefresh = false
   }
 
   // Online / Supabase
-  let query = supabase.from('maintenance_tasks').select('*, assets!inner(cost_center)').order('due_date', { ascending: true });
+  let query = supabase.from('maintenance_tasks').select('*').order('due_date', { ascending: true });
 
   if (assetId) {
     query = query.eq('asset_id', assetId);
@@ -589,7 +589,6 @@ export const getMaintenanceTasks = async (assetId?: string, forceRefresh = false
       // If we are strictly filtering for security/visibility, returning empty on error is safer.
       return [];
     }
-    // The data will contain `assets: { cost_center: ... }`. We cast it to clear that out.
     return data as unknown as MaintenanceTask[];
   } catch (error) {
     console.error("Exception fetching maintenance tasks:", error);
