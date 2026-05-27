@@ -9,6 +9,16 @@ const pluralizeChanges = (count: number) => `${count} ${count === 1 ? "altera√ß√
 const cleanPayload = (payload: Record<string, unknown>) =>
   Object.fromEntries(Object.entries(payload).filter(([key]) => !key.startsWith("__")));
 
+const normalizePayloadForSync = (table: string, payload: Record<string, unknown>) => {
+  const cleaned = cleanPayload(payload);
+
+  if (table === "asset_timelines" && cleaned.type === "location") {
+    return { ...cleaned, type: "assignment" };
+  }
+
+  return cleaned;
+};
+
 const getErrorMessage = (error: unknown) => {
   if (error instanceof Error) return error.message;
   if (typeof error === "object" && error !== null && "message" in error) {
@@ -28,7 +38,7 @@ export async function addToSyncQueue(action: {
     await db.sync_queue.add({
       table: action.table,
       action: action.action,
-      payload: cleanPayload(action.payload),
+      payload: normalizePayloadForSync(action.table, action.payload),
       timestamp: Date.now(),
       status: "pending",
     });
@@ -67,7 +77,7 @@ export async function processSyncQueue() {
 
       let result;
       if (item.action === "upsert") {
-        result = await supabase.from(item.table).upsert(cleanPayload(item.payload));
+        result = await supabase.from(item.table).upsert(normalizePayloadForSync(item.table, item.payload));
       } else if (item.action === "delete") {
         result = await supabase.from(item.table).delete().match(item.payload);
       }

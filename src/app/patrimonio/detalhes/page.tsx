@@ -129,6 +129,7 @@ export default function AssetHubPage() {
     origin: "",
     cost_center: "",
     responsible: "",
+    condition: "Bom" as Asset["condition"],
     movement_date: new Date().toISOString().split("T")[0],
     notes: "",
     image_url: "",
@@ -310,22 +311,36 @@ export default function AssetHubPage() {
     const destination = costCenters.find((cc) => cc.id === transferData.cost_center);
     const originName = transferData.origin.trim();
     const destinationName = destination?.name || transferData.cost_center;
+    const condition = transferData.condition || asset.condition;
 
     const updated = await saveAsset({
       ...asset,
       location: originName,
       cost_center: transferData.cost_center,
+      condition,
+      status: condition === "Manutenção"
+        ? "Em Manutenção"
+        : asset.status === "Em Manutenção"
+          ? "Disponível"
+          : asset.status,
       assigned_to: transferData.responsible || asset.assigned_to
     }, { name: userName, id: user?.id || "" });
 
     if (updated) {
+      if (condition === "Manutenção") {
+        await ensureMaintenanceTaskForAsset(
+          updated,
+          `Patrimônio movimentado para ${destinationName} e marcado como em manutenção.`
+        );
+      }
+
       await saveAssetTimeline({
         asset_id: asset.id,
-        type: "location",
+        type: "assignment",
         date: new Date(`${transferData.movement_date}T12:00:00`).toISOString(),
-        title: "Transferência de patrimônio",
+        title: "Movimentação de patrimônio",
         user_name: userName,
-        description: `Origem: ${originName}. Destino: ${destinationName}.${transferData.notes.trim() ? ` Observações: ${transferData.notes.trim()}` : ""}`,
+        description: `Origem: ${originName}. Destino: ${destinationName}. Estado: ${condition}.${transferData.notes.trim() ? ` Observações: ${transferData.notes.trim()}` : ""}`,
         image_url: transferData.image_url || undefined,
       });
 
@@ -335,14 +350,15 @@ export default function AssetHubPage() {
         origin: "",
         cost_center: "",
         responsible: "",
+        condition: "Bom",
         movement_date: new Date().toISOString().split("T")[0],
         notes: "",
         image_url: "",
       });
-      toast.success("Transferência realizada!");
+      toast.success("Movimentação realizada!");
       loadData();
     } else {
-      toast.error("Erro ao transferir patrimônio");
+      toast.error("Erro ao movimentar patrimônio");
     }
   };
 
@@ -876,6 +892,7 @@ export default function AssetHubPage() {
                 origin: asset.location || "",
                 cost_center: asset.cost_center || "",
                 responsible: asset.assigned_to || "",
+                condition: asset.condition || "Bom",
                 movement_date: new Date().toISOString().split("T")[0],
                 notes: "",
                 image_url: "",
@@ -885,11 +902,11 @@ export default function AssetHubPage() {
             <DialogTrigger asChild>
               <Button variant="outline" className="h-12 gap-2">
                 <ArrowRightLeft className="h-4 w-4" />
-                Transferir
+                Movimentação
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader><DialogTitle>Transferir Patrimônio</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>Movimentação de Patrimônio</DialogTitle></DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
                   <Label>Origem</Label>
@@ -916,6 +933,22 @@ export default function AssetHubPage() {
                     <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
                       {costCenters.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Estado do Patrimônio</Label>
+                  <Select
+                    value={transferData.condition}
+                    onValueChange={(v) => setTransferData({ ...transferData, condition: v as Asset["condition"] })}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Excelente">Excelente</SelectItem>
+                      <SelectItem value="Bom">Bom</SelectItem>
+                      <SelectItem value="Regular">Regular</SelectItem>
+                      <SelectItem value="Ruim">Ruim</SelectItem>
+                      <SelectItem value="Manutenção">Em Manutenção</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -947,7 +980,7 @@ export default function AssetHubPage() {
                   </div>
                 </div>
                 <div className="flex justify-center">
-                  <Button onClick={handleTransfer} className="w-full sm:w-auto">Confirmar Transferência</Button>
+                  <Button onClick={handleTransfer} className="w-full sm:w-auto">Confirmar Movimentação</Button>
                 </div>
               </div>
             </DialogContent>
