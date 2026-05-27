@@ -3,7 +3,16 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { Asset, Category } from "@/lib/store";
-import { getCategories, isPendingSync, saveAsset, deleteAsset, syncAssets, saveAssetTimeline } from "@/lib/db";
+import {
+  getCategories,
+  isPendingSync,
+  saveAsset,
+  deleteAsset,
+  syncAssets,
+  saveAssetTimeline,
+  getMaintenanceTasks,
+  saveMaintenanceTask,
+} from "@/lib/db";
 import { requestWriteOff } from "@/actions/write-off";
 import { db } from "@/lib/dexie-db";
 import { supabase } from "@/lib/supabase";
@@ -105,6 +114,14 @@ function deriveAssetStatus(asset: Partial<Asset>, condition: Asset["condition"])
   if (asset.status === "Em Manutenção") return "Disponível";
   return asset.status || "Disponível";
 }
+const openMaintenanceStatuses = new Set([
+  "Pendente",
+  "Em Andamento",
+  "Aguardando Aprovação",
+  "Aprovado",
+  "Atrasada",
+]);
+
 export default function PatrimonioPage() {
   const { userName, user, currentRole } = useAuth();
   // const { isDemoMode } = useOnboarding();
@@ -279,6 +296,52 @@ export default function PatrimonioPage() {
     }
   };
 
+  const ensureMaintenanceTaskForAsset = async (
+    asset: Asset,
+    originDescription: string,
+    notes?: string
+  ) => {
+    const existingTasks = await getMaintenanceTasks(asset.id);
+    const hasOpenTask = existingTasks.some((task) => openMaintenanceStatuses.has(task.status));
+
+    if (hasOpenTask) return;
+
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + 7);
+
+    await saveMaintenanceTask({
+      title: `Manutenção - ${asset.name}`,
+      description: notes?.trim()
+        ? `${originDescription}. Observações: ${notes.trim()}`
+        : originDescription,
+      asset_id: asset.id,
+      asset_name: asset.name,
+      asset_code: asset.code,
+      due_date: dueDate.toISOString().slice(0, 10),
+      priority: "media",
+      status: "Pendente",
+      assigned_to: asset.assigned_to,
+      cost: 0,
+      created_by: user?.id,
+      steps_data: [
+        {
+          id: "1",
+          title: "Registro inicial",
+          description: originDescription,
+          completed: true,
+          completed_by: userName,
+          completed_at: new Date().toISOString(),
+        },
+        {
+          id: "2",
+          title: "Análise da manutenção",
+          description: "Aguardando avaliação e acompanhamento do responsável.",
+          completed: false,
+        },
+      ],
+    }, { name: userName, id: user?.id || "" });
+  };
+
   const handleOpenAssetMovement = (e: React.MouseEvent, asset: Asset) => {
     e.preventDefault();
     e.stopPropagation();
@@ -324,6 +387,14 @@ export default function PatrimonioPage() {
     if (!saved) {
       toast.error("Erro ao movimentar patrimônio");
       return;
+    }
+
+    if (condition === "Manutenção") {
+      await ensureMaintenanceTaskForAsset(
+        saved,
+        `Patrimônio movimentado para ${toName} e marcado como em manutenção`,
+        assetMovement.notes
+      );
     }
 
     await saveAssetTimeline({
@@ -493,6 +564,13 @@ export default function PatrimonioPage() {
     const saved = await saveAsset(assetToSave, { name: userName, id: user?.id || "" });
 
     if (saved) {
+      if (condition === "Manutenção") {
+        await ensureMaintenanceTaskForAsset(
+          saved,
+          "Patrimônio marcado como em manutenção no cadastro/edição."
+        );
+      }
+
       if (isPendingSync(saved)) {
         toast.warning(editingAsset ? "Patrimonio atualizado localmente." : "Patrimonio cadastrado localmente.", {
           description: "A sincronizacao com o Supabase ainda esta pendente.",

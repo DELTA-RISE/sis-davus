@@ -11,6 +11,7 @@ import {
   getCheckouts,
   saveAsset,
   saveCheckout,
+  saveMaintenanceTask,
 
   getCostCenters,
 } from "@/lib/db";
@@ -92,6 +93,14 @@ const timelineColors: Record<string, string> = {
   atualizacao: "bg-slate-500/20 text-slate-400",
 };
 
+const openMaintenanceStatuses = new Set([
+  "Pendente",
+  "Em Andamento",
+  "Aguardando Aprovação",
+  "Aprovado",
+  "Atrasada",
+]);
+
 export default function AssetHubPage() {
   const searchParams = useSearchParams();
   const id = searchParams.get("id");
@@ -120,6 +129,10 @@ export default function AssetHubPage() {
   // Lists for Selects
 
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
+  const currentCostCenterName = costCenters.find((cc) => cc.id === asset?.cost_center)?.name
+    || costCenters.find((cc) => cc.name === asset?.cost_center)?.name
+    || asset?.cost_center
+    || "Sem centro de custo";
 
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -180,10 +193,63 @@ export default function AssetHubPage() {
     }
   };
 
+  const ensureMaintenanceTaskForAsset = async (targetAsset: Asset, originDescription: string) => {
+    const existingTasks = await getMaintenanceTasks(targetAsset.id);
+    const hasOpenTask = existingTasks.some((task) => openMaintenanceStatuses.has(task.status));
+
+    if (hasOpenTask) return;
+
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + 7);
+
+    await saveMaintenanceTask({
+      title: `Manutenção - ${targetAsset.name}`,
+      description: originDescription,
+      asset_id: targetAsset.id,
+      asset_name: targetAsset.name,
+      asset_code: targetAsset.code,
+      due_date: dueDate.toISOString().slice(0, 10),
+      priority: "media",
+      status: "Pendente",
+      assigned_to: targetAsset.assigned_to,
+      cost: 0,
+      created_by: user?.id,
+      steps_data: [
+        {
+          id: "1",
+          title: "Registro inicial",
+          description: originDescription,
+          completed: true,
+          completed_by: userName,
+          completed_at: new Date().toISOString(),
+        },
+        {
+          id: "2",
+          title: "Análise da manutenção",
+          description: "Aguardando avaliação e acompanhamento do responsável.",
+          completed: false,
+        },
+      ],
+    }, { name: userName, id: user?.id || "" });
+  };
+
   const handleSaveEdit = async () => {
     if (!asset || !editForm.name) return;
-    const updated = await saveAsset({ ...editForm, id: asset.id }, { name: userName, id: user?.id || "" });
+    const condition = editForm.condition || asset.condition;
+    const updated = await saveAsset({
+      ...asset,
+      ...editForm,
+      id: asset.id,
+      status: condition === "Manutenção"
+        ? "Em Manutenção"
+        : asset.status === "Em Manutenção"
+          ? "Disponível"
+          : asset.status,
+    }, { name: userName, id: user?.id || "" });
     if (updated) {
+      if (condition === "Manutenção") {
+        await ensureMaintenanceTaskForAsset(updated, "Patrimônio marcado como em manutenção na aba de detalhes.");
+      }
       setAsset(updated);
       setEditDialogOpen(false);
       toast.success("Patrimônio atualizado com sucesso!");
@@ -198,7 +264,7 @@ export default function AssetHubPage() {
 
     // Update asset
     const updated = await saveAsset({
-      id: asset.id,
+      ...asset,
       location: transferData.location,
       cost_center: transferData.cost_center || asset.cost_center,
       assigned_to: transferData.responsible || asset.assigned_to
@@ -409,7 +475,7 @@ export default function AssetHubPage() {
                     </div>
                     <div className="space-y-1">
                       <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Centro de Custo</p>
-                      <p className="text-sm font-medium truncate">{asset.cost_center}</p>
+                      <p className="text-sm font-medium truncate">{currentCostCenterName}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -604,7 +670,17 @@ export default function AssetHubPage() {
             </DialogContent>
           </Dialog>
 
-          <Dialog open={transferDialogOpen} onOpenChange={setTransferDialogOpen}>
+          <Dialog open={transferDialogOpen} onOpenChange={(open) => {
+            setTransferDialogOpen(open);
+            if (open && asset) {
+              setTransferData({
+                location: asset.location || "",
+                cost_center: asset.cost_center || "",
+                responsible: asset.assigned_to || "",
+                reason: "",
+              });
+            }
+          }}>
             <DialogTrigger asChild>
               <Button variant="outline" className="h-12 gap-2">
                 <ArrowRightLeft className="h-4 w-4" />
@@ -632,10 +708,13 @@ export default function AssetHubPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>Novo Centro de Custo (Opcional)</Label>
-                  <Select onValueChange={(v) => setTransferData({ ...transferData, cost_center: v })}>
+                  <Select
+                    value={transferData.cost_center}
+                    onValueChange={(v) => setTransferData({ ...transferData, cost_center: v })}
+                  >
                     <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
-                      {costCenters.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
+                      {costCenters.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
