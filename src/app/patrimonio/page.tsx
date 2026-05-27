@@ -382,7 +382,7 @@ export default function PatrimonioPage() {
 
     await saveAssetTimeline({
       asset_id: assetToMove.id,
-      type: "location",
+      type: "assignment",
       date: new Date().toISOString(),
       title: "Movimentação de centro de custo",
       user_name: userName,

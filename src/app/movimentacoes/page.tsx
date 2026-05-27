@@ -95,7 +95,7 @@ export default function MovementsPage() {
     const [m, p, assetTimeline] = await Promise.all([getMovements(), getProducts(), getAssetTimelines()]);
     setMovements(m);
     setProducts(p);
-    setAssetMovements(assetTimeline.filter((event) => event.type === "location"));
+    setAssetMovements(assetTimeline.filter((event) => event.type === "assignment" || event.type === "location"));
     if (!silent) setIsLoading(false);
   }, []);
 
@@ -423,7 +423,7 @@ export default function MovementsPage() {
                           </div>
                         </div>
                         <Badge variant="outline" className={isAssetMovement ? "border-blue-500 text-blue-500" : m.type === "entrada" ? "border-green-500 text-green-500" : "border-red-500 text-red-500"}>
-                          {isAssetMovement ? "Transferência" : `${m.type === "entrada" ? "+" : "-"}${m.quantity}`}
+                          {isAssetMovement ? "Movimentação" : `${m.type === "entrada" ? "+" : "-"}${m.quantity}`}
                         </Badge>
                       </CardContent>
                     </Card>
