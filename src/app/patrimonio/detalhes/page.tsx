@@ -764,7 +764,7 @@ export default function AssetHubPage() {
                   </p>
                 ) : (
                   <div className="relative">
-                    <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
+                    <div className="absolute left-4 top-4 bottom-4 w-px bg-gradient-to-b from-transparent via-primary/25 to-transparent dark:via-white/10" />
                     <div className="space-y-4">
                       {timeline.slice(0, 5).map((event) => {
                         const Icon = timelineIcons[event.type] || Package;
