@@ -905,8 +905,9 @@ export default function AssetHubPage() {
                 Movimentação
               </Button>
             </DialogTrigger>
-            <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-lg max-h-[88vh] overflow-y-auto border-border/60 bg-background/95 p-5 shadow-2xl backdrop-blur-xl">
-              <DialogHeader className="space-y-1 border-b border-border/40 pb-3">
+            <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-lg max-h-[88vh] overflow-y-auto border-border/60 bg-background/95 p-0 shadow-xl backdrop-blur-xl">
+              <div className="h-0.5 w-full bg-primary/70" />
+              <DialogHeader className="space-y-1 border-b border-border/40 px-5 pb-4 pt-4">
                 <DialogTitle className="flex items-center gap-2 text-xl">
                   <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/15 text-primary">
                     <ArrowRightLeft className="h-4 w-4" />
@@ -914,11 +915,11 @@ export default function AssetHubPage() {
                   Movimentação
                 </DialogTitle>
               </DialogHeader>
-              <div className="space-y-3 pt-4">
+              <div className="space-y-3 px-5 py-4">
                 <div className="space-y-1.5">
                   <Label>Origem</Label>
                   <Input
-                    className="h-10"
+                    className="h-10 bg-background/60"
                     placeholder="Informe a origem..."
                     value={transferData.origin}
                     onChange={e => setTransferData({ ...transferData, origin: e.target.value })}
@@ -933,54 +934,54 @@ export default function AssetHubPage() {
                   />
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label>Destino</Label>
-                  <Select
-                    value={transferData.cost_center}
-                    onValueChange={(v) => setTransferData({ ...transferData, cost_center: v })}
-                  >
-                    <SelectTrigger className="h-10"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                    <SelectContent>
-                      {costCenters.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Estado</Label>
-                  <Select
-                    value={transferData.condition}
-                    onValueChange={(v) => setTransferData({ ...transferData, condition: v as Asset["condition"] })}
-                  >
-                    <SelectTrigger className="h-10"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Excelente">Excelente</SelectItem>
-                      <SelectItem value="Bom">Bom</SelectItem>
-                      <SelectItem value="Regular">Regular</SelectItem>
-                      <SelectItem value="Ruim">Ruim</SelectItem>
-                      <SelectItem value="Manutenção">Em Manutenção</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label>Data da movimentação</Label>
-                  <Input
-                    className="h-10"
-                    type="date"
-                    value={transferData.movement_date}
-                    onChange={e => setTransferData({ ...transferData, movement_date: e.target.value })}
-                  />
-                </div>
+                  <div className="space-y-1.5">
+                    <Label>Destino</Label>
+                    <Select
+                      value={transferData.cost_center}
+                      onValueChange={(v) => setTransferData({ ...transferData, cost_center: v })}
+                    >
+                      <SelectTrigger className="h-10 bg-background/60"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                      <SelectContent>
+                        {costCenters.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Estado</Label>
+                    <Select
+                      value={transferData.condition}
+                      onValueChange={(v) => setTransferData({ ...transferData, condition: v as Asset["condition"] })}
+                    >
+                      <SelectTrigger className="h-10 bg-background/60"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Excelente">Excelente</SelectItem>
+                        <SelectItem value="Bom">Bom</SelectItem>
+                        <SelectItem value="Regular">Regular</SelectItem>
+                        <SelectItem value="Ruim">Ruim</SelectItem>
+                        <SelectItem value="Manutenção">Em Manutenção</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label>Data da movimentação</Label>
+                    <Input
+                      className="h-10 bg-background/60"
+                      type="date"
+                      value={transferData.movement_date}
+                      onChange={e => setTransferData({ ...transferData, movement_date: e.target.value })}
+                    />
+                  </div>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Observações</Label>
                   <Textarea
-                    className="min-h-20 resize-none"
+                    className="min-h-20 resize-none bg-background/60"
                     value={transferData.notes}
                     onChange={e => setTransferData({ ...transferData, notes: e.target.value })}
                     placeholder="Descreva avarias, contexto da transferência ou observações relevantes..."
                   />
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 rounded-lg border border-border/40 bg-muted/10 p-3">
                   <Label>Foto da Observação (Opcional)</Label>
                   <div className="flex justify-center">
                     <ImageUpload
@@ -992,9 +993,11 @@ export default function AssetHubPage() {
                     />
                   </div>
                 </div>
-                <div className="flex justify-end border-t border-border/40 pt-3">
-                  <Button onClick={handleTransfer} className="w-full sm:w-auto">Confirmar Movimentação</Button>
-                </div>
+              </div>
+              <div className="sticky bottom-0 border-t border-border/50 bg-background/95 px-5 py-4 backdrop-blur-xl">
+                <Button onClick={handleTransfer} className="h-11 w-full text-base font-semibold">
+                  Confirmar Movimentação
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
