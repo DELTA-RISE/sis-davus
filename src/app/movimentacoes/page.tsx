@@ -96,7 +96,10 @@ export default function MovementsPage() {
     setMovements(m);
     setProducts(p);
     setAssetMovements(assetTimeline.filter((event) =>
-      event.type === "movimentacao" || event.type === "assignment" || event.type === "location"
+      (event.type === "audit" && event.title.toLowerCase().includes("movimenta")) ||
+      event.type === "movimentacao" ||
+      event.type === "assignment" ||
+      event.type === "location"
     ));
     if (!silent) setIsLoading(false);
   }, []);
