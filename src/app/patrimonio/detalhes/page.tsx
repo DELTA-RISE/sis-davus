@@ -905,18 +905,26 @@ export default function AssetHubPage() {
                 Movimentação
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader><DialogTitle>Movimentação de Patrimônio</DialogTitle></DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
+            <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-lg max-h-[88vh] overflow-y-auto border-border/60 bg-background/95 p-5 shadow-2xl backdrop-blur-xl">
+              <DialogHeader className="space-y-1 border-b border-border/40 pb-3">
+                <DialogTitle className="flex items-center gap-2 text-xl">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                    <ArrowRightLeft className="h-4 w-4" />
+                  </span>
+                  Movimentação
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3 pt-4">
+                <div className="space-y-1.5">
                   <Label>Origem</Label>
                   <Input
+                    className="h-10"
                     placeholder="Informe a origem..."
                     value={transferData.origin}
                     onChange={e => setTransferData({ ...transferData, origin: e.target.value })}
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label>Novo Responsável (Opcional)</Label>
                   <UserSelect
                     value={transferData.responsible}
@@ -924,25 +932,26 @@ export default function AssetHubPage() {
                     placeholder="Selecione novo responsável..."
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
                   <Label>Destino</Label>
                   <Select
                     value={transferData.cost_center}
                     onValueChange={(v) => setTransferData({ ...transferData, cost_center: v })}
                   >
-                    <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectTrigger className="h-10"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
                       {costCenters.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label>Estado do Patrimônio</Label>
+                <div className="space-y-1.5">
+                  <Label>Estado</Label>
                   <Select
                     value={transferData.condition}
                     onValueChange={(v) => setTransferData({ ...transferData, condition: v as Asset["condition"] })}
                   >
-                    <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectTrigger className="h-10"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Excelente">Excelente</SelectItem>
                       <SelectItem value="Bom">Bom</SelectItem>
@@ -952,26 +961,30 @@ export default function AssetHubPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label>Data da Movimentação</Label>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label>Data da movimentação</Label>
                   <Input
+                    className="h-10"
                     type="date"
                     value={transferData.movement_date}
                     onChange={e => setTransferData({ ...transferData, movement_date: e.target.value })}
                   />
                 </div>
-                <div className="space-y-2">
+                </div>
+                <div className="space-y-1.5">
                   <Label>Observações</Label>
                   <Textarea
+                    className="min-h-20 resize-none"
                     value={transferData.notes}
                     onChange={e => setTransferData({ ...transferData, notes: e.target.value })}
                     placeholder="Descreva avarias, contexto da transferência ou observações relevantes..."
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label>Foto da Observação (Opcional)</Label>
                   <div className="flex justify-center">
                     <ImageUpload
+                      className="[&>div]:h-28 [&>div]:w-28 [&>div]:rounded-lg"
                       bucket="public-assets"
                       folder="asset-movements"
                       defaultImage={transferData.image_url}
@@ -979,7 +992,7 @@ export default function AssetHubPage() {
                     />
                   </div>
                 </div>
-                <div className="flex justify-center">
+                <div className="flex justify-end border-t border-border/40 pt-3">
                   <Button onClick={handleTransfer} className="w-full sm:w-auto">Confirmar Movimentação</Button>
                 </div>
               </div>
