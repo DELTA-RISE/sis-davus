@@ -12,8 +12,11 @@ const cleanPayload = (payload: Record<string, unknown>) =>
 const normalizePayloadForSync = (table: string, payload: Record<string, unknown>) => {
   const cleaned = cleanPayload(payload);
 
-  if (table === "asset_timelines" && (cleaned.type === "location" || cleaned.type === "assignment")) {
-    return { ...cleaned, type: "movimentacao" };
+  if (
+    table === "asset_timelines" &&
+    (cleaned.type === "location" || cleaned.type === "assignment" || cleaned.type === "movimentacao")
+  ) {
+    return { ...cleaned, type: "audit" };
   }
 
   return cleaned;
