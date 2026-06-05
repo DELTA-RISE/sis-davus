@@ -87,6 +87,18 @@ export function isPendingSync<T>(item: Persisted<T> | null | undefined): boolean
   return item?.__persistenceStatus === 'queued';
 }
 
+async function hasPendingUpsert(table: string, id: string): Promise<boolean> {
+  return Boolean(await db.sync_queue
+    .where('table')
+    .equals(table)
+    .filter((item) =>
+      item.action === 'upsert' &&
+      item.status !== 'failed' &&
+      item.payload?.id === id
+    )
+    .first());
+}
+
 function withPersistenceStatus<T extends object>(
   item: T,
   status: PersistenceStatus,
@@ -472,16 +484,22 @@ export const syncAssets = async () => {
 };
 export const getAssetById = async (id: string): Promise<Asset | null> => {
   try {
+    const localAsset = await db.assets.get(id);
+    if (localAsset && await hasPendingUpsert('assets', id)) {
+      return localAsset as Asset;
+    }
+
     const { data, error } = await withTimeout(supabase
       .from('assets')
       .select('*')
       .eq('id', id)
       .maybeSingle());
-    if (error) return null;
+    if (error) return localAsset as Asset || null;
+    if (data) await db.assets.put(data as Asset);
     return data as Asset;
   } catch (error) {
     console.error("Error in getAssetById:", error);
-    return null;
+    return await db.assets.get(id) as Asset || null;
   }
 };
 export const saveAsset = async (asset: Partial<Asset>, userInfo?: { name: string, id: string }) => {
@@ -828,14 +846,25 @@ export const getAssetTimelines = async (assetId?: string, forceRefresh = false) 
   if (!assetId) {
     return getAll<AssetTimeline>('asset_timelines', 'date', false, forceRefresh);
   }
+  const localTimelines = (await db.asset_timelines
+    .where('asset_id')
+    .equals(assetId)
+    .toArray()) as AssetTimeline[];
+
   let query = supabase.from('asset_timelines').select('*').order('date', { ascending: false });
   query = query.eq('asset_id', assetId);
   try {
     const { data, error } = await withTimeout(query);
-    if (error) return [];
-    return data as AssetTimeline[];
+    if (error) return localTimelines;
+    const remoteTimelines = (data || []) as AssetTimeline[];
+    const remoteIds = new Set(remoteTimelines.map((item) => item.id));
+    const localOnly = localTimelines.filter((item) => !remoteIds.has(item.id));
+    await db.asset_timelines.bulkPut(remoteTimelines);
+    return [...remoteTimelines, ...localOnly].sort(
+      (a, b) => new Date(b.date || b.created_at || 0).getTime() - new Date(a.date || a.created_at || 0).getTime()
+    );
   } catch (_error) {
-    return [];
+    return localTimelines;
   }
 };
 export const saveAssetTimeline = (timeline: Partial<AssetTimeline>) => upsert<AssetTimeline>('asset_timelines', timeline as AssetTimeline);

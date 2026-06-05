@@ -134,7 +134,7 @@ export default function AssetHubPage() {
     notes: "",
     image_url: "",
   });
-  const [checkoutData, setCheckoutData] = useState({ user_name: "", expected_return: "", notes: "" });
+  const [checkoutData, setCheckoutData] = useState({ user_id: "", user_name: "", expected_return: "", notes: "" });
   const [labelLayout, setLabelLayout] = useState<AssetLabelLayout>('standard');
   const [fillPage, setFillPage] = useState(false);
 
@@ -363,12 +363,16 @@ export default function AssetHubPage() {
   };
 
   const handleCheckout = async () => {
-    if (!asset || !checkoutData.user_name) return;
+    if (!asset || !checkoutData.user_id || !checkoutData.user_name) {
+      toast.error("Selecione um responsável válido para o checkout");
+      return;
+    }
 
     const checkout = await saveCheckout({
       item_id: asset.id,
       item_type: "asset",
       item_name: asset.name,
+      user_id: checkoutData.user_id,
       user_name: checkoutData.user_name,
       quantity: 1,
       checkout_date: new Date().toISOString(),
@@ -379,7 +383,7 @@ export default function AssetHubPage() {
 
     if (checkout) {
       setCheckoutDialogOpen(false);
-      setCheckoutData({ user_name: "", expected_return: "", notes: "" });
+      setCheckoutData({ user_id: "", user_name: "", expected_return: "", notes: "" });
       toast.success("Checkout realizado!");
       loadData();
     } else {
@@ -1023,7 +1027,14 @@ export default function AssetHubPage() {
                   <Label>Usuário</Label>
                   <UserSelect
                     value={checkoutData.user_name}
-                    onChange={(v) => setCheckoutData({ ...checkoutData, user_name: v })}
+                    onChange={(v) => setCheckoutData({ ...checkoutData, user_name: v, user_id: v ? checkoutData.user_id : "" })}
+                    onUserSelect={(selectedUser) =>
+                      setCheckoutData({
+                        ...checkoutData,
+                        user_id: selectedUser?.id || "",
+                        user_name: selectedUser?.name || "",
+                      })
+                    }
                   />
                 </div>
                 <div className="space-y-2">
