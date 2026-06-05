@@ -83,37 +83,37 @@
 
 .dark {
   --background: #000000;
-  --foreground: #ededed;
-  --card: #050505;
-  --card-foreground: #ededed;
-  --popover: #050505;
-  --popover-foreground: #ededed;
+  --foreground: #f8fafc;
+  --card: #07080a;
+  --card-foreground: #f8fafc;
+  --popover: #08090c;
+  --popover-foreground: #f8fafc;
   --primary: #ff5d38;
   --primary-foreground: #ffffff;
-  --secondary: #0a0a0a;
-  --secondary-foreground: #ededed;
-  --muted: #0a0a0a;
-  --muted-foreground: #8a8a8a;
-  --accent: #e87350;
+  --secondary: #101114;
+  --secondary-foreground: #f1f5f9;
+  --muted: #111318;
+  --muted-foreground: #c6d0dd;
+  --accent: #18120f;
   --accent-foreground: #ffffff;
-  --destructive: #ef4444;
-  --border: #171717;
-  --input: #171717;
+  --destructive: #ff5a5f;
+  --border: #2a2f38;
+  --input: #2f3642;
   --ring: #ff5d38;
   --chart-1: #ff5d38;
-  --chart-2: #e87350;
-  --chart-3: #dc7759;
-  --chart-4: #4ade80;
-  --chart-5: #60a5fa;
-  --sidebar: #000000;
-  --sidebar-foreground: #ededed;
+  --chart-2: #22c55e;
+  --chart-3: #38bdf8;
+  --chart-4: #facc15;
+  --chart-5: #a78bfa;
+  --sidebar: #020202;
+  --sidebar-foreground: #f8fafc;
   --sidebar-primary: #ff5d38;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #0a0a0a;
-  --sidebar-accent-foreground: #ededed;
-  --sidebar-border: #171717;
+  --sidebar-accent: #111318;
+  --sidebar-accent-foreground: #f8fafc;
+  --sidebar-border: #242933;
   --sidebar-ring: #ff5d38;
-  --noise-opacity: 0.04;
+  --noise-opacity: 0.018;
 }
 
 @layer utilities {
@@ -193,6 +193,34 @@
   body {
     position: relative;
     overflow-x: hidden;
+  }
+
+  .dark .bg-card\/50 {
+    background-color: color-mix(in srgb, var(--card) 88%, transparent);
+  }
+
+  .dark .bg-background\/50,
+  .dark .bg-background\/80 {
+    background-color: color-mix(in srgb, var(--background) 88%, transparent);
+  }
+
+  .dark .text-muted-foreground {
+    color: var(--muted-foreground);
+  }
+
+  .dark .recharts-cartesian-axis-tick-value,
+  .dark .recharts-text,
+  .dark .recharts-label {
+    fill: var(--muted-foreground);
+  }
+
+  .dark .recharts-legend-item-text {
+    color: var(--muted-foreground) !important;
+  }
+
+  .dark .recharts-cartesian-grid line {
+    stroke: var(--border);
+    stroke-opacity: 0.75;
   }
 }
 

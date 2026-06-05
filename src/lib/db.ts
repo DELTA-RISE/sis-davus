@@ -151,6 +151,15 @@ export async function syncTable(table: string, orderColumn: string = 'created_at
   if (!isOnline()) return;
 
   try {
+    const queuedUpserts = await db.sync_queue
+      .where('table')
+      .equals(table)
+      .filter((item) => item.action === 'upsert' && item.status !== 'failed')
+      .toArray();
+    const queuedPayloads = queuedUpserts
+      .map((item) => item.payload)
+      .filter((payload): payload is Record<string, unknown> => Boolean(payload && payload.id));
+
     const { data, error } = await withTimeout(
       supabase
         .from(table)
@@ -163,6 +172,9 @@ export async function syncTable(table: string, orderColumn: string = 'created_at
     await db.transaction('rw', db.table(table), async () => {
       await db.table(table).clear();
       await db.table(table).bulkAdd(data);
+      if (queuedPayloads.length > 0) {
+        await db.table(table).bulkPut(queuedPayloads);
+      }
     });
   } catch (error) {
     console.error(`Sync failed for ${table}:`, error);
@@ -574,7 +586,7 @@ export const getMaintenanceTasks = async (assetId?: string, forceRefresh = false
   }
 
   // Online / Supabase
-  let query = supabase.from('maintenance_tasks').select('*, assets!inner(cost_center)').order('due_date', { ascending: true });
+  let query = supabase.from('maintenance_tasks').select('*').order('due_date', { ascending: true });
 
   if (assetId) {
     query = query.eq('asset_id', assetId);
@@ -589,7 +601,6 @@ export const getMaintenanceTasks = async (assetId?: string, forceRefresh = false
       // If we are strictly filtering for security/visibility, returning empty on error is safer.
       return [];
     }
-    // The data will contain `assets: { cost_center: ... }`. We cast it to clear that out.
     return data as unknown as MaintenanceTask[];
   } catch (error) {
     console.error("Exception fetching maintenance tasks:", error);
@@ -656,12 +667,16 @@ export const getCheckouts = async (itemId?: string, itemType?: 'product' | 'asse
   }
 };
 export const saveCheckout = async (checkout: Partial<Checkout>, userInfo?: { name: string, id: string }) => {
-  const result = await upsert<Checkout>('checkouts', checkout as Checkout);
+  const payload: Partial<Checkout> = {
+    ...checkout,
+    quantity: checkout.quantity ?? 1,
+  };
+  const result = await upsert<Checkout>('checkouts', payload as Checkout);
   if (result && userInfo) {
     await logActivity(
-      checkout.id ? "UPDATE" : "CHECKOUT",
+      payload.id ? "UPDATE" : "CHECKOUT",
       "CHECKOUT",
-      `Checkout de "${result.item_name}" ${checkout.id ? "atualizado" : "realizado"} para ${result.user_name} por ${userInfo.name}.`,
+      `Checkout de "${result.item_name}" ${payload.id ? "atualizado" : "realizado"} para ${result.user_name} por ${userInfo.name}.`,
       result.id,
       userInfo.name
     );

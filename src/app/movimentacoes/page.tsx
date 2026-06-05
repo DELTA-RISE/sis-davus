@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { StockMovement, Product } from "@/lib/store";
-import { getMovements, isPendingSync, saveMovement, getProducts } from "@/lib/db";
+import { StockMovement, Product, AssetTimeline } from "@/lib/store";
+import { getMovements, isPendingSync, saveMovement, getProducts, getAssetTimelines } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { movementSchema } from "@/lib/validations";
@@ -52,6 +52,7 @@ import {
   Zap,
   Check,
   ChevronsUpDown,
+  Building2,
 } from "lucide-react";
 import {
   Command,
@@ -66,9 +67,14 @@ import { toast } from "sonner";
 import { DateRange } from "react-day-picker";
 import { PageTransition, StaggerContainer, StaggerItem } from "@/components/PageTransition";
 
+type StockMovementItem = StockMovement & { source: "stock" };
+type AssetMovementItem = Omit<AssetTimeline, "type"> & { source: "asset"; type: "patrimonio" };
+type MovementItem = StockMovementItem | AssetMovementItem;
+
 export default function MovementsPage() {
   const { userName, user } = useAuth();
   const [movements, setMovements] = useState<StockMovement[]>([]);
+  const [assetMovements, setAssetMovements] = useState<AssetTimeline[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -86,9 +92,15 @@ export default function MovementsPage() {
 
   const loadData = useCallback(async (silent = false) => {
     if (!silent) setIsLoading(true);
-    const [m, p] = await Promise.all([getMovements(), getProducts()]);
+    const [m, p, assetTimeline] = await Promise.all([getMovements(), getProducts(), getAssetTimelines()]);
     setMovements(m);
     setProducts(p);
+    setAssetMovements(assetTimeline.filter((event) =>
+      (event.type === "audit" && event.title.toLowerCase().includes("movimenta")) ||
+      event.type === "movimentacao" ||
+      event.type === "assignment" ||
+      event.type === "location"
+    ));
     if (!silent) setIsLoading(false);
   }, []);
 
@@ -103,8 +115,17 @@ export default function MovementsPage() {
       })
       .subscribe();
 
+    const assetChannel = supabase
+      .channel('asset-movements')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .on('postgres_changes' as any, { event: '*', table: 'asset_timelines' }, () => {
+        loadData(true);
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(assetChannel);
     };
   }, [loadData]);
 
@@ -124,9 +145,18 @@ export default function MovementsPage() {
   }, [products, prefillApplied]);
 
   const filteredMovements = useMemo(() => {
-    return movements.filter((m) => {
-      const productName = m.product_name || "";
-      const reason = m.reason || "";
+    const combined: MovementItem[] = [
+      ...movements.map((movement) => ({ ...movement, source: "stock" as const })),
+      ...assetMovements.map((movement) => ({ ...movement, source: "asset" as const, type: "patrimonio" as const })),
+    ].sort((a, b) => {
+      const dateA = a.source === "stock" ? a.date : a.date;
+      const dateB = b.source === "stock" ? b.date : b.date;
+      return new Date(dateB).getTime() - new Date(dateA).getTime();
+    });
+
+    return combined.filter((m) => {
+      const productName = m.source === "stock" ? m.product_name || "" : m.title || "";
+      const reason = m.source === "stock" ? m.reason || "" : m.description || "";
       const matchesSearch =
         productName.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
         reason.toLowerCase().includes(debouncedSearch.toLowerCase());
@@ -142,7 +172,7 @@ export default function MovementsPage() {
 
       return matchesSearch && matchesType && matchesDate;
     });
-  }, [movements, debouncedSearch, typeFilter, dateRange]);
+  }, [movements, assetMovements, debouncedSearch, typeFilter, dateRange]);
 
   const validateForm = () => {
     const result = movementSchema.safeParse({
@@ -354,6 +384,7 @@ export default function MovementsPage() {
                 <SelectItem value="all">Todas</SelectItem>
                 <SelectItem value="entrada">Entradas</SelectItem>
                 <SelectItem value="saida">Saídas</SelectItem>
+                <SelectItem value="patrimonio">Patrimônio</SelectItem>
               </SelectContent>
             </Select>
             <Popover>
@@ -375,29 +406,35 @@ export default function MovementsPage() {
             <EmptyState type="search" />
           ) : (
             <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {filteredMovements.map((m) => (
-                <StaggerItem key={m.id}>
-                  <Card className="border-border/50 bg-card/50 hover:bg-muted/30 cursor-default">
-                    <CardContent className="p-4 flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${m.type === "entrada" ? "bg-green-500/20" : "bg-red-500/20"
-                        }`}>
-                        {m.type === "entrada" ? <ArrowUpRight className="h-5 w-5 text-green-500" /> : <ArrowDownRight className="h-5 w-5 text-red-500" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-sm truncate">{m.product_name}</p>
-                        <p className="text-xs text-muted-foreground truncate">{m.reason}</p>
-                        <div className="flex items-center gap-3 mt-2 text-[10px] text-muted-foreground">
-                          <span className="flex items-center gap-1"><User className="h-3 w-3" />{m.user_name}</span>
-                          <span className="flex items-center gap-1"><CalendarIcon className="h-3 w-3" />{new Date(m.date).toLocaleDateString()}</span>
+              {filteredMovements.map((m) => {
+                const isAssetMovement = m.source === "asset";
+                const title = isAssetMovement ? m.title : m.product_name;
+                const description = isAssetMovement ? m.description : m.reason;
+
+                return (
+                  <StaggerItem key={`${m.source}-${m.id}`}>
+                    <Card className="border-border/50 bg-card/50 hover:bg-muted/30 cursor-default">
+                      <CardContent className="p-4 flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isAssetMovement ? "bg-blue-500/20" : m.type === "entrada" ? "bg-green-500/20" : "bg-red-500/20"
+                          }`}>
+                          {isAssetMovement ? <Building2 className="h-5 w-5 text-blue-500" /> : m.type === "entrada" ? <ArrowUpRight className="h-5 w-5 text-green-500" /> : <ArrowDownRight className="h-5 w-5 text-red-500" />}
                         </div>
-                      </div>
-                      <Badge variant="outline" className={m.type === "entrada" ? "border-green-500 text-green-500" : "border-red-500 text-red-500"}>
-                        {m.type === "entrada" ? "+" : "-"}{m.quantity}
-                      </Badge>
-                    </CardContent>
-                  </Card>
-                </StaggerItem>
-              ))}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm truncate">{title}</p>
+                          <p className="text-xs text-muted-foreground truncate">{description}</p>
+                          <div className="flex items-center gap-3 mt-2 text-[10px] text-muted-foreground">
+                            <span className="flex items-center gap-1"><User className="h-3 w-3" />{m.user_name}</span>
+                            <span className="flex items-center gap-1"><CalendarIcon className="h-3 w-3" />{new Date(m.date).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                        <Badge variant="outline" className={isAssetMovement ? "border-blue-500 text-blue-500" : m.type === "entrada" ? "border-green-500 text-green-500" : "border-red-500 text-red-500"}>
+                          {isAssetMovement ? "Movimentação" : `${m.type === "entrada" ? "+" : "-"}${m.quantity}`}
+                        </Badge>
+                      </CardContent>
+                    </Card>
+                  </StaggerItem>
+                );
+              })}
             </StaggerContainer>
 
           )}

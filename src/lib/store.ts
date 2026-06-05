@@ -28,6 +28,8 @@ export interface Asset {
   status: 'Disponível' | 'Em Uso' | 'Em Manutenção' | 'Baixado';
   purchase_date?: string;
   value?: number;
+  invoice_number?: string;
+  warranty_months?: number;
   model?: string;
   serial_number?: string;
   category: string;
@@ -169,8 +171,9 @@ export interface AssetTimeline {
   date: string;
   title: string;
   description: string;
-  type: 'maintenance' | 'assignment' | 'location' | 'status' | 'audit';
+  type: 'criacao' | 'movimentacao' | 'manutencao' | 'checkout' | 'devolucao' | 'atualizacao' | 'maintenance' | 'assignment' | 'location' | 'status' | 'audit';
   user_name?: string;
+  image_url?: string;
   created_at?: string;
 }
 

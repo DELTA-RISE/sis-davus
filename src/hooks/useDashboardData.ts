@@ -11,12 +11,14 @@ import { ptBR } from "date-fns/locale";
 interface DashboardDataParams {
     role?: string;
     costCenterId?: string | null;
+    userId?: string | null;
+    userName?: string | null;
     dateRange?: DateRange;
 }
 
 const EMPTY_ARRAY: never[] = [];
 
-export function useDashboardData({ role, costCenterId, dateRange }: DashboardDataParams = {}) {
+export function useDashboardData({ role, costCenterId, userId, userName, dateRange }: DashboardDataParams = {}) {
     // Trigger Syncs
     useEffect(() => {
         if (role) {
@@ -61,6 +63,10 @@ export function useDashboardData({ role, costCenterId, dateRange }: DashboardDat
         // Checkouts: filter by asset_id (if asset) or item_id (if product)
         const visibleAssetIds = new Set(assets.map(a => a.id));
         const checkouts = allCheckouts.filter(c => {
+            const belongsToCurrentUser =
+                Boolean(userId && c.user_id === userId) ||
+                Boolean(userName && c.user_name === userName);
+            if (belongsToCurrentUser) return true;
             if (c.item_type === 'asset') return visibleAssetIds.has(c.item_id);
             // if c.item_type === 'product' // Checkouts usually only assets in this system?
             // Interface says item_type: 'product' | 'asset'.
@@ -69,7 +75,7 @@ export function useDashboardData({ role, costCenterId, dateRange }: DashboardDat
 
 
         return { products, assets, movements, checkouts };
-    }, [role, costCenterId]);
+    }, [role, costCenterId, userId, userName]);
 
     const refreshData = async () => {
         await Promise.all([

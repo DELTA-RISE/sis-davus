@@ -2,8 +2,17 @@
 
 import { useState, useCallback, useMemo, useEffect } from "react";
 import Link from "next/link";
-import { Asset } from "@/lib/store";
-import { isPendingSync, saveAsset, deleteAsset, syncAssets } from "@/lib/db";
+import { Asset, Category } from "@/lib/store";
+import {
+  getCategories,
+  isPendingSync,
+  saveAsset,
+  deleteAsset,
+  syncAssets,
+  saveAssetTimeline,
+  getMaintenanceTasks,
+  saveMaintenanceTask,
+} from "@/lib/db";
 import { requestWriteOff } from "@/actions/write-off";
 import { db } from "@/lib/dexie-db";
 import { supabase } from "@/lib/supabase";
@@ -12,7 +21,7 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useItemHistory } from "@/hooks/useItemHistory";
-import { useAssets, useUsers, useCostCenters } from "@/hooks/use-queries";
+import { useAssets, useCostCenters } from "@/hooks/use-queries";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -48,10 +57,8 @@ import {
   Search,
   Plus,
   Edit,
-  MapPin,
   User,
   Wrench,
-  ChevronRight,
   // QrCode,
   Trash2,
   Zap,
@@ -61,6 +68,7 @@ import {
   Check,
   ChevronsUpDown,
   Briefcase,
+  ArrowLeftRight,
 } from "lucide-react";
 import {
   Command,
@@ -87,16 +95,6 @@ const conditionColors: Record<string, string> = {
   Manutenção: "bg-purple-500/20 text-purple-500 border-purple-500/30",
 };
 
-// Filter configs moved inside component to access dynamic categories
-
-
-
-
-
-// ... imports
-
-import { getCategories } from "@/lib/db";
-import { Category } from "@/lib/store";
 function normalizeAssetCondition(condition?: string): Asset["condition"] {
   const value = condition
     ?.normalize("NFD")
@@ -115,24 +113,19 @@ function deriveAssetStatus(asset: Partial<Asset>, condition: Asset["condition"])
   if (asset.status === "Em Manutenção") return "Disponível";
   return asset.status || "Disponível";
 }
+const openMaintenanceStatuses = new Set([
+  "Pendente",
+  "Em Andamento",
+  "Aguardando Aprovação",
+  "Aprovado",
+  "Atrasada",
+]);
+
 export default function PatrimonioPage() {
   const { userName, user, currentRole } = useAuth();
   // const { isDemoMode } = useOnboarding();
 
-  // Categories State
-  const [categories, setCategories] = useState<Category[]>([]);
-
-  useEffect(() => {
-    getCategories("patrimonio").then(setCategories);
-  }, []);
-
   const filterConfigs: FilterConfig[] = useMemo(() => [
-    {
-      key: "category",
-      label: "Categoria",
-      type: "select",
-      options: categories.map(c => ({ value: c.name, label: c.name })),
-    },
     {
       key: "condition",
       label: "Estado",
@@ -145,20 +138,12 @@ export default function PatrimonioPage() {
         { value: "Manutenção", label: "Em Manutenção" },
       ],
     },
-    {
-      key: "location",
-      label: "Localização",
-      type: "text",
-    },
-  ], [categories]);
+  ], []);
 
   // Local-First Hook
   const { assets, isLoading: isLocalLoading } = useAssets();
-  const { users } = useUsers();
   const { costCenters } = useCostCenters();
 
-  const [openUserSelect, setOpenUserSelect] = useState(false);
-  const [openCostCenterSelect, setOpenCostCenterSelect] = useState(false);
   // We can use isLocalLoading for the initial skeleton, or specific loading state.
   // Existing code uses 'isLoading'. Let's map it.
   const isLoading = isLocalLoading && assets.length === 0;
@@ -174,8 +159,22 @@ export default function PatrimonioPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [newAsset, setNewAsset] = useState<Partial<Asset>>({
-    category: "Informática",
+    category: "",
+    location: "",
     condition: "Bom",
+  });
+  const [movementDialogOpen, setMovementDialogOpen] = useState(false);
+  const [assetToMove, setAssetToMove] = useState<Asset | null>(null);
+  const [openMovementCostCenterSelect, setOpenMovementCostCenterSelect] = useState(false);
+  const [movementErrors, setMovementErrors] = useState<Record<string, string>>({});
+  const [assetMovement, setAssetMovement] = useState<{
+    cost_center: string;
+    condition: Asset["condition"];
+    notes: string;
+  }>({
+    cost_center: "",
+    condition: "Bom",
+    notes: "",
   });
   const { addHistoryEntry } = useItemHistory();
 
@@ -203,11 +202,11 @@ export default function PatrimonioPage() {
   const handleOpenNew = () => {
     setEditingAsset(null);
     setNewAsset({
-      category: "Informática",
+      category: "",
+      location: "",
       condition: "Bom",
       code: generateAssetId()
     });
-    setIsDialogOpen(true);
     setIsDialogOpen(true);
   };
 
@@ -291,6 +290,110 @@ export default function PatrimonioPage() {
       toast.error("Erro inesperado ao enviar solicitação.");
       console.error(error);
     }
+  };
+
+  const ensureMaintenanceTaskForAsset = async (
+    asset: Asset,
+    originDescription: string,
+    notes?: string
+  ) => {
+    const existingTasks = await getMaintenanceTasks(asset.id);
+    const hasOpenTask = existingTasks.some((task) => openMaintenanceStatuses.has(task.status));
+
+    if (hasOpenTask) return;
+
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + 7);
+
+    await saveMaintenanceTask({
+      title: `Manutenção - ${asset.name}`,
+      description: notes?.trim()
+        ? `${originDescription}. Observações: ${notes.trim()}`
+        : originDescription,
+      asset_id: asset.id,
+      asset_name: asset.name,
+      asset_code: asset.code,
+      due_date: dueDate.toISOString().slice(0, 10),
+      priority: "media",
+      status: "Pendente",
+      assigned_to: asset.assigned_to,
+      cost: 0,
+      created_by: user?.id,
+      steps_data: [
+        {
+          id: "1",
+          title: "Registro inicial",
+          description: originDescription,
+          completed: true,
+          completed_by: userName,
+          completed_at: new Date().toISOString(),
+        },
+        {
+          id: "2",
+          title: "Análise da manutenção",
+          description: "Aguardando avaliação e acompanhamento do responsável.",
+          completed: false,
+        },
+      ],
+    }, { name: userName, id: user?.id || "" });
+  };
+
+  const handleSaveAssetMovement = async () => {
+    if (!assetToMove) return;
+
+    const fieldErrors: Record<string, string> = {};
+    if (!assetMovement.cost_center) fieldErrors.cost_center = "Selecione o centro de custo de destino";
+    if (!assetMovement.condition) fieldErrors.condition = "Informe o estado do equipamento";
+    if (!assetMovement.notes.trim()) fieldErrors.notes = "Informe as observações da movimentação";
+
+    if (Object.keys(fieldErrors).length > 0) {
+      setMovementErrors(fieldErrors);
+      toast.error("Corrija os erros da movimentação");
+      return;
+    }
+
+    const condition = normalizeAssetCondition(assetMovement.condition);
+    const fromCostCenter = costCenters.find((cc) => cc.id === assetToMove.cost_center);
+    const toCostCenter = costCenters.find((cc) => cc.id === assetMovement.cost_center);
+    const fromName = fromCostCenter?.name || assetToMove.cost_center || "Sem centro de custo";
+    const toName = toCostCenter?.name || assetMovement.cost_center;
+
+    const updatedAsset: Partial<Asset> = {
+      ...assetToMove,
+      cost_center: assetMovement.cost_center,
+      condition,
+      status: deriveAssetStatus(assetToMove, condition),
+    };
+
+    const saved = await saveAsset(updatedAsset, { name: userName, id: user?.id || "" });
+
+    if (!saved) {
+      toast.error("Erro ao movimentar patrimônio");
+      return;
+    }
+
+    if (condition === "Manutenção") {
+      await ensureMaintenanceTaskForAsset(
+        saved,
+        `Patrimônio movimentado para ${toName} e marcado como em manutenção`,
+        assetMovement.notes
+      );
+    }
+
+    await saveAssetTimeline({
+      asset_id: assetToMove.id,
+      type: "audit",
+      date: new Date().toISOString(),
+      title: "Movimentação de centro de custo",
+      user_name: userName,
+      description: `Movimentação de centro de custo: ${fromName} -> ${toName}. Estado: ${condition}. Observações: ${assetMovement.notes.trim()}`,
+    });
+
+    toast.success("Movimentação registrada com sucesso!");
+    setMovementDialogOpen(false);
+    setAssetToMove(null);
+    setAssetMovement({ cost_center: "", condition: "Bom", notes: "" });
+    setMovementErrors({});
   };
 
   const generateBulkPDF = async () => {
@@ -401,26 +504,24 @@ export default function PatrimonioPage() {
     return assets.filter((a) => {
       const name = a.name || "";
       const code = a.code || "";
-      const category = a.category || "";
-      const location = a.location || "";
+      const costCenterName = costCenters.find((cc) => cc.id === a.cost_center)?.name || a.cost_center || "";
+      const assignedTo = a.assigned_to || "";
 
       const matchesSearch =
         !search ||
         name.toLowerCase().includes(search) ||
         code.toLowerCase().includes(search) ||
-        category.toLowerCase().includes(search) ||
-        location.toLowerCase().includes(search);
+        costCenterName.toLowerCase().includes(search) ||
+        assignedTo.toLowerCase().includes(search);
 
       const matchesFilters = activeFilters.every((filter) => {
-        if (filter.key === "category") return a.category === filter.value;
         if (filter.key === "condition") return a.condition === filter.value;
-        if (filter.key === "location") return location.toLowerCase().includes(filter.value.toLowerCase());
         return true;
       });
 
       return matchesSearch && matchesFilters;
     });
-  }, [assets, debouncedSearch, activeFilters]);
+  }, [assets, costCenters, debouncedSearch, activeFilters]);
 
   const { displayedItems, hasMore, loaderRef } = useInfiniteScroll({
     data: filteredAssets,
@@ -433,9 +534,13 @@ export default function PatrimonioPage() {
       return;
     }
 
-    const condition = normalizeAssetCondition(newAsset.condition);
+    const condition = editingAsset ? normalizeAssetCondition(newAsset.condition) : "Bom";
     const assetToSave: Partial<Asset> = {
       ...newAsset,
+      category: newAsset.category || "",
+      location: newAsset.location || "",
+      cost_center: newAsset.cost_center || "",
+      assigned_to: newAsset.assigned_to || "",
       condition,
       status: deriveAssetStatus(newAsset, condition),
       value: newAsset.value ?? 0,
@@ -444,6 +549,13 @@ export default function PatrimonioPage() {
     const saved = await saveAsset(assetToSave, { name: userName, id: user?.id || "" });
 
     if (saved) {
+      if (condition === "Manutenção") {
+        await ensureMaintenanceTaskForAsset(
+          saved,
+          "Patrimônio marcado como em manutenção no cadastro/edição."
+        );
+      }
+
       if (isPendingSync(saved)) {
         toast.warning(editingAsset ? "Patrimonio atualizado localmente." : "Patrimonio cadastrado localmente.", {
           description: "A sincronizacao com o Supabase ainda esta pendente.",
@@ -462,7 +574,7 @@ export default function PatrimonioPage() {
       });
       setIsDialogOpen(false);
       setEditingAsset(null);
-      setNewAsset({ category: "Informática", condition: "Bom" });
+      setNewAsset({ category: "", location: "", condition: "Bom", cost_center: "", assigned_to: "" });
     } else {
       toast.error("Erro ao salvar patrimônio");
     }
@@ -581,7 +693,7 @@ export default function PatrimonioPage() {
                   setIsDialogOpen(open);
                   if (!open) {
                     setEditingAsset(null);
-                    setNewAsset({ category: "Informática", condition: "Bom" });
+                    setNewAsset({ category: "", location: "", condition: "Bom", cost_center: "", assigned_to: "" });
                   }
                 }}>
                   <Button id="assets-new-btn" size="sm" className="h-9 gap-1" onClick={handleOpenNew}>
@@ -606,7 +718,7 @@ export default function PatrimonioPage() {
 
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label>Nome do Bem</Label>
+                          <Label>Equipamento</Label>
                           <Input
                             value={newAsset.name || ""}
                             onChange={(e) => setNewAsset({ ...newAsset, name: e.target.value })}
@@ -632,138 +744,6 @@ export default function PatrimonioPage() {
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label>Categoria</Label>
-                          <Select value={newAsset.category} onValueChange={(v) => setNewAsset({ ...newAsset, category: v })}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              {categories.map((c) => (
-                                <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Estado</Label>
-                          <Select value={normalizeAssetCondition(newAsset.condition)} onValueChange={(v) => setNewAsset({ ...newAsset, condition: normalizeAssetCondition(v) })}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Excelente">Excelente</SelectItem>
-                              <SelectItem value="Bom">Bom</SelectItem>
-                              <SelectItem value="Regular">Regular</SelectItem>
-                              <SelectItem value="Ruim">Ruim</SelectItem>
-                              <SelectItem value="Manutenção">Em Manutenção</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Localização</Label>
-                          <Input
-                            value={newAsset.location || ""}
-                            onChange={(e) => setNewAsset({ ...newAsset, location: e.target.value })}
-                            className={errors.location ? "border-destructive" : ""}
-                          />
-                          {errors.location && <p className="text-xs text-destructive">{errors.location}</p>}
-                        </div>
-                        <div className="space-y-2 text-left">
-                          <Label>Centro de Custo</Label>
-                          <Popover open={openCostCenterSelect} onOpenChange={setOpenCostCenterSelect}>
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant="outline"
-                                role="combobox"
-                                aria-expanded={openCostCenterSelect}
-                                className="w-full justify-between font-normal"
-                              >
-                                {newAsset.cost_center
-                                  ? costCenters.find((cc) => cc.id === newAsset.cost_center)?.name || newAsset.cost_center
-                                  : "Selecione..."}
-                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-[300px] p-0" align="start">
-                              <Command>
-                                <CommandInput placeholder="Buscar centro de custo..." />
-                                <CommandList>
-                                  <CommandEmpty>Nenhum centro de custo encontrado.</CommandEmpty>
-                                  <CommandGroup>
-                                    {costCenters.map((cc) => (
-                                      <CommandItem
-                                        key={cc.id}
-                                        value={cc.name}
-                                        onSelect={() => {
-                                          setNewAsset({ ...newAsset, cost_center: cc.id });
-                                          setOpenCostCenterSelect(false);
-                                        }}
-                                      >
-                                        <Check
-                                          className={cn(
-                                            "mr-2 h-4 w-4",
-                                            newAsset.cost_center === cc.id ? "opacity-100" : "opacity-0"
-                                          )}
-                                        />
-                                        {cc.name}
-                                      </CommandItem>
-                                    ))}
-                                  </CommandGroup>
-                                </CommandList>
-                              </Command>
-                            </PopoverContent>
-                          </Popover>
-                          {errors.cost_center && <p className="text-xs text-destructive">{errors.cost_center}</p>}
-                        </div>
-                      </div>
-                      <div className="space-y-2 flex flex-col items-start text-left">
-                        <Label>Responsável</Label>
-                        <Popover open={openUserSelect} onOpenChange={setOpenUserSelect}>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              role="combobox"
-                              aria-expanded={openUserSelect}
-                              className="w-full justify-between font-normal"
-                            >
-                              {newAsset.assigned_to
-                                ? newAsset.assigned_to
-                                : "Selecione..."}
-                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-[300px] p-0" align="start">
-                            <Command>
-                              <CommandInput placeholder="Buscar responsável..." />
-                              <CommandList>
-                                <CommandEmpty>Nenhum usuário encontrado.</CommandEmpty>
-                                <CommandGroup>
-                                  {users.map((user) => (
-                                    <CommandItem
-                                      key={user.id}
-                                      value={user.name}
-                                      onSelect={() => {
-                                        // Store name to match existing behavior (preserve casing)
-                                        setNewAsset({ ...newAsset, assigned_to: user.name === newAsset.assigned_to ? "" : user.name });
-                                        setOpenUserSelect(false);
-                                      }}
-                                    >
-                                      <Check
-                                        className={cn(
-                                          "mr-2 h-4 w-4",
-                                          newAsset.assigned_to === user.name ? "opacity-100" : "opacity-0"
-                                        )}
-                                      />
-                                      {user.name}
-                                    </CommandItem>
-                                  ))}
-                                </CommandGroup>
-                              </CommandList>
-                            </Command>
-                          </PopoverContent>
-                        </Popover>
-                        {errors.assigned_to && <p className="text-xs text-destructive">{errors.assigned_to}</p>}
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
                           <Label>Data Aquisição</Label>
                           <Input
                             type="date"
@@ -783,6 +763,31 @@ export default function PatrimonioPage() {
                             className={errors.value ? "border-destructive" : ""}
                           />
                           {errors.value && <p className="text-xs text-destructive">{errors.value}</p>}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Nota Fiscal</Label>
+                          <Input
+                            value={newAsset.invoice_number || ""}
+                            onChange={(e) => setNewAsset({ ...newAsset, invoice_number: e.target.value })}
+                            placeholder="Opcional"
+                            className={errors.invoice_number ? "border-destructive" : ""}
+                          />
+                          {errors.invoice_number && <p className="text-xs text-destructive">{errors.invoice_number}</p>}
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Garantia (meses)</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={newAsset.warranty_months ?? ""}
+                            onChange={(e) => setNewAsset({ ...newAsset, warranty_months: e.target.value ? parseInt(e.target.value, 10) : undefined })}
+                            placeholder="Opcional"
+                            className={errors.warranty_months ? "border-destructive" : ""}
+                          />
+                          {errors.warranty_months && <p className="text-xs text-destructive">{errors.warranty_months}</p>}
                         </div>
                       </div>
                       <div className="space-y-2">
@@ -815,6 +820,108 @@ export default function PatrimonioPage() {
                       </div>
                       <Button onClick={submitWriteOffRequest} className="w-full gap-2">
                         Enviar Solicitação
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+
+                <Dialog open={movementDialogOpen} onOpenChange={setMovementDialogOpen}>
+                  <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto border-border">
+                    <DialogHeader>
+                      <DialogTitle>Movimentar Patrimônio</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="rounded-xl border border-border/60 bg-muted/40 p-3">
+                        <p className="text-sm font-semibold">{assetToMove?.name}</p>
+                        <p className="text-xs text-muted-foreground">{assetToMove?.code}</p>
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          Origem: {costCenters.find((cc) => cc.id === assetToMove?.cost_center)?.name || assetToMove?.cost_center || "Sem centro de custo"}
+                        </p>
+                      </div>
+
+                      <div className="space-y-2 text-left">
+                        <Label>Centro de Custo</Label>
+                        <Popover open={openMovementCostCenterSelect} onOpenChange={setOpenMovementCostCenterSelect}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              aria-expanded={openMovementCostCenterSelect}
+                              className={cn("w-full justify-between font-normal", movementErrors.cost_center && "border-destructive")}
+                            >
+                              {assetMovement.cost_center
+                                ? costCenters.find((cc) => cc.id === assetMovement.cost_center)?.name || assetMovement.cost_center
+                                : "Selecione o destino..."}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[300px] p-0" align="start">
+                            <Command>
+                              <CommandInput placeholder="Buscar centro de custo..." />
+                              <CommandList>
+                                <CommandEmpty>Nenhum centro de custo encontrado.</CommandEmpty>
+                                <CommandGroup>
+                                  {costCenters.map((cc) => (
+                                    <CommandItem
+                                      key={cc.id}
+                                      value={cc.name}
+                                      onSelect={() => {
+                                        setAssetMovement({ ...assetMovement, cost_center: cc.id });
+                                        setOpenMovementCostCenterSelect(false);
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          assetMovement.cost_center === cc.id ? "opacity-100" : "opacity-0"
+                                        )}
+                                      />
+                                      {cc.name}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                        {movementErrors.cost_center && <p className="text-xs text-destructive">{movementErrors.cost_center}</p>}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Estado em que se encontra o equipamento</Label>
+                        <Select
+                          value={normalizeAssetCondition(assetMovement.condition)}
+                          onValueChange={(v) => setAssetMovement({ ...assetMovement, condition: normalizeAssetCondition(v) })}
+                        >
+                          <SelectTrigger className={movementErrors.condition ? "border-destructive" : ""}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Excelente">Excelente</SelectItem>
+                            <SelectItem value="Bom">Bom</SelectItem>
+                            <SelectItem value="Regular">Regular</SelectItem>
+                            <SelectItem value="Ruim">Ruim</SelectItem>
+                            <SelectItem value="Manutenção">Em Manutenção</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {movementErrors.condition && <p className="text-xs text-destructive">{movementErrors.condition}</p>}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Observações de avaria de equipamento</Label>
+                        <Textarea
+                          value={assetMovement.notes}
+                          onChange={(e) => setAssetMovement({ ...assetMovement, notes: e.target.value })}
+                          placeholder="Informe avarias, condições de uso ou observações da transferência."
+                          rows={3}
+                          className={movementErrors.notes ? "border-destructive" : ""}
+                        />
+                        {movementErrors.notes && <p className="text-xs text-destructive">{movementErrors.notes}</p>}
+                      </div>
+
+                      <Button onClick={handleSaveAssetMovement} className="w-full gap-2">
+                        <ArrowLeftRight className="h-4 w-4" />
+                        Registrar Movimentação
                       </Button>
                     </div>
                   </DialogContent>
@@ -896,6 +1003,7 @@ export default function PatrimonioPage() {
             <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3">
               {displayedItems.map((asset) => {
                 const isSelected = selectedIds.includes(asset.id);
+                const assetCostCenter = costCenters.find((cc) => cc.id === asset.cost_center)?.name || asset.cost_center || "Sem centro de custo";
                 return (
                   <StaggerItem key={asset.id}>
                     <Card
@@ -924,11 +1032,10 @@ export default function PatrimonioPage() {
                             </Link>
                             <p className="text-xs text-muted-foreground truncate">{asset.description}</p>
                             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-[10px] text-muted-foreground">
-                              <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{asset.location}</span>
+                              <span className="flex items-center gap-1"><Briefcase className="h-3 w-3" />{assetCostCenter}</span>
                               <span className="flex items-center gap-1"><User className="h-3 w-3" />{asset.assigned_to}</span>
                             </div>
                             <div className="flex items-center gap-2 mt-2">
-                              <Badge variant="secondary" className="text-[10px]">{asset.category}</Badge>
                               <Badge variant="outline" className={`text-[10px] ${conditionColors[asset.condition]}`}>{asset.condition}</Badge>
                             </div>
                           </div>
@@ -936,7 +1043,11 @@ export default function PatrimonioPage() {
                             <p className="text-sm font-semibold">R$ {(asset.value || 0).toLocaleString("pt-BR", { minimumFractionDigits: 0 })}</p>
                             <div className="flex items-center gap-1">
                               <Button variant="ghost" size="sm" onClick={(e) => handleEdit(e, asset)} className="h-7 w-7 p-0"><Edit className="h-4 w-4" /></Button>
-                              <Link href={`/patrimonio/detalhes?id=${asset.id}`}><ChevronRight className="h-4 w-4 text-muted-foreground hover:text-primary" /></Link>
+                              <Button asChild variant="ghost" size="sm" className="h-7 w-7 p-0" title="Movimentar Patrimônio">
+                                <Link href={`/patrimonio/detalhes?id=${asset.id}`}>
+                                  <ArrowLeftRight className="h-4 w-4" />
+                                </Link>
+                              </Button>
                               {(currentRole === 'gestor' || currentRole === 'manager') && (
                                 <Button variant="ghost" size="sm" onClick={(e) => handleOpenWriteOff(e, asset)} className="h-7 w-7 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50" title="Solicitar Baixa">
                                   <FileWarning className="h-4 w-4" />

@@ -10,12 +10,15 @@ import {
   getAssetTimelines,
   getCheckouts,
   saveAsset,
+  saveAssetTimeline,
   saveCheckout,
+  saveMaintenanceTask,
 
   getCostCenters,
 } from "@/lib/db";
 import { useAuth } from "@/lib/auth-context";
 import { AssetLabel, AssetLabelLayout } from "@/components/AssetLabel";
+import { ImageUpload } from "@/components/ui/image-upload";
 import { useReactToPrint } from "react-to-print";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -92,6 +95,14 @@ const timelineColors: Record<string, string> = {
   atualizacao: "bg-slate-500/20 text-slate-400",
 };
 
+const openMaintenanceStatuses = new Set([
+  "Pendente",
+  "Em Andamento",
+  "Aguardando Aprovação",
+  "Aprovado",
+  "Atrasada",
+]);
+
 export default function AssetHubPage() {
   const searchParams = useSearchParams();
   const id = searchParams.get("id");
@@ -107,12 +118,22 @@ export default function AssetHubPage() {
   // Dialog States
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [generalInfoDialogOpen, setGeneralInfoDialogOpen] = useState(false);
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   const [checkoutDialogOpen, setCheckoutDialogOpen] = useState(false);
 
   // Form Data
   const [editForm, setEditForm] = useState<Partial<Asset>>({});
-  const [transferData, setTransferData] = useState({ location: "", cost_center: "", responsible: "", reason: "" });
+  const [generalInfoForm, setGeneralInfoForm] = useState<Partial<Asset>>({});
+  const [transferData, setTransferData] = useState({
+    origin: "",
+    cost_center: "",
+    responsible: "",
+    condition: "Bom" as Asset["condition"],
+    movement_date: new Date().toISOString().split("T")[0],
+    notes: "",
+    image_url: "",
+  });
   const [checkoutData, setCheckoutData] = useState({ user_name: "", expected_return: "", notes: "" });
   const [labelLayout, setLabelLayout] = useState<AssetLabelLayout>('standard');
   const [fillPage, setFillPage] = useState(false);
@@ -120,6 +141,10 @@ export default function AssetHubPage() {
   // Lists for Selects
 
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
+  const currentCostCenterName = costCenters.find((cc) => cc.id === asset?.cost_center)?.name
+    || costCenters.find((cc) => cc.name === asset?.cost_center)?.name
+    || asset?.cost_center
+    || "Sem centro de custo";
 
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -180,10 +205,63 @@ export default function AssetHubPage() {
     }
   };
 
+  const ensureMaintenanceTaskForAsset = async (targetAsset: Asset, originDescription: string) => {
+    const existingTasks = await getMaintenanceTasks(targetAsset.id);
+    const hasOpenTask = existingTasks.some((task) => openMaintenanceStatuses.has(task.status));
+
+    if (hasOpenTask) return;
+
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + 7);
+
+    await saveMaintenanceTask({
+      title: `Manutenção - ${targetAsset.name}`,
+      description: originDescription,
+      asset_id: targetAsset.id,
+      asset_name: targetAsset.name,
+      asset_code: targetAsset.code,
+      due_date: dueDate.toISOString().slice(0, 10),
+      priority: "media",
+      status: "Pendente",
+      assigned_to: targetAsset.assigned_to,
+      cost: 0,
+      created_by: user?.id,
+      steps_data: [
+        {
+          id: "1",
+          title: "Registro inicial",
+          description: originDescription,
+          completed: true,
+          completed_by: userName,
+          completed_at: new Date().toISOString(),
+        },
+        {
+          id: "2",
+          title: "Análise da manutenção",
+          description: "Aguardando avaliação e acompanhamento do responsável.",
+          completed: false,
+        },
+      ],
+    }, { name: userName, id: user?.id || "" });
+  };
+
   const handleSaveEdit = async () => {
     if (!asset || !editForm.name) return;
-    const updated = await saveAsset({ ...editForm, id: asset.id }, { name: userName, id: user?.id || "" });
+    const condition = editForm.condition || asset.condition;
+    const updated = await saveAsset({
+      ...asset,
+      ...editForm,
+      id: asset.id,
+      status: condition === "Manutenção"
+        ? "Em Manutenção"
+        : asset.status === "Em Manutenção"
+          ? "Disponível"
+          : asset.status,
+    }, { name: userName, id: user?.id || "" });
     if (updated) {
+      if (condition === "Manutenção") {
+        await ensureMaintenanceTaskForAsset(updated, "Patrimônio marcado como em manutenção na aba de detalhes.");
+      }
       setAsset(updated);
       setEditDialogOpen(false);
       toast.success("Patrimônio atualizado com sucesso!");
@@ -193,25 +271,94 @@ export default function AssetHubPage() {
     }
   };
 
-  const handleTransfer = async () => {
-    if (!asset || !transferData.location) return;
+  const handleSaveGeneralInfo = async () => {
+    if (!asset) return;
 
-    // Update asset
     const updated = await saveAsset({
-      id: asset.id,
-      location: transferData.location,
-      cost_center: transferData.cost_center || asset.cost_center,
+      ...asset,
+      category: generalInfoForm.category?.trim() || "",
+      brand: generalInfoForm.brand?.trim() || "",
+      model: generalInfoForm.model?.trim() || "",
+      serial_number: generalInfoForm.serial_number?.trim() || "",
+      description: generalInfoForm.description?.trim() || "",
+    }, { name: userName, id: user?.id || "" });
+
+    if (updated) {
+      await saveAssetTimeline({
+        asset_id: asset.id,
+        type: "audit",
+        date: new Date().toISOString(),
+        title: "Informações gerais atualizadas",
+        user_name: userName,
+        description: "Categoria, marca, modelo, número de série ou descrição do patrimônio foram revisados.",
+      });
+
+      setAsset(updated);
+      setGeneralInfoDialogOpen(false);
+      toast.success("Informações gerais atualizadas!");
+      loadData();
+    } else {
+      toast.error("Erro ao salvar informações gerais");
+    }
+  };
+
+  const handleTransfer = async () => {
+    if (!asset || !transferData.origin || !transferData.cost_center) {
+      toast.error("Informe a origem e o destino da movimentação");
+      return;
+    }
+
+    const destination = costCenters.find((cc) => cc.id === transferData.cost_center);
+    const originName = transferData.origin.trim();
+    const destinationName = destination?.name || transferData.cost_center;
+    const condition = transferData.condition || asset.condition;
+
+    const updated = await saveAsset({
+      ...asset,
+      location: originName,
+      cost_center: transferData.cost_center,
+      condition,
+      status: condition === "Manutenção"
+        ? "Em Manutenção"
+        : asset.status === "Em Manutenção"
+          ? "Disponível"
+          : asset.status,
       assigned_to: transferData.responsible || asset.assigned_to
     }, { name: userName, id: user?.id || "" });
 
     if (updated) {
+      if (condition === "Manutenção") {
+        await ensureMaintenanceTaskForAsset(
+          updated,
+          `Patrimônio movimentado para ${destinationName} e marcado como em manutenção.`
+        );
+      }
+
+      await saveAssetTimeline({
+        asset_id: asset.id,
+        type: "audit",
+        date: new Date(`${transferData.movement_date}T12:00:00`).toISOString(),
+        title: "Movimentação de patrimônio",
+        user_name: userName,
+        description: `Origem: ${originName}. Destino: ${destinationName}. Estado: ${condition}.${transferData.notes.trim() ? ` Observações: ${transferData.notes.trim()}` : ""}`,
+        image_url: transferData.image_url || undefined,
+      });
+
       setAsset(updated);
       setTransferDialogOpen(false);
-      setTransferData({ location: "", cost_center: "", responsible: "", reason: "" });
-      toast.success("Transferência realizada!");
+      setTransferData({
+        origin: "",
+        cost_center: "",
+        responsible: "",
+        condition: "Bom",
+        movement_date: new Date().toISOString().split("T")[0],
+        notes: "",
+        image_url: "",
+      });
+      toast.success("Movimentação realizada!");
       loadData();
     } else {
-      toast.error("Erro ao transferir patrimônio");
+      toast.error("Erro ao movimentar patrimônio");
     }
   };
 
@@ -223,6 +370,7 @@ export default function AssetHubPage() {
       item_type: "asset",
       item_name: asset.name,
       user_name: checkoutData.user_name,
+      quantity: 1,
       checkout_date: new Date().toISOString(),
       expected_return_date: checkoutData.expected_return || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // Default 7 days
       status: "Ativo",
@@ -337,16 +485,89 @@ export default function AssetHubPage() {
           <div className="lg:col-span-2 space-y-4">
             <Card className="border-border/50 bg-card/50">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                  <Tag className="h-4 w-4" />
-                  Informações Gerais
-                </CardTitle>
+                <div className="flex items-center justify-between gap-3">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <Tag className="h-4 w-4" />
+                    Informações Gerais
+                  </CardTitle>
+                  <Dialog open={generalInfoDialogOpen} onOpenChange={(open) => {
+                    setGeneralInfoDialogOpen(open);
+                    if (open && asset) {
+                      setGeneralInfoForm({
+                        category: asset.category || "",
+                        brand: asset.brand || "",
+                        model: asset.model || "",
+                        serial_number: asset.serial_number || "",
+                        description: asset.description || "",
+                      });
+                    }
+                  }}>
+                    <DialogTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-8 gap-2 px-2 text-xs">
+                        <Edit className="h-3.5 w-3.5" />
+                        Editar
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-2xl">
+                      <DialogHeader>
+                        <DialogTitle>Editar Informações Gerais</DialogTitle>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Categoria</Label>
+                            <Input
+                              value={generalInfoForm.category || ""}
+                              onChange={(e) => setGeneralInfoForm({ ...generalInfoForm, category: e.target.value })}
+                              placeholder="Opcional"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Marca</Label>
+                            <Input
+                              value={generalInfoForm.brand || ""}
+                              onChange={(e) => setGeneralInfoForm({ ...generalInfoForm, brand: e.target.value })}
+                              placeholder="Opcional"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Modelo</Label>
+                            <Input
+                              value={generalInfoForm.model || ""}
+                              onChange={(e) => setGeneralInfoForm({ ...generalInfoForm, model: e.target.value })}
+                              placeholder="Opcional"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Nº Série</Label>
+                            <Input
+                              value={generalInfoForm.serial_number || ""}
+                              onChange={(e) => setGeneralInfoForm({ ...generalInfoForm, serial_number: e.target.value })}
+                              placeholder="Opcional"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Descrição</Label>
+                          <Textarea
+                            value={generalInfoForm.description || ""}
+                            onChange={(e) => setGeneralInfoForm({ ...generalInfoForm, description: e.target.value })}
+                            placeholder="Opcional"
+                          />
+                        </div>
+                        <Button onClick={handleSaveGeneralInfo}>Salvar Informações</Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div className="space-y-1">
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Categoria</p>
-                    <p className="text-sm font-medium">{asset.category}</p>
+                    <p className="text-sm font-medium">{asset.category || "N/A"}</p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Marca</p>
@@ -363,7 +584,7 @@ export default function AssetHubPage() {
                 </div>
                 <div className="pt-2 border-t border-border/50">
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Descrição</p>
-                  <p className="text-sm">{asset.description}</p>
+                  <p className="text-sm">{asset.description || "N/A"}</p>
                 </div>
               </CardContent>
             </Card>
@@ -398,6 +619,32 @@ export default function AssetHubPage() {
                 </CardContent>
               </Card>
               <Card className="border-border/50 bg-card/50">
+                <CardContent className="p-4 h-full flex items-center">
+                  <div className="flex items-center gap-3 w-full">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0">
+                      <Tag className="h-5 w-5 text-amber-500" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground uppercase">Nota Fiscal</p>
+                      <p className="text-lg font-bold">{asset.invoice_number || "N/A"}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border-border/50 bg-card/50">
+                <CardContent className="p-4 h-full flex items-center">
+                  <div className="flex items-center gap-3 w-full">
+                    <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center shrink-0">
+                      <Clock className="h-5 w-5 text-purple-500" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground uppercase">Garantia</p>
+                      <p className="text-lg font-bold">{asset.warranty_months ? `${asset.warranty_months} meses` : "N/A"}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border-border/50 bg-card/50">
                 <CardContent className="p-4">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
@@ -409,7 +656,7 @@ export default function AssetHubPage() {
                     </div>
                     <div className="space-y-1">
                       <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Centro de Custo</p>
-                      <p className="text-sm font-medium truncate">{asset.cost_center}</p>
+                      <p className="text-sm font-medium truncate">{currentCostCenterName}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -517,7 +764,7 @@ export default function AssetHubPage() {
                   </p>
                 ) : (
                   <div className="relative">
-                    <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
+                    <div className="absolute left-4 top-4 bottom-4 w-px bg-gradient-to-b from-transparent via-primary/25 to-transparent dark:via-white/10" />
                     <div className="space-y-4">
                       {timeline.slice(0, 5).map((event) => {
                         const Icon = timelineIcons[event.type] || Package;
@@ -533,6 +780,14 @@ export default function AssetHubPage() {
                             <div className="flex-1 min-w-0 pt-1">
                               <p className="text-sm font-medium">{event.title}</p>
                               <p className="text-xs text-muted-foreground">{event.description}</p>
+                              {event.image_url && (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={event.image_url}
+                                  alt={event.title}
+                                  className="mt-2 h-16 w-24 rounded-md object-cover border border-border/60"
+                                />
+                              )}
                               <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
                                 <span>{new Date(event.date).toLocaleDateString("pt-BR")}</span>
                                 <span>•</span>
@@ -558,14 +813,14 @@ export default function AssetHubPage() {
                 Editar
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Editar Patrimônio</DialogTitle>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Nome do Bem</Label>
+                    <Label>Equipamento</Label>
                     <Input value={editForm.name || ""} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
                   </div>
                   <div className="space-y-2">
@@ -581,7 +836,7 @@ export default function AssetHubPage() {
                       onChange={(v) => setEditForm({ ...editForm, assigned_to: v })}
                     />
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-2 hidden">
                     <Label>Estado</Label>
                     <Select value={editForm.condition} onValueChange={(v) => setEditForm({ ...editForm, condition: v as Asset["condition"] })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
@@ -599,30 +854,78 @@ export default function AssetHubPage() {
                   <Label>Descrição</Label>
                   <Textarea value={editForm.description || ""} onChange={e => setEditForm({ ...editForm, description: e.target.value })} />
                 </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Data Aquisição</Label>
+                    <Input type="date" value={editForm.purchase_date || ""} onChange={(e) => setEditForm({ ...editForm, purchase_date: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Valor (R$)</Label>
+                    <Input type="number" step="0.01" value={editForm.value ?? ""} onChange={(e) => setEditForm({ ...editForm, value: parseFloat(e.target.value) || 0 })} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Nota Fiscal</Label>
+                    <Input value={editForm.invoice_number || ""} onChange={(e) => setEditForm({ ...editForm, invoice_number: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Garantia (meses)</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={editForm.warranty_months ?? ""}
+                      onChange={(e) => setEditForm({ ...editForm, warranty_months: e.target.value ? parseInt(e.target.value, 10) : undefined })}
+                    />
+                  </div>
+                </div>
                 <Button onClick={handleSaveEdit}>Salvar Alterações</Button>
               </div>
             </DialogContent>
           </Dialog>
 
-          <Dialog open={transferDialogOpen} onOpenChange={setTransferDialogOpen}>
+          <Dialog open={transferDialogOpen} onOpenChange={(open) => {
+            setTransferDialogOpen(open);
+            if (open && asset) {
+              setTransferData({
+                origin: asset.location || "",
+                cost_center: asset.cost_center || "",
+                responsible: asset.assigned_to || "",
+                condition: asset.condition || "Bom",
+                movement_date: new Date().toISOString().split("T")[0],
+                notes: "",
+                image_url: "",
+              });
+            }
+          }}>
             <DialogTrigger asChild>
               <Button variant="outline" className="h-12 gap-2">
                 <ArrowRightLeft className="h-4 w-4" />
-                Transferir
+                Movimentação
               </Button>
             </DialogTrigger>
-            <DialogContent>
-              <DialogHeader><DialogTitle>Transferir Patrimônio</DialogTitle></DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label>Novo Local</Label>
+            <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-lg max-h-[88vh] overflow-y-auto border-border/60 bg-background/95 p-0 shadow-xl backdrop-blur-xl">
+              <div className="h-0.5 w-full bg-primary/70" />
+              <DialogHeader className="space-y-1 border-b border-border/40 px-5 pb-4 pt-4">
+                <DialogTitle className="flex items-center gap-2 text-xl">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                    <ArrowRightLeft className="h-4 w-4" />
+                  </span>
+                  Movimentação
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3 px-5 py-4">
+                <div className="space-y-1.5">
+                  <Label>Origem</Label>
                   <Input
-                    placeholder="Digite o local..."
-                    value={transferData.location}
-                    onChange={e => setTransferData({ ...transferData, location: e.target.value })}
+                    className="h-10 bg-background/60"
+                    placeholder="Informe a origem..."
+                    value={transferData.origin}
+                    onChange={e => setTransferData({ ...transferData, origin: e.target.value })}
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label>Novo Responsável (Opcional)</Label>
                   <UserSelect
                     value={transferData.responsible}
@@ -630,20 +933,71 @@ export default function AssetHubPage() {
                     placeholder="Selecione novo responsável..."
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>Novo Centro de Custo (Opcional)</Label>
-                  <Select onValueChange={(v) => setTransferData({ ...transferData, cost_center: v })}>
-                    <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                    <SelectContent>
-                      {costCenters.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label>Destino</Label>
+                    <Select
+                      value={transferData.cost_center}
+                      onValueChange={(v) => setTransferData({ ...transferData, cost_center: v })}
+                    >
+                      <SelectTrigger className="h-10 bg-background/60"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                      <SelectContent>
+                        {costCenters.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Estado</Label>
+                    <Select
+                      value={transferData.condition}
+                      onValueChange={(v) => setTransferData({ ...transferData, condition: v as Asset["condition"] })}
+                    >
+                      <SelectTrigger className="h-10 bg-background/60"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Excelente">Excelente</SelectItem>
+                        <SelectItem value="Bom">Bom</SelectItem>
+                        <SelectItem value="Regular">Regular</SelectItem>
+                        <SelectItem value="Ruim">Ruim</SelectItem>
+                        <SelectItem value="Manutenção">Em Manutenção</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label>Data da movimentação</Label>
+                    <Input
+                      className="h-10 bg-background/60"
+                      type="date"
+                      value={transferData.movement_date}
+                      onChange={e => setTransferData({ ...transferData, movement_date: e.target.value })}
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>Motivo</Label>
-                  <Textarea value={transferData.reason} onChange={e => setTransferData({ ...transferData, reason: e.target.value })} />
+                <div className="space-y-1.5">
+                  <Label>Observações</Label>
+                  <Textarea
+                    className="min-h-20 resize-none bg-background/60"
+                    value={transferData.notes}
+                    onChange={e => setTransferData({ ...transferData, notes: e.target.value })}
+                    placeholder="Descreva avarias, contexto da transferência ou observações relevantes..."
+                  />
                 </div>
-                <Button onClick={handleTransfer}>Confirmar Transferência</Button>
+                <div className="space-y-1.5 rounded-lg border border-border/40 bg-muted/10 p-3">
+                  <Label>Foto da Observação (Opcional)</Label>
+                  <div className="flex justify-center">
+                    <ImageUpload
+                      className="[&>div]:h-28 [&>div]:w-28 [&>div]:rounded-lg"
+                      bucket="public-assets"
+                      folder="asset-movements"
+                      defaultImage={transferData.image_url}
+                      onImageChange={(url) => setTransferData({ ...transferData, image_url: url || "" })}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="sticky bottom-0 border-t border-border/50 bg-background/95 px-5 py-4 backdrop-blur-xl">
+                <Button onClick={handleTransfer} className="h-11 w-full text-base font-semibold">
+                  Confirmar Movimentação
+                </Button>
               </div>
             </DialogContent>
           </Dialog>

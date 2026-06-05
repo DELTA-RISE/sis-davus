@@ -606,7 +606,9 @@ async function exportAssetsXLSX(assets: Asset[], filename: string) {
     { header: "Local", key: "location", width: 20 },
     { header: "Responsável", key: "responsible", width: 20 },
     { header: "Valor", key: "value", width: 15, type: 'currency' }, // G
-    { header: "Data Aquisição", key: "acquisition_date", width: 15 }
+    { header: "Data Aquisição", key: "acquisition_date", width: 15 },
+    { header: "Nota Fiscal", key: "invoice_number", width: 18 },
+    { header: "Garantia (meses)", key: "warranty_months", width: 18 }
   ];
 
   // Header strip
@@ -654,6 +656,8 @@ async function exportAssetsXLSX(assets: Asset[], filename: string) {
     row.getCell(6).value = item.assigned_to;
     row.getCell(7).value = item.value;
     row.getCell(8).value = item.purchase_date;
+    row.getCell(9).value = item.invoice_number;
+    row.getCell(10).value = item.warranty_months;
 
     row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
       cell.style = { ...styles.cell };
@@ -1198,6 +1202,8 @@ export function exportAssets(assets: Asset[], format: "csv" | "json" | "xlsx"): 
     { key: "assigned_to", label: "Responsável" },
     { key: "value", label: "Valor" },
     { key: "purchase_date", label: "Data Aquisição" },
+    { key: "invoice_number", label: "Nota Fiscal" },
+    { key: "warranty_months", label: "Garantia (meses)" },
   ]);
 }
 
