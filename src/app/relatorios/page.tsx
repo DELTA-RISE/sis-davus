@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-// import { useAuth } from "@/lib/auth-context";
+import { useAuth } from "@/lib/auth-context";
+import { getScopedCostCenter } from "@/lib/access-scope";
 import { Product, Asset, StockMovement, MaintenanceTask } from "@/lib/store";
 import { getProducts, getAssets, getMovements, getMaintenanceTasks } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -49,6 +50,8 @@ import { format } from "date-fns";
 const COLORS = ["#ff5d38", "#8b5cf6", "#22c55e", "#eab308", "#06b6d4", "#ec4899", "#f97316"];
 
 export default function RelatoriosPage() {
+  const { currentRole, costCenter } = useAuth();
+  const scopedCostCenter = getScopedCostCenter(currentRole, costCenter);
   const [products, setProducts] = useState<Product[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [movements, setMovements] = useState<StockMovement[]>([]);
@@ -94,7 +97,7 @@ export default function RelatoriosPage() {
 
     // Load each dataset independently - they complete as fast as possible
     // Products (usually fast with cache)
-    getProducts().then(p => {
+    getProducts(false, scopedCostCenter).then(p => {
       setProducts(p);
       setLoadingProducts(false);
     }).catch(err => {
@@ -103,7 +106,7 @@ export default function RelatoriosPage() {
     });
 
     // Assets (usually fast with cache)
-    getAssets().then(a => {
+    getAssets(false, scopedCostCenter).then(a => {
       setAssets(a);
       setLoadingAssets(false);
     }).catch(err => {
@@ -128,7 +131,7 @@ export default function RelatoriosPage() {
       console.error("Error loading maintenance:", err);
       setLoadingMaintenance(false);
     });
-  }, []);
+  }, [scopedCostCenter]);
 
   useEffect(() => {
     loadData();

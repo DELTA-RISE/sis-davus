@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { getRoleLabel } from "@/lib/roles";
+import { getScopedCostCenter } from "@/lib/access-scope";
 
 const steps = [
     { id: 1, title: "Identificação", description: "Selecione o patrimônio e prioridade" },
@@ -52,7 +53,8 @@ const maintenanceFormSchema = z.object({
 });
 
 function NewMaintenanceContent() {
-    const { user, userName, currentRole } = useAuth();
+    const { user, userName, currentRole, costCenter } = useAuth();
+    const scopedCostCenter = getScopedCostCenter(currentRole, costCenter);
     const router = useRouter();
     const searchParams = useSearchParams();
     const preSelectedAssetId = searchParams.get("assetId");
@@ -77,8 +79,8 @@ function NewMaintenanceContent() {
     });
 
     useEffect(() => {
-        getAssets().then(setAssets);
-    }, []);
+        getAssets(false, scopedCostCenter).then(setAssets);
+    }, [scopedCostCenter]);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const onSubmit = async (data: any) => {

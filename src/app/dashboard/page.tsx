@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { isOperatorRole } from "@/lib/roles";
+import { getScopedCostCenter } from "@/lib/access-scope";
 
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { PageTransition, SlideUp, StaggerContainer, StaggerItem } from "@/components/PageTransition";
@@ -91,9 +92,10 @@ const categoryChartConfig = {
 } satisfies ChartConfig;
 
 export default function DashboardPage() {
-  const { currentRole, user, userName } = useAuth();
+  const { currentRole, user, userName, costCenter } = useAuth();
   const [costCenters, setCostCenters] = useState<{ id: string, name: string }[]>([]);
   const [selectedCostCenter, setSelectedCostCenter] = useState<string | null>(null);
+  const scopedCostCenter = getScopedCostCenter(currentRole, costCenter);
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: subDays(new Date(), 6),
     to: new Date(),
@@ -120,7 +122,7 @@ export default function DashboardPage() {
     movementsData
   } = useDashboardData({
     role: currentRole || undefined,
-    costCenterId: selectedCostCenter,
+    costCenterId: scopedCostCenter || selectedCostCenter,
     userId: user?.id,
     userName,
     dateRange

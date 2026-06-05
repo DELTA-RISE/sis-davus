@@ -17,6 +17,7 @@ import {
   getCostCenters,
 } from "@/lib/db";
 import { useAuth } from "@/lib/auth-context";
+import { getScopedCostCenter } from "@/lib/access-scope";
 import { AssetLabel, AssetLabelLayout } from "@/components/AssetLabel";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { useReactToPrint } from "react-to-print";
@@ -107,7 +108,8 @@ export default function AssetHubPage() {
   const searchParams = useSearchParams();
   const id = searchParams.get("id");
   const router = useRouter();
-  const { userName, user } = useAuth();
+  const { userName, user, currentRole, costCenter } = useAuth();
+  const scopedCostCenter = getScopedCostCenter(currentRole, costCenter);
 
   const [asset, setAsset] = useState<Asset | null>(null);
   const [maintenanceTasks, setMaintenanceTasks] = useState<MaintenanceTask[]>([]);
@@ -166,6 +168,11 @@ export default function AssetHubPage() {
       ]);
 
       if (assetData) {
+        if (scopedCostCenter && assetData.cost_center !== scopedCostCenter) {
+          toast.error("Este patrimônio pertence a outro centro de custo.");
+          router.push("/patrimonio");
+          return;
+        }
         setAsset(assetData);
         setEditForm(assetData);
       }
@@ -181,7 +188,7 @@ export default function AssetHubPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [id]);
+  }, [id, router, scopedCostCenter]);
 
 
   useEffect(() => {
