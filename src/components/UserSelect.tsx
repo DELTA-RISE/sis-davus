@@ -23,11 +23,12 @@ import { getUsers } from "@/lib/db";
 interface UserSelectProps {
     value?: string;
     onChange: (value: string) => void;
+    onUserSelect?: (user: User | null) => void;
     placeholder?: string;
     className?: string;
 }
 
-export function UserSelect({ value, onChange, placeholder = "Selecione o usuário...", className }: UserSelectProps) {
+export function UserSelect({ value, onChange, onUserSelect, placeholder = "Selecione o usuário...", className }: UserSelectProps) {
     const [open, setOpen] = useState(false);
     const [users, setUsers] = useState<User[]>([]);
 
@@ -72,8 +73,10 @@ export function UserSelect({ value, onChange, placeholder = "Selecione o usuári
                                 <CommandItem
                                     key={user.id}
                                     value={user.name}
-                                    onSelect={(currentValue) => {
-                                        onChange(currentValue === value ? "" : currentValue);
+                                    onSelect={() => {
+                                        const nextValue = user.name === value ? "" : user.name;
+                                        onChange(nextValue);
+                                        onUserSelect?.(nextValue ? user : null);
                                         setOpen(false);
                                     }}
                                 >
