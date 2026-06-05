@@ -615,15 +615,16 @@ export default function EstoquePage() {
               {displayedItems.map((product) => {
                 const stockStatus = getStockStatus(product);
                 const isSelected = selectedIds.includes(product.id);
+                const costCenterName = costCenters.find(c => c.id === product.cost_center)?.name || product.cost_center || "N/A";
                 return (
                   <StaggerItem key={product.id}>
                     <Card
-                      className={`border-border/50 bg-card/50 ${isSelected ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""
+                      className={`border-border/70 bg-card/80 shadow-sm shadow-black/5 transition-colors hover:border-primary/35 hover:bg-card ${isSelected ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""
                         }`}
                       onClick={() => toggleSelect(product.id)}
                     >
-                      <CardContent className="p-3 md:p-4">
-                        <div className="flex items-center gap-3">
+                      <CardContent className="p-3.5 md:p-4">
+                        <div className="flex items-start gap-3">
                           <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                             <Checkbox
                               checked={isSelected}
@@ -641,41 +642,49 @@ export default function EstoquePage() {
                               }`} />
                             )}
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <p className="font-medium text-sm truncate">{product.name}</p>
-                              <Badge variant="secondary" className="text-[10px] flex-shrink-0">{product.category}</Badge>
+                          <div className="flex-1 min-w-0 space-y-1.5">
+                            <div className="min-w-0">
+                              <p className="font-semibold text-sm leading-tight text-foreground line-clamp-2">
+                                {product.name}
+                              </p>
+                              {product.category && (
+                                <Badge variant="secondary" className="mt-1 h-5 max-w-full truncate px-2 text-[10px] font-medium">
+                                  {product.category}
+                                </Badge>
+                              )}
                             </div>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span className="font-mono">{product.sku}</span>
-                              <span className="flex items-center gap-1">
-                                <Building2 className="h-3 w-3" />
-                                {costCenters.find(c => c.id === product.cost_center)?.name || product.cost_center || "N/A"}
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                              {product.sku && (
+                                <span className="font-mono text-[11px] text-foreground/70">{product.sku}</span>
+                              )}
+                              <span className="flex min-w-0 items-center gap-1">
+                                <Building2 className="h-3 w-3 flex-shrink-0" />
+                                <span className="truncate">{costCenterName}</span>
                               </span>
                             </div>
-                            <div className="flex items-center gap-2 mt-2">
+                            <div className="flex flex-wrap items-center gap-2 mt-2.5">
                               <Badge
                                 variant="outline"
-                                className={`text-xs ${stockStatus === "low" ? "border-red-500 text-red-500" :
-                                  stockStatus === "high" ? "border-amber-500 text-amber-500" :
-                                    "border-green-500 text-green-500"
+                                className={`h-6 px-2 text-xs font-semibold ${stockStatus === "low" ? "border-red-500/70 bg-red-500/10 text-red-600 dark:text-red-400" :
+                                  stockStatus === "high" ? "border-amber-500/70 bg-amber-500/10 text-amber-600 dark:text-amber-400" :
+                                    "border-green-500/70 bg-green-500/10 text-green-600 dark:text-green-400"
                                   }`}
                               >
                                 {product.quantity} un
                               </Badge>
-                              <span className="text-[10px] text-muted-foreground">
-                                Mín: {product.min_stock} | Máx: {product.max_stock}
+                              <span className="rounded-md bg-muted/60 px-2 py-1 text-[10px] font-medium text-muted-foreground">
+                                Min {product.min_stock} / Max {product.max_stock}
                               </span>
                             </div>
                           </div>
-                          <div className="text-right" onClick={(e) => e.stopPropagation()}>
-                            <p className="text-sm font-semibold">
-                              R$ {(product.unit_price || 0).toFixed(2)} <span className="text-xs text-muted-foreground font-normal">/ {product.unit_of_measure || 'un'}</span>
+                          <div className="min-w-[112px] text-right" onClick={(e) => e.stopPropagation()}>
+                            <p className="text-sm font-bold text-foreground">
+                              R$ {(product.unit_price || 0).toFixed(2)} <span className="text-[11px] text-muted-foreground font-medium">/ {product.unit_of_measure || 'un'}</span>
                             </p>
-                            <p className="text-xs text-muted-foreground mt-0.5">
+                            <p className="text-xs font-medium text-muted-foreground mt-0.5">
                               Total: R$ {((product.quantity || 0) * (product.unit_price || 0)).toFixed(2)}
                             </p>
-                            <div className="flex gap-1 mt-1">
+                            <div className="flex justify-end gap-1 mt-2">
                               <Button asChild variant="ghost" size="sm" className="h-7 w-7 p-0 text-green-600 hover:text-green-600" title="Registrar entrada">
                                 <Link href={`/movimentacoes?productId=${product.id}&type=entrada`}>
                                   <ArrowUpRight className="h-4 w-4" />
