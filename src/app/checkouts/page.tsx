@@ -58,6 +58,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { PageTransition, StaggerContainer, StaggerItem } from "@/components/PageTransition";
 import { useAuth } from "@/lib/auth-context";
+import { getScopedCostCenter } from "@/lib/access-scope";
 
 const statusColors = {
   Ativo: "bg-blue-500/20 text-blue-500 border-blue-500/30",
@@ -78,7 +79,8 @@ const statusIcons = {
 };
 
 export default function CheckoutsPage() {
-  const { userName, user } = useAuth();
+  const { userName, user, currentRole, costCenter } = useAuth();
+  const scopedCostCenter = getScopedCostCenter(currentRole, costCenter);
   const [checkouts, setCheckouts] = useState<Checkout[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -96,13 +98,23 @@ export default function CheckoutsPage() {
 
   const loadData = useCallback(async (_silent = false) => {
     // if (!silent) setIsLoading(true);
-    const [c, p, a, u] = await Promise.all([getCheckouts(), getProducts(), getAssets(), getUsers()]);
-    setCheckouts(c);
+    const [c, p, a, u] = await Promise.all([
+      getCheckouts(),
+      getProducts(false, scopedCostCenter),
+      getAssets(false, scopedCostCenter),
+      getUsers()
+    ]);
+    const visibleProductIds = new Set(p.map((product) => product.id));
+    const visibleAssetIds = new Set(a.map((asset) => asset.id));
+    setCheckouts(c.filter((checkout) => {
+      if (checkout.item_type === "asset") return visibleAssetIds.has(checkout.item_id);
+      return visibleProductIds.has(checkout.item_id);
+    }));
     setProducts(p);
     setAssets(a);
     setUsers(u);
     // if (!silent) setIsLoading(false);
-  }, []);
+  }, [scopedCostCenter]);
 
   useEffect(() => {
     loadData();

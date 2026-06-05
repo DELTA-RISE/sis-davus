@@ -38,6 +38,7 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 import { AssetLabel, AssetLabelLayout } from "@/components/AssetLabel";
 import { useAuth } from "@/lib/auth-context";
+import { getScopedCostCenter } from "@/lib/access-scope";
 import {
   Dialog,
   DialogContent,
@@ -122,7 +123,7 @@ const openMaintenanceStatuses = new Set([
 ]);
 
 export default function PatrimonioPage() {
-  const { userName, user, currentRole } = useAuth();
+  const { userName, user, currentRole, costCenter } = useAuth();
   // const { isDemoMode } = useOnboarding();
 
   const filterConfigs: FilterConfig[] = useMemo(() => [
@@ -141,7 +142,8 @@ export default function PatrimonioPage() {
   ], []);
 
   // Local-First Hook
-  const { assets, isLoading: isLocalLoading } = useAssets();
+  const scopedCostCenter = getScopedCostCenter(currentRole, costCenter);
+  const { assets, isLoading: isLocalLoading } = useAssets("", scopedCostCenter);
   const { costCenters } = useCostCenters();
 
   // We can use isLocalLoading for the initial skeleton, or specific loading state.
@@ -205,6 +207,7 @@ export default function PatrimonioPage() {
       category: "",
       location: "",
       condition: "Bom",
+      cost_center: scopedCostCenter || "",
       code: generateAssetId()
     });
     setIsDialogOpen(true);
@@ -539,7 +542,7 @@ export default function PatrimonioPage() {
       ...newAsset,
       category: newAsset.category || "",
       location: newAsset.location || "",
-      cost_center: newAsset.cost_center || "",
+      cost_center: scopedCostCenter || newAsset.cost_center || "",
       assigned_to: newAsset.assigned_to || "",
       condition,
       status: deriveAssetStatus(newAsset, condition),
@@ -574,7 +577,7 @@ export default function PatrimonioPage() {
       });
       setIsDialogOpen(false);
       setEditingAsset(null);
-      setNewAsset({ category: "", location: "", condition: "Bom", cost_center: "", assigned_to: "" });
+      setNewAsset({ category: "", location: "", condition: "Bom", cost_center: scopedCostCenter || "", assigned_to: "" });
     } else {
       toast.error("Erro ao salvar patrimônio");
     }
@@ -693,7 +696,7 @@ export default function PatrimonioPage() {
                   setIsDialogOpen(open);
                   if (!open) {
                     setEditingAsset(null);
-                    setNewAsset({ category: "", location: "", condition: "Bom", cost_center: "", assigned_to: "" });
+                    setNewAsset({ category: "", location: "", condition: "Bom", cost_center: scopedCostCenter || "", assigned_to: "" });
                   }
                 }}>
                   <Button id="assets-new-btn" size="sm" className="h-9 gap-1" onClick={handleOpenNew}>

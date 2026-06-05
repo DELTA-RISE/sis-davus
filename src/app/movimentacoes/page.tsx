@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { StockMovement, Product, AssetTimeline } from "@/lib/store";
-import { getMovements, isPendingSync, saveMovement, getProducts, getAssetTimelines } from "@/lib/db";
+import { getMovements, isPendingSync, saveMovement, getProducts, getAssets, getAssetTimelines } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
+import { getScopedCostCenter } from "@/lib/access-scope";
 import { movementSchema } from "@/lib/validations";
 import { useDebounce } from "@/hooks/useDebounce";
 import { Card, CardContent } from "@/components/ui/card";
@@ -72,7 +73,8 @@ type AssetMovementItem = Omit<AssetTimeline, "type"> & { source: "asset"; type: 
 type MovementItem = StockMovementItem | AssetMovementItem;
 
 export default function MovementsPage() {
-  const { userName, user } = useAuth();
+  const { userName, user, currentRole, costCenter } = useAuth();
+  const scopedCostCenter = getScopedCostCenter(currentRole, costCenter);
   const [movements, setMovements] = useState<StockMovement[]>([]);
   const [assetMovements, setAssetMovements] = useState<AssetTimeline[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -92,17 +94,26 @@ export default function MovementsPage() {
 
   const loadData = useCallback(async (silent = false) => {
     if (!silent) setIsLoading(true);
-    const [m, p, assetTimeline] = await Promise.all([getMovements(), getProducts(), getAssetTimelines()]);
-    setMovements(m);
+    const [m, p, a, assetTimeline] = await Promise.all([
+      getMovements(),
+      getProducts(false, scopedCostCenter),
+      getAssets(false, scopedCostCenter),
+      getAssetTimelines()
+    ]);
+    const visibleProductIds = new Set(p.map((product) => product.id));
+    const visibleAssetIds = new Set(a.map((asset) => asset.id));
+    setMovements(m.filter((movement) => visibleProductIds.has(movement.product_id)));
     setProducts(p);
     setAssetMovements(assetTimeline.filter((event) =>
-      (event.type === "audit" && event.title.toLowerCase().includes("movimenta")) ||
-      event.type === "movimentacao" ||
-      event.type === "assignment" ||
-      event.type === "location"
+      visibleAssetIds.has(event.asset_id) && (
+        (event.type === "audit" && event.title.toLowerCase().includes("movimenta")) ||
+        event.type === "movimentacao" ||
+        event.type === "assignment" ||
+        event.type === "location"
+      )
     ));
     if (!silent) setIsLoading(false);
-  }, []);
+  }, [scopedCostCenter]);
 
   useEffect(() => {
     loadData();

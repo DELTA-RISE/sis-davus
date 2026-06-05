@@ -69,6 +69,7 @@ import {
 } from "@/components/ui/popover";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
+import { getScopedCostCenter } from "@/lib/access-scope";
 import { motion, AnimatePresence } from "framer-motion";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { getCategories } from "@/lib/db";
@@ -77,9 +78,14 @@ import { Category } from "@/lib/store";
 // FilterConfigs moved inside component
 
 export default function EstoquePage() {
-  const { userName, user } = useAuth();
+  const { userName, user, currentRole, costCenter } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const { costCenters } = useCostCenters();
+  const scopedCostCenter = getScopedCostCenter(currentRole, costCenter);
+  const availableCostCenters = useMemo(
+    () => scopedCostCenter ? costCenters.filter((center) => center.id === scopedCostCenter) : costCenters,
+    [costCenters, scopedCostCenter]
+  );
   const [categories, setCategories] = useState<Category[]>([]);
 
   useEffect(() => {
@@ -126,14 +132,21 @@ export default function EstoquePage() {
   });
   const [openCostCenterSelect, setOpenCostCenterSelect] = useState(false);
   const { addHistoryEntry } = useItemHistory();
+
+  useEffect(() => {
+    if (!editingProduct && scopedCostCenter) {
+      setNewProduct((current) => ({ ...current, cost_center: current.cost_center || scopedCostCenter }));
+    }
+  }, [editingProduct, scopedCostCenter]);
+
   const loadData = useCallback(async (silent = false) => {
     if (!silent) setIsLoading(true);
 
-    const data = await getProducts();
+    const data = await getProducts(false, scopedCostCenter);
     setProducts(data);
 
     if (!silent) setIsLoading(false);
-  }, []);
+  }, [scopedCostCenter]);
 
   useEffect(() => {
     loadData();
@@ -226,6 +239,7 @@ export default function EstoquePage() {
   const validateForm = () => {
     const result = productSchema.safeParse({
       ...newProduct,
+      cost_center: scopedCostCenter || newProduct.cost_center,
       quantity: newProduct.quantity ?? 0,
       min_stock: newProduct.min_stock ?? 0,
       max_stock: newProduct.max_stock ?? 1,
@@ -254,6 +268,7 @@ export default function EstoquePage() {
     setIsSaving(true);
     const payload: Partial<Product> = {
       ...newProduct,
+      cost_center: scopedCostCenter || newProduct.cost_center,
       updated_at: new Date().toISOString(),
     };
 
@@ -279,7 +294,7 @@ export default function EstoquePage() {
       });
       setIsDialogOpen(false);
       setEditingProduct(null);
-      setNewProduct({ category: "Escritório" });
+      setNewProduct({ category: "Escritório", cost_center: scopedCostCenter || undefined });
     } else {
       toast.error("Erro ao salvar produto");
     }
@@ -352,7 +367,7 @@ export default function EstoquePage() {
                   setIsDialogOpen(open);
                   if (!open) {
                     setEditingProduct(null);
-                    setNewProduct({ category: "Escritório" });
+                    setNewProduct({ category: "Escritório", cost_center: scopedCostCenter || undefined });
                     setErrors({});
                   }
                 }}>
@@ -438,7 +453,7 @@ export default function EstoquePage() {
                                 <CommandList>
                                   <CommandEmpty>Nenhum centro de custo encontrado.</CommandEmpty>
                                   <CommandGroup>
-                                    {costCenters.map((cc) => (
+                                    {availableCostCenters.map((cc) => (
                                       <CommandItem
                                         key={cc.id}
                                         value={cc.name}
