@@ -39,10 +39,10 @@ export function useUsers(searchTerm = "") {
     return { users: users || [], isLoading: users === undefined };
 }
 
-export function useAssets(searchTerm = "") {
+export function useAssets(searchTerm = "", costCenterId?: string | null) {
     const assets = useLiveQuery(async () => {
         const all = await db.assets.orderBy('name').toArray();
-        const active = all.filter((a) => !a.deleted_at);
+        const active = all.filter((a) => !a.deleted_at && (!costCenterId || a.cost_center === costCenterId));
 
         if (!searchTerm) return active;
 
@@ -51,7 +51,7 @@ export function useAssets(searchTerm = "") {
             a.name.toLowerCase().includes(lower) ||
             (a.code && a.code.toLowerCase().includes(lower))
         );
-    }, [searchTerm]);
+    }, [searchTerm, costCenterId]);
 
     return { assets: assets || [], isLoading: assets === undefined };
 }

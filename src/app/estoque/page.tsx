@@ -1,11 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import Link from "next/link";
-import { Product } from "@/lib/store";
-import { getProducts, isPendingSync, saveProduct, deleteProduct } from "@/lib/db";
+import { Product, StockMovement } from "@/lib/store";
+import { getProducts, isPendingSync, saveProduct, deleteProduct, saveMovement } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
-import { productSchema } from "@/lib/validations";
+import { productSchema, movementSchema } from "@/lib/validations";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
@@ -17,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { EmptyState } from "@/components/EmptyState";
 import { CardSkeletonList } from "@/components/CardSkeleton";
@@ -69,6 +69,7 @@ import {
 } from "@/components/ui/popover";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
+import { getScopedCostCenter } from "@/lib/access-scope";
 import { motion, AnimatePresence } from "framer-motion";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { getCategories } from "@/lib/db";
@@ -77,9 +78,14 @@ import { Category } from "@/lib/store";
 // FilterConfigs moved inside component
 
 export default function EstoquePage() {
-  const { userName, user } = useAuth();
+  const { userName, user, currentRole, costCenter } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const { costCenters } = useCostCenters();
+  const scopedCostCenter = getScopedCostCenter(currentRole, costCenter);
+  const availableCostCenters = useMemo(
+    () => scopedCostCenter ? costCenters.filter((center) => center.id === scopedCostCenter) : costCenters,
+    [costCenters, scopedCostCenter]
+  );
   const [categories, setCategories] = useState<Category[]>([]);
 
   useEffect(() => {
@@ -118,6 +124,17 @@ export default function EstoquePage() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deleteProductId, setDeleteProductId] = useState<string | null>(null);
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+  const [movementDialog, setMovementDialog] = useState<{
+    product: Product;
+    type: "entrada" | "saida";
+  } | null>(null);
+  const [movementForm, setMovementForm] = useState<Partial<StockMovement>>({
+    type: "entrada",
+    quantity: 1,
+    reason: "",
+  });
+  const [movementErrors, setMovementErrors] = useState<Record<string, string>>({});
+  const [isSavingMovement, setIsSavingMovement] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -126,14 +143,21 @@ export default function EstoquePage() {
   });
   const [openCostCenterSelect, setOpenCostCenterSelect] = useState(false);
   const { addHistoryEntry } = useItemHistory();
+
+  useEffect(() => {
+    if (!editingProduct && scopedCostCenter) {
+      setNewProduct((current) => ({ ...current, cost_center: current.cost_center || scopedCostCenter }));
+    }
+  }, [editingProduct, scopedCostCenter]);
+
   const loadData = useCallback(async (silent = false) => {
     if (!silent) setIsLoading(true);
 
-    const data = await getProducts();
+    const data = await getProducts(false, scopedCostCenter);
     setProducts(data);
 
     if (!silent) setIsLoading(false);
-  }, []);
+  }, [scopedCostCenter]);
 
   useEffect(() => {
     loadData();
@@ -226,6 +250,7 @@ export default function EstoquePage() {
   const validateForm = () => {
     const result = productSchema.safeParse({
       ...newProduct,
+      cost_center: scopedCostCenter || newProduct.cost_center,
       quantity: newProduct.quantity ?? 0,
       min_stock: newProduct.min_stock ?? 0,
       max_stock: newProduct.max_stock ?? 1,
@@ -254,6 +279,7 @@ export default function EstoquePage() {
     setIsSaving(true);
     const payload: Partial<Product> = {
       ...newProduct,
+      cost_center: scopedCostCenter || newProduct.cost_center,
       updated_at: new Date().toISOString(),
     };
 
@@ -279,7 +305,7 @@ export default function EstoquePage() {
       });
       setIsDialogOpen(false);
       setEditingProduct(null);
-      setNewProduct({ category: "Escritório" });
+      setNewProduct({ category: "Escritório", cost_center: scopedCostCenter || undefined });
     } else {
       toast.error("Erro ao salvar produto");
     }
@@ -290,6 +316,101 @@ export default function EstoquePage() {
     setNewProduct(product);
     setErrors({});
     setIsDialogOpen(true);
+  };
+
+  const openMovementDialog = (product: Product, type: "entrada" | "saida") => {
+    setMovementDialog({ product, type });
+    setMovementForm({
+      product_id: product.id,
+      type,
+      quantity: 1,
+      reason: type === "entrada" ? "Entrada de estoque" : "Saida de estoque",
+      cost_center: product.cost_center,
+    });
+    setMovementErrors({});
+  };
+
+  const closeMovementDialog = () => {
+    setMovementDialog(null);
+    setMovementForm({
+      type: "entrada",
+      quantity: 1,
+      reason: "",
+    });
+    setMovementErrors({});
+    setIsSavingMovement(false);
+  };
+
+  const updateMovementType = (type: "entrada" | "saida") => {
+    if (!movementDialog) return;
+
+    setMovementDialog({ ...movementDialog, type });
+    setMovementForm((current) => ({
+      ...current,
+      type,
+      reason: current.reason && current.reason !== "Entrada de estoque" && current.reason !== "Saida de estoque"
+        ? current.reason
+        : type === "entrada" ? "Entrada de estoque" : "Saida de estoque",
+    }));
+    setMovementErrors({});
+  };
+
+  const handleSaveStockMovement = async () => {
+    if (!movementDialog) return;
+
+    const quantity = Number(movementForm.quantity || 0);
+    const reason = (movementForm.reason || "").trim();
+    const payload = {
+      product_id: movementDialog.product.id,
+      type: movementDialog.type,
+      quantity,
+      reason,
+      cost_center: movementDialog.product.cost_center,
+    };
+
+    const result = movementSchema.safeParse(payload);
+
+    if (!result.success) {
+      const fieldErrors: Record<string, string> = {};
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (result.error as any).errors.forEach((err: any) => {
+        if (err.path[0]) fieldErrors[err.path[0] as string] = err.message;
+      });
+      setMovementErrors(fieldErrors);
+      toast.error("Corrija os erros da movimentacao");
+      return;
+    }
+
+    if (movementDialog.type === "saida" && quantity > (movementDialog.product.quantity || 0)) {
+      setMovementErrors({ quantity: "A quantidade de saida nao pode ser maior que o saldo atual." });
+      toast.error("Saldo insuficiente para esta saida");
+      return;
+    }
+
+    setIsSavingMovement(true);
+    const saved = await saveMovement({
+      ...payload,
+      product_name: movementDialog.product.name,
+      user_id: user?.id || "",
+      user_name: userName,
+      date: new Date().toISOString(),
+    }, { name: userName, id: user?.id || "" });
+    setIsSavingMovement(false);
+
+    if (saved) {
+      if (isPendingSync(saved)) {
+        toast.warning("Movimentacao salva localmente.", {
+          description: "A sincronizacao com o Supabase ainda esta pendente.",
+        });
+      } else {
+        toast.success(movementDialog.type === "entrada" ? "Entrada registrada!" : "Saida registrada!");
+      }
+
+      await loadData(true);
+      closeMovementDialog();
+    } else {
+      toast.error("Erro ao registrar movimentacao");
+    }
   };
 
   const handleDelete = (product: Product) => {
@@ -352,7 +473,7 @@ export default function EstoquePage() {
                   setIsDialogOpen(open);
                   if (!open) {
                     setEditingProduct(null);
-                    setNewProduct({ category: "Escritório" });
+                    setNewProduct({ category: "Escritório", cost_center: scopedCostCenter || undefined });
                     setErrors({});
                   }
                 }}>
@@ -438,7 +559,7 @@ export default function EstoquePage() {
                                 <CommandList>
                                   <CommandEmpty>Nenhum centro de custo encontrado.</CommandEmpty>
                                   <CommandGroup>
-                                    {costCenters.map((cc) => (
+                                    {availableCostCenters.map((cc) => (
                                       <CommandItem
                                         key={cc.id}
                                         value={cc.name}
@@ -600,15 +721,16 @@ export default function EstoquePage() {
               {displayedItems.map((product) => {
                 const stockStatus = getStockStatus(product);
                 const isSelected = selectedIds.includes(product.id);
+                const costCenterName = costCenters.find(c => c.id === product.cost_center)?.name || product.cost_center || "N/A";
                 return (
                   <StaggerItem key={product.id}>
                     <Card
-                      className={`border-border/50 bg-card/50 ${isSelected ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""
+                      className={`border-border/70 bg-card/80 shadow-sm shadow-black/5 transition-colors hover:border-primary/35 hover:bg-card ${isSelected ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""
                         }`}
                       onClick={() => toggleSelect(product.id)}
                     >
-                      <CardContent className="p-3 md:p-4">
-                        <div className="flex items-center gap-3">
+                      <CardContent className="p-3.5 md:p-4">
+                        <div className="flex items-start gap-3">
                           <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                             <Checkbox
                               checked={isSelected}
@@ -626,51 +748,51 @@ export default function EstoquePage() {
                               }`} />
                             )}
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <p className="font-medium text-sm truncate">{product.name}</p>
-                              <Badge variant="secondary" className="text-[10px] flex-shrink-0">{product.category}</Badge>
+                          <div className="flex-1 min-w-0 space-y-1.5">
+                            <div className="min-w-0">
+                              <p className="font-semibold text-sm leading-tight text-foreground line-clamp-2">
+                                {product.name}
+                              </p>
+                              {product.category && (
+                                <Badge variant="secondary" className="mt-1 h-5 max-w-full truncate px-2 text-[10px] font-medium">
+                                  {product.category}
+                                </Badge>
+                              )}
                             </div>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span className="font-mono">{product.sku}</span>
-                              <span className="flex items-center gap-1">
-                                <Building2 className="h-3 w-3" />
-                                {costCenters.find(c => c.id === product.cost_center)?.name || product.cost_center || "N/A"}
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                              {product.sku && (
+                                <span className="font-mono text-[11px] text-foreground/70">{product.sku}</span>
+                              )}
+                              <span className="flex min-w-0 items-center gap-1">
+                                <Building2 className="h-3 w-3 flex-shrink-0" />
+                                <span className="truncate">{costCenterName}</span>
                               </span>
                             </div>
-                            <div className="flex items-center gap-2 mt-2">
+                            <div className="flex flex-wrap items-center gap-2 mt-2.5">
                               <Badge
                                 variant="outline"
-                                className={`text-xs ${stockStatus === "low" ? "border-red-500 text-red-500" :
-                                  stockStatus === "high" ? "border-amber-500 text-amber-500" :
-                                    "border-green-500 text-green-500"
+                                className={`h-6 px-2 text-xs font-semibold ${stockStatus === "low" ? "border-red-500/70 bg-red-500/10 text-red-600 dark:text-red-400" :
+                                  stockStatus === "high" ? "border-amber-500/70 bg-amber-500/10 text-amber-600 dark:text-amber-400" :
+                                    "border-green-500/70 bg-green-500/10 text-green-600 dark:text-green-400"
                                   }`}
                               >
                                 {product.quantity} un
                               </Badge>
-                              <span className="text-[10px] text-muted-foreground">
-                                Mín: {product.min_stock} | Máx: {product.max_stock}
+                              <span className="rounded-md bg-muted/60 px-2 py-1 text-[10px] font-medium text-muted-foreground">
+                                Min {product.min_stock} / Max {product.max_stock}
                               </span>
                             </div>
                           </div>
-                          <div className="text-right" onClick={(e) => e.stopPropagation()}>
-                            <p className="text-sm font-semibold">
-                              R$ {(product.unit_price || 0).toFixed(2)} <span className="text-xs text-muted-foreground font-normal">/ {product.unit_of_measure || 'un'}</span>
+                          <div className="min-w-[112px] text-right" onClick={(e) => e.stopPropagation()}>
+                            <p className="text-sm font-bold text-foreground">
+                              R$ {(product.unit_price || 0).toFixed(2)} <span className="text-[11px] text-muted-foreground font-medium">/ {product.unit_of_measure || 'un'}</span>
                             </p>
-                            <p className="text-xs text-muted-foreground mt-0.5">
+                            <p className="text-xs font-medium text-muted-foreground mt-0.5">
                               Total: R$ {((product.quantity || 0) * (product.unit_price || 0)).toFixed(2)}
                             </p>
-                            <div className="flex gap-1 mt-1">
-                              <Button asChild variant="ghost" size="sm" className="h-7 w-7 p-0 text-green-600 hover:text-green-600" title="Registrar entrada">
-                                <Link href={`/movimentacoes?productId=${product.id}&type=entrada`}>
-                                  <ArrowUpRight className="h-4 w-4" />
-                                </Link>
-                              </Button>
-                              <Button asChild variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-600 hover:text-red-600" title="Registrar saída">
-                                <Link href={`/movimentacoes?productId=${product.id}&type=saida`}>
-                                  <ArrowDownRight className="h-4 w-4" />
-                                </Link>
-                              </Button>
+                            <div className="flex justify-end gap-1 mt-2">
+                              <Button type="button" variant="ghost" size="sm" onClick={() => openMovementDialog(product, "entrada")} className="h-7 w-7 p-0 text-green-600 hover:text-green-600" title="Registrar entrada"><ArrowUpRight className="h-4 w-4" /></Button>
+                              <Button type="button" variant="ghost" size="sm" onClick={() => openMovementDialog(product, "saida")} className="h-7 w-7 p-0 text-red-600 hover:text-red-600" title="Registrar saida"><ArrowDownRight className="h-4 w-4" /></Button>
                               <Button variant="ghost" size="sm" onClick={() => handleEdit(product)} className="h-7 w-7 p-0">
                                 <Edit className="h-4 w-4" />
                               </Button>
@@ -691,6 +813,95 @@ export default function EstoquePage() {
 
           <InfiniteScrollLoader ref={loaderRef} hasMore={hasMore} />
         </div>
+
+        <Dialog open={!!movementDialog} onOpenChange={(open) => !open && closeMovementDialog()}>
+          <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto border-border bg-card/95">
+            <DialogHeader>
+              <DialogTitle>
+                {movementDialog?.type === "entrada" ? "Registrar Entrada" : "Registrar Saida"}
+              </DialogTitle>
+            </DialogHeader>
+
+            {movementDialog && (
+              <div className="space-y-4 py-2">
+                <div className="rounded-xl border border-border/70 bg-muted/30 p-3">
+                  <p className="text-sm font-semibold text-foreground line-clamp-2">
+                    {movementDialog.product.name}
+                  </p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    {movementDialog.product.category && (
+                      <Badge variant="secondary" className="h-5 px-2 text-[10px]">
+                        {movementDialog.product.category}
+                      </Badge>
+                    )}
+                    <span>Saldo atual: {movementDialog.product.quantity || 0} {movementDialog.product.unit_of_measure || "un"}</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant={movementDialog.type === "entrada" ? "default" : "outline"}
+                    className={cn("gap-2", movementDialog.type === "entrada" && "bg-green-600 hover:bg-green-700")}
+                    onClick={() => updateMovementType("entrada")}
+                  >
+                    <ArrowUpRight className="h-4 w-4" />
+                    Entrada
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={movementDialog.type === "saida" ? "default" : "outline"}
+                    className={cn("gap-2", movementDialog.type === "saida" && "bg-red-600 hover:bg-red-700")}
+                    onClick={() => updateMovementType("saida")}
+                  >
+                    <ArrowDownRight className="h-4 w-4" />
+                    Saida
+                  </Button>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Quantidade</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={movementDialog.type === "saida" ? movementDialog.product.quantity || 0 : undefined}
+                    value={movementForm.quantity || ""}
+                    onChange={(event) => setMovementForm({
+                      ...movementForm,
+                      quantity: parseInt(event.target.value, 10) || 0,
+                    })}
+                    className={movementErrors.quantity ? "border-destructive" : ""}
+                  />
+                  {movementErrors.quantity && (
+                    <p className="text-xs text-destructive">{movementErrors.quantity}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Motivo</Label>
+                  <Textarea
+                    value={movementForm.reason || ""}
+                    onChange={(event) => setMovementForm({ ...movementForm, reason: event.target.value })}
+                    placeholder="Informe o motivo da movimentacao"
+                    className={cn("min-h-24 resize-none", movementErrors.reason && "border-destructive")}
+                  />
+                  {movementErrors.reason && (
+                    <p className="text-xs text-destructive">{movementErrors.reason}</p>
+                  )}
+                </div>
+
+                <div className="flex justify-end gap-2 border-t border-border/60 pt-4">
+                  <Button type="button" variant="outline" onClick={closeMovementDialog}>
+                    Cancelar
+                  </Button>
+                  <Button type="button" onClick={handleSaveStockMovement} disabled={isSavingMovement}>
+                    {isSavingMovement ? "Registrando..." : "Registrar"}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         <ConfirmDialog
           open={!!deleteProductId}

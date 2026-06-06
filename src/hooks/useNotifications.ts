@@ -6,6 +6,8 @@ import {
     getDismissedNotifications,
     saveDismissedNotifications
 } from "@/lib/localStorage";
+import { useAuth } from "@/lib/auth-context";
+import { getScopedCostCenter } from "@/lib/access-scope";
 
 export interface Notification {
     id: string;
@@ -19,6 +21,8 @@ export interface Notification {
 }
 
 export function useNotifications() {
+    const { currentRole, costCenter } = useAuth();
+    const scopedCostCenter = getScopedCostCenter(currentRole, costCenter);
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [readIds, setReadIds] = useState<string[]>([]);
@@ -34,12 +38,18 @@ export function useNotifications() {
         setIsLoading(true);
         try {
             const [products, assets, checkouts, writeOffRequests, maintenanceTasks] = await Promise.all([
-                getProducts(),
-                getAssets(),
+                getProducts(false, scopedCostCenter),
+                getAssets(false, scopedCostCenter),
                 getCheckouts(),
                 getWriteOffRequests(),
                 getMaintenanceTasks(),
             ]);
+            const visibleProductIds = new Set(products.map((product) => product.id));
+            const visibleAssetIds = new Set(assets.map((asset) => asset.id));
+            const visibleCheckouts = checkouts.filter((checkout) => {
+                if (checkout.item_type === "asset") return visibleAssetIds.has(checkout.item_id);
+                return visibleProductIds.has(checkout.item_id);
+            });
 
             const lowStockNotifs: Notification[] = products
                 .filter(p => p.quantity < (p.min_stock || 0))
@@ -63,7 +73,7 @@ export function useNotifications() {
                     type: "maintenance"
                 }));
 
-            const overdueNotifs: Notification[] = checkouts
+            const overdueNotifs: Notification[] = visibleCheckouts
                 .filter(c => c.status === "Atrasado" || (c.status === "Ativo" && c.expected_return_date && new Date(c.expected_return_date) < new Date()))
                 .map(c => ({
                     id: `checkout-${c.id}`,
@@ -75,7 +85,7 @@ export function useNotifications() {
                 }));
 
             const writeOffNotifs: Notification[] = writeOffRequests
-                .filter(r => r.status === 'pending')
+                .filter(r => r.status === 'pending' && visibleAssetIds.has(r.asset_id))
                 .map(r => ({
                     id: `writeoff-${r.id}`,
                     title: "Solicitação de Baixa",
@@ -87,7 +97,7 @@ export function useNotifications() {
                 }));
 
             const maintenanceRequestNotifs: Notification[] = maintenanceTasks
-                .filter(t => t.approval_status === 'pending')
+                .filter(t => t.approval_status === 'pending' && visibleAssetIds.has(t.asset_id))
                 .map(t => ({
                     id: `maint-req-${t.id}`,
                     title: "Solicitação de Manutenção",
@@ -107,7 +117,7 @@ export function useNotifications() {
         } finally {
             setIsLoading(false);
         }
-    }, [readIds, dismissedIds]);
+    }, [readIds, dismissedIds, scopedCostCenter]);
 
     useEffect(() => {
         loadNotifications();
