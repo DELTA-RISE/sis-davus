@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Product, StockMovement } from "@/lib/store";
-import { getProducts, isPendingSync, saveProduct, deleteProduct, saveMovement } from "@/lib/db";
+import { getProducts, isPendingSync, saveProduct, deleteProduct, saveMovement, getMovements } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { productSchema, movementSchema } from "@/lib/validations";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -80,6 +80,7 @@ import { Category } from "@/lib/store";
 export default function EstoquePage() {
   const { userName, user, currentRole, costCenter } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
+  const [movements, setMovements] = useState<StockMovement[]>([]);
   const { costCenters } = useCostCenters();
   const scopedCostCenter = getScopedCostCenter(currentRole, costCenter);
   const availableCostCenters = useMemo(
@@ -153,8 +154,12 @@ export default function EstoquePage() {
   const loadData = useCallback(async (silent = false) => {
     if (!silent) setIsLoading(true);
 
-    const data = await getProducts(false, scopedCostCenter);
+    const [data, stockMovements] = await Promise.all([
+      getProducts(false, scopedCostCenter),
+      getMovements(),
+    ]);
     setProducts(data);
+    setMovements(stockMovements);
 
     if (!silent) setIsLoading(false);
   }, [scopedCostCenter]);
@@ -241,6 +246,69 @@ export default function EstoquePage() {
       { low: 0, high: 0 }
     );
   }, [products]);
+
+  const stockByCostCenter = useMemo(() => {
+    type CostCenterStockSummary = {
+      id: string;
+      name: string;
+      productCount: number;
+      currentQuantity: number;
+      stockValue: number;
+      lowStockCount: number;
+      sentQuantity: number;
+      recentExits: StockMovement[];
+    };
+
+    const summaries = new Map<string, CostCenterStockSummary>();
+    const productsById = new Map(products.map((product) => [product.id, product]));
+
+    const getSummary = (costCenterId?: string) => {
+      const id = costCenterId || "almoxarifado";
+      const center = costCenters.find((item) => item.id === id || item.name === id);
+      const name = center?.name || costCenterId || "Almoxarifado";
+
+      if (!summaries.has(id)) {
+        summaries.set(id, {
+          id,
+          name,
+          productCount: 0,
+          currentQuantity: 0,
+          stockValue: 0,
+          lowStockCount: 0,
+          sentQuantity: 0,
+          recentExits: [],
+        });
+      }
+
+      return summaries.get(id)!;
+    };
+
+    products.forEach((product) => {
+      const summary = getSummary(product.cost_center);
+      summary.productCount += 1;
+      summary.currentQuantity += product.quantity || 0;
+      summary.stockValue += (product.quantity || 0) * (product.unit_price || 0);
+      if ((product.quantity || 0) < (product.min_stock || 0)) summary.lowStockCount += 1;
+    });
+
+    movements
+      .filter((movement) => movement.type === "saida" && productsById.has(movement.product_id))
+      .forEach((movement) => {
+        const product = productsById.get(movement.product_id);
+        const summary = getSummary(movement.cost_center || product?.cost_center);
+        summary.sentQuantity += movement.quantity || 0;
+        summary.recentExits.push(movement);
+      });
+
+    return Array.from(summaries.values())
+      .map((summary) => ({
+        ...summary,
+        recentExits: summary.recentExits
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+          .slice(0, 3),
+      }))
+      .sort((a, b) => b.stockValue - a.stockValue);
+  }, [products, movements, costCenters]);
 
   const exportFilteredProducts = useCallback(async (format: "xlsx" | "csv" | "json") => {
     const { exportProducts } = await import("@/lib/export-utils");
@@ -690,6 +758,83 @@ export default function EstoquePage() {
                 </Badge>
               )}
             </div>
+          )}
+
+          {stockByCostCenter.length > 0 && selectedIds.length === 0 && (
+            <section className="rounded-2xl border border-border/70 bg-card/45 p-3 shadow-sm md:p-4">
+              <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <h2 className="text-sm font-semibold text-foreground">Estoque por centro de custo</h2>
+                  <p className="text-xs text-muted-foreground">
+                    Saldo atual, saídas registradas e responsáveis por obra ou almoxarifado.
+                  </p>
+                </div>
+                <Badge variant="outline" className="w-fit text-[11px]">
+                  {stockByCostCenter.length} centros acompanhados
+                </Badge>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {stockByCostCenter.map((center) => (
+                  <Card key={center.id} className="border-border/60 bg-background/45">
+                    <CardContent className="space-y-3 p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-foreground">{center.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {center.productCount} itens cadastrados
+                          </p>
+                        </div>
+                        {center.lowStockCount > 0 && (
+                          <Badge variant="destructive" className="shrink-0 text-[10px]">
+                            {center.lowStockCount} baixo
+                          </Badge>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 text-xs">
+                        <div className="rounded-lg bg-muted/45 p-2">
+                          <p className="text-muted-foreground">Saldo</p>
+                          <p className="mt-1 text-sm font-bold text-foreground">{center.currentQuantity}</p>
+                        </div>
+                        <div className="rounded-lg bg-muted/45 p-2">
+                          <p className="text-muted-foreground">Saídas</p>
+                          <p className="mt-1 text-sm font-bold text-red-500">{center.sentQuantity}</p>
+                        </div>
+                        <div className="rounded-lg bg-muted/45 p-2">
+                          <p className="text-muted-foreground">Valor</p>
+                          <p className="mt-1 truncate text-sm font-bold text-foreground">
+                            R$ {center.stockValue.toFixed(0)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="border-t border-border/50 pt-2">
+                        <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                          Últimas saídas
+                        </p>
+                        {center.recentExits.length > 0 ? (
+                          <div className="space-y-1.5">
+                            {center.recentExits.map((movement) => (
+                              <div key={movement.id} className="flex items-center justify-between gap-2 text-xs">
+                                <span className="min-w-0 truncate text-muted-foreground">
+                                  {movement.product_name}
+                                </span>
+                                <span className="shrink-0 font-medium text-foreground">
+                                  -{movement.quantity} por {movement.user_name || "Usuário"}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">Nenhuma saída registrada.</p>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </section>
           )}
 
           <div className="flex flex-col sm:flex-row gap-3">
