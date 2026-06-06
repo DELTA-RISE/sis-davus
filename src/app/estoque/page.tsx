@@ -1,11 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import Link from "next/link";
-import { Product } from "@/lib/store";
-import { getProducts, isPendingSync, saveProduct, deleteProduct } from "@/lib/db";
+import { Product, StockMovement } from "@/lib/store";
+import { getProducts, isPendingSync, saveProduct, deleteProduct, saveMovement } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
-import { productSchema } from "@/lib/validations";
+import { productSchema, movementSchema } from "@/lib/validations";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
@@ -17,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { EmptyState } from "@/components/EmptyState";
 import { CardSkeletonList } from "@/components/CardSkeleton";
@@ -124,6 +124,17 @@ export default function EstoquePage() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deleteProductId, setDeleteProductId] = useState<string | null>(null);
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+  const [movementDialog, setMovementDialog] = useState<{
+    product: Product;
+    type: "entrada" | "saida";
+  } | null>(null);
+  const [movementForm, setMovementForm] = useState<Partial<StockMovement>>({
+    type: "entrada",
+    quantity: 1,
+    reason: "",
+  });
+  const [movementErrors, setMovementErrors] = useState<Record<string, string>>({});
+  const [isSavingMovement, setIsSavingMovement] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -305,6 +316,101 @@ export default function EstoquePage() {
     setNewProduct(product);
     setErrors({});
     setIsDialogOpen(true);
+  };
+
+  const openMovementDialog = (product: Product, type: "entrada" | "saida") => {
+    setMovementDialog({ product, type });
+    setMovementForm({
+      product_id: product.id,
+      type,
+      quantity: 1,
+      reason: type === "entrada" ? "Entrada de estoque" : "Saida de estoque",
+      cost_center: product.cost_center,
+    });
+    setMovementErrors({});
+  };
+
+  const closeMovementDialog = () => {
+    setMovementDialog(null);
+    setMovementForm({
+      type: "entrada",
+      quantity: 1,
+      reason: "",
+    });
+    setMovementErrors({});
+    setIsSavingMovement(false);
+  };
+
+  const updateMovementType = (type: "entrada" | "saida") => {
+    if (!movementDialog) return;
+
+    setMovementDialog({ ...movementDialog, type });
+    setMovementForm((current) => ({
+      ...current,
+      type,
+      reason: current.reason && current.reason !== "Entrada de estoque" && current.reason !== "Saida de estoque"
+        ? current.reason
+        : type === "entrada" ? "Entrada de estoque" : "Saida de estoque",
+    }));
+    setMovementErrors({});
+  };
+
+  const handleSaveStockMovement = async () => {
+    if (!movementDialog) return;
+
+    const quantity = Number(movementForm.quantity || 0);
+    const reason = (movementForm.reason || "").trim();
+    const payload = {
+      product_id: movementDialog.product.id,
+      type: movementDialog.type,
+      quantity,
+      reason,
+      cost_center: movementDialog.product.cost_center,
+    };
+
+    const result = movementSchema.safeParse(payload);
+
+    if (!result.success) {
+      const fieldErrors: Record<string, string> = {};
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (result.error as any).errors.forEach((err: any) => {
+        if (err.path[0]) fieldErrors[err.path[0] as string] = err.message;
+      });
+      setMovementErrors(fieldErrors);
+      toast.error("Corrija os erros da movimentacao");
+      return;
+    }
+
+    if (movementDialog.type === "saida" && quantity > (movementDialog.product.quantity || 0)) {
+      setMovementErrors({ quantity: "A quantidade de saida nao pode ser maior que o saldo atual." });
+      toast.error("Saldo insuficiente para esta saida");
+      return;
+    }
+
+    setIsSavingMovement(true);
+    const saved = await saveMovement({
+      ...payload,
+      product_name: movementDialog.product.name,
+      user_id: user?.id || "",
+      user_name: userName,
+      date: new Date().toISOString(),
+    }, { name: userName, id: user?.id || "" });
+    setIsSavingMovement(false);
+
+    if (saved) {
+      if (isPendingSync(saved)) {
+        toast.warning("Movimentacao salva localmente.", {
+          description: "A sincronizacao com o Supabase ainda esta pendente.",
+        });
+      } else {
+        toast.success(movementDialog.type === "entrada" ? "Entrada registrada!" : "Saida registrada!");
+      }
+
+      await loadData(true);
+      closeMovementDialog();
+    } else {
+      toast.error("Erro ao registrar movimentacao");
+    }
   };
 
   const handleDelete = (product: Product) => {
@@ -685,16 +791,8 @@ export default function EstoquePage() {
                               Total: R$ {((product.quantity || 0) * (product.unit_price || 0)).toFixed(2)}
                             </p>
                             <div className="flex justify-end gap-1 mt-2">
-                              <Button asChild variant="ghost" size="sm" className="h-7 w-7 p-0 text-green-600 hover:text-green-600" title="Registrar entrada">
-                                <Link href={`/movimentacoes?productId=${product.id}&type=entrada`}>
-                                  <ArrowUpRight className="h-4 w-4" />
-                                </Link>
-                              </Button>
-                              <Button asChild variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-600 hover:text-red-600" title="Registrar saída">
-                                <Link href={`/movimentacoes?productId=${product.id}&type=saida`}>
-                                  <ArrowDownRight className="h-4 w-4" />
-                                </Link>
-                              </Button>
+                              <Button type="button" variant="ghost" size="sm" onClick={() => openMovementDialog(product, "entrada")} className="h-7 w-7 p-0 text-green-600 hover:text-green-600" title="Registrar entrada"><ArrowUpRight className="h-4 w-4" /></Button>
+                              <Button type="button" variant="ghost" size="sm" onClick={() => openMovementDialog(product, "saida")} className="h-7 w-7 p-0 text-red-600 hover:text-red-600" title="Registrar saida"><ArrowDownRight className="h-4 w-4" /></Button>
                               <Button variant="ghost" size="sm" onClick={() => handleEdit(product)} className="h-7 w-7 p-0">
                                 <Edit className="h-4 w-4" />
                               </Button>
@@ -715,6 +813,95 @@ export default function EstoquePage() {
 
           <InfiniteScrollLoader ref={loaderRef} hasMore={hasMore} />
         </div>
+
+        <Dialog open={!!movementDialog} onOpenChange={(open) => !open && closeMovementDialog()}>
+          <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto border-border bg-card/95">
+            <DialogHeader>
+              <DialogTitle>
+                {movementDialog?.type === "entrada" ? "Registrar Entrada" : "Registrar Saida"}
+              </DialogTitle>
+            </DialogHeader>
+
+            {movementDialog && (
+              <div className="space-y-4 py-2">
+                <div className="rounded-xl border border-border/70 bg-muted/30 p-3">
+                  <p className="text-sm font-semibold text-foreground line-clamp-2">
+                    {movementDialog.product.name}
+                  </p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    {movementDialog.product.category && (
+                      <Badge variant="secondary" className="h-5 px-2 text-[10px]">
+                        {movementDialog.product.category}
+                      </Badge>
+                    )}
+                    <span>Saldo atual: {movementDialog.product.quantity || 0} {movementDialog.product.unit_of_measure || "un"}</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant={movementDialog.type === "entrada" ? "default" : "outline"}
+                    className={cn("gap-2", movementDialog.type === "entrada" && "bg-green-600 hover:bg-green-700")}
+                    onClick={() => updateMovementType("entrada")}
+                  >
+                    <ArrowUpRight className="h-4 w-4" />
+                    Entrada
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={movementDialog.type === "saida" ? "default" : "outline"}
+                    className={cn("gap-2", movementDialog.type === "saida" && "bg-red-600 hover:bg-red-700")}
+                    onClick={() => updateMovementType("saida")}
+                  >
+                    <ArrowDownRight className="h-4 w-4" />
+                    Saida
+                  </Button>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Quantidade</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={movementDialog.type === "saida" ? movementDialog.product.quantity || 0 : undefined}
+                    value={movementForm.quantity || ""}
+                    onChange={(event) => setMovementForm({
+                      ...movementForm,
+                      quantity: parseInt(event.target.value, 10) || 0,
+                    })}
+                    className={movementErrors.quantity ? "border-destructive" : ""}
+                  />
+                  {movementErrors.quantity && (
+                    <p className="text-xs text-destructive">{movementErrors.quantity}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Motivo</Label>
+                  <Textarea
+                    value={movementForm.reason || ""}
+                    onChange={(event) => setMovementForm({ ...movementForm, reason: event.target.value })}
+                    placeholder="Informe o motivo da movimentacao"
+                    className={cn("min-h-24 resize-none", movementErrors.reason && "border-destructive")}
+                  />
+                  {movementErrors.reason && (
+                    <p className="text-xs text-destructive">{movementErrors.reason}</p>
+                  )}
+                </div>
+
+                <div className="flex justify-end gap-2 border-t border-border/60 pt-4">
+                  <Button type="button" variant="outline" onClick={closeMovementDialog}>
+                    Cancelar
+                  </Button>
+                  <Button type="button" onClick={handleSaveStockMovement} disabled={isSavingMovement}>
+                    {isSavingMovement ? "Registrando..." : "Registrar"}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         <ConfirmDialog
           open={!!deleteProductId}
