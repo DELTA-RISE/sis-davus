@@ -265,7 +265,7 @@ export default function EstoquePage() {
     const getSummary = (costCenterId?: string) => {
       const id = costCenterId || "almoxarifado";
       const center = costCenters.find((item) => item.id === id || item.name === id);
-      const name = center?.name || costCenterId || "Almoxarifado";
+      const name = center?.name || (id === "almoxarifado" ? "Almoxarifado" : "Centro sem cadastro");
 
       if (!summaries.has(id)) {
         summaries.set(id, {
@@ -295,12 +295,13 @@ export default function EstoquePage() {
       .filter((movement) => movement.type === "saida" && productsById.has(movement.product_id))
       .forEach((movement) => {
         const product = productsById.get(movement.product_id);
-        const summary = getSummary(movement.cost_center || product?.cost_center);
+        const summary = getSummary(product?.cost_center || movement.cost_center);
         summary.sentQuantity += movement.quantity || 0;
         summary.recentExits.push(movement);
       });
 
     return Array.from(summaries.values())
+      .filter((summary) => summary.productCount > 0)
       .map((summary) => ({
         ...summary,
         recentExits: summary.recentExits
@@ -761,47 +762,50 @@ export default function EstoquePage() {
           )}
 
           {stockByCostCenter.length > 0 && selectedIds.length === 0 && (
-            <section className="rounded-2xl border border-border/70 bg-card/45 p-3 shadow-sm md:p-4">
-              <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <h2 className="text-sm font-semibold text-foreground">Estoque por centro de custo</h2>
-                  <p className="text-xs text-muted-foreground">
-                    Saldo atual, saídas registradas e responsáveis por obra ou almoxarifado.
-                  </p>
+            <section className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card/55 to-card/30 p-3 shadow-sm shadow-primary/5 md:p-4">
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/20 text-primary">
+                    <Building2 className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-bold text-foreground">Estoque por obra</h2>
+                    <p className="text-xs text-muted-foreground">
+                      Saldo em cada centro de custo, saídas registradas e responsáveis.
+                    </p>
+                  </div>
                 </div>
-                <Badge variant="outline" className="w-fit text-[11px]">
+                <Badge variant="outline" className="w-fit border-primary/30 bg-background/60 text-[11px] text-foreground">
                   {stockByCostCenter.length} centros acompanhados
                 </Badge>
               </div>
 
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-3 md:grid-cols-2">
                 {stockByCostCenter.map((center) => (
-                  <Card key={center.id} className="border-border/60 bg-background/45">
-                    <CardContent className="space-y-3 p-3">
+                  <Card key={center.id} className="overflow-hidden border-border/60 bg-background/55">
+                    <CardContent className="space-y-3 p-0">
                       <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-foreground">{center.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {center.productCount} itens cadastrados
-                          </p>
+                        <div className="min-w-0 border-l-4 border-primary px-3 pt-3">
+                          <p className="truncate text-base font-bold text-foreground">{center.name}</p>
+                          <p className="text-xs text-muted-foreground">{center.productCount} itens cadastrados</p>
                         </div>
                         {center.lowStockCount > 0 && (
-                          <Badge variant="destructive" className="shrink-0 text-[10px]">
+                          <Badge variant="destructive" className="mr-3 mt-3 shrink-0 text-[10px]">
                             {center.lowStockCount} baixo
                           </Badge>
                         )}
                       </div>
 
-                      <div className="grid grid-cols-3 gap-2 text-xs">
-                        <div className="rounded-lg bg-muted/45 p-2">
+                      <div className="grid grid-cols-3 gap-2 px-3 text-xs">
+                        <div className="rounded-lg border border-border/40 bg-muted/35 p-2">
                           <p className="text-muted-foreground">Saldo</p>
                           <p className="mt-1 text-sm font-bold text-foreground">{center.currentQuantity}</p>
                         </div>
-                        <div className="rounded-lg bg-muted/45 p-2">
+                        <div className="rounded-lg border border-border/40 bg-muted/35 p-2">
                           <p className="text-muted-foreground">Saídas</p>
                           <p className="mt-1 text-sm font-bold text-red-500">{center.sentQuantity}</p>
                         </div>
-                        <div className="rounded-lg bg-muted/45 p-2">
+                        <div className="rounded-lg border border-border/40 bg-muted/35 p-2">
                           <p className="text-muted-foreground">Valor</p>
                           <p className="mt-1 truncate text-sm font-bold text-foreground">
                             R$ {center.stockValue.toFixed(0)}
@@ -809,19 +813,20 @@ export default function EstoquePage() {
                         </div>
                       </div>
 
-                      <div className="border-t border-border/50 pt-2">
-                        <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      <div className="border-t border-border/50 bg-muted/15 px-3 py-2.5">
+                        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-primary">
                           Últimas saídas
                         </p>
                         {center.recentExits.length > 0 ? (
-                          <div className="space-y-1.5">
+                          <div className="space-y-2">
                             {center.recentExits.map((movement) => (
-                              <div key={movement.id} className="flex items-center justify-between gap-2 text-xs">
-                                <span className="min-w-0 truncate text-muted-foreground">
-                                  {movement.product_name}
-                                </span>
-                                <span className="shrink-0 font-medium text-foreground">
-                                  -{movement.quantity} por {movement.user_name || "Usuário"}
+                              <div key={movement.id} className="grid grid-cols-[1fr_auto] items-center gap-2 text-xs">
+                                <span className="min-w-0 truncate font-medium text-foreground">{movement.product_name}</span>
+                                <Badge variant="outline" className="h-5 border-red-500/35 bg-red-500/10 px-2 text-[10px] text-red-500">
+                                  -{movement.quantity}
+                                </Badge>
+                                <span className="col-span-2 min-w-0 truncate text-muted-foreground">
+                                  Responsável: {(movement.user_name || "Usuário").split("@")[0]}
                                 </span>
                               </div>
                             ))}
