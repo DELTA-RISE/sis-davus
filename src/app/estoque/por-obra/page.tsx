@@ -209,7 +209,11 @@ export default function EstoquePorObraPage() {
                       <div className="space-y-4 border-l-4 border-primary p-4">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <h2 className="truncate text-lg font-bold text-foreground">{center.name}</h2>
+                            <ScrollingText
+                              text={center.name}
+                              className="text-lg font-bold text-foreground"
+                              threshold={20}
+                            />
                             <p className="text-sm text-muted-foreground">{center.productCount} itens cadastrados</p>
                           </div>
                           {center.lowStockCount > 0 && (
@@ -235,10 +239,16 @@ export default function EstoquePorObraPage() {
                             {center.recentExits.map((movement) => (
                               <div key={movement.id} className="grid grid-cols-[1fr_auto] items-start gap-3 rounded-xl border border-border/40 bg-background/45 p-3 text-sm">
                                 <div className="min-w-0">
-                                  <p className="truncate font-semibold text-foreground">{movement.product_name}</p>
-                                  <p className="truncate text-xs text-muted-foreground">
-                                    Responsável: {(movement.user_name || "Usuário").split("@")[0]}
-                                  </p>
+                                  <ScrollingText
+                                    text={movement.product_name}
+                                    className="font-semibold text-foreground"
+                                    threshold={24}
+                                  />
+                                  <ScrollingText
+                                    text={`Responsável: ${(movement.user_name || "Usuário").split("@")[0]}`}
+                                    className="text-xs text-muted-foreground"
+                                    threshold={30}
+                                  />
                                 </div>
                                 <Badge variant="outline" className="border-red-500/35 bg-red-500/10 text-red-500">
                                   -{movement.quantity}
@@ -282,8 +292,8 @@ function SummaryTile({
           <Icon className="h-4 w-4" />
         </div>
         <div className="min-w-0">
-          <p className="truncate text-xs text-muted-foreground">{label}</p>
-          <p className={cn("truncate text-lg font-bold text-foreground", accent)}>{value}</p>
+          <ScrollingText text={label} className="text-xs text-muted-foreground" threshold={22} />
+          <ScrollingText text={value} className={cn("text-lg font-bold text-foreground", accent)} threshold={10} />
         </div>
       </div>
     </div>
@@ -293,8 +303,39 @@ function SummaryTile({
 function Metric({ label, value, className }: { label: string; value: string; className?: string }) {
   return (
     <div className="rounded-xl border border-border/40 bg-muted/30 p-3">
-      <p className="text-xs leading-tight text-muted-foreground">{label}</p>
-      <p className={cn("mt-1 truncate text-base font-bold text-foreground", className)}>{value}</p>
+      <ScrollingText text={label} className="text-xs leading-tight text-muted-foreground" threshold={16} />
+      <ScrollingText text={value} className={cn("mt-1 text-base font-bold text-foreground", className)} threshold={7} />
+    </div>
+  );
+}
+
+function ScrollingText({
+  text,
+  className,
+  threshold = 18,
+}: {
+  text: string;
+  className?: string;
+  threshold?: number;
+}) {
+  const shouldScroll = text.length > threshold;
+
+  if (!shouldScroll) {
+    return (
+      <p className={cn("truncate", className)} title={text}>
+        {text}
+      </p>
+    );
+  }
+
+  return (
+    <div className="group min-w-0 overflow-hidden" title={text}>
+      <div className="flex w-max animate-marquee gap-8 whitespace-nowrap group-hover:[animation-play-state:paused]">
+        <span className={className}>{text}</span>
+        <span className={className} aria-hidden="true">
+          {text}
+        </span>
+      </div>
     </div>
   );
 }
