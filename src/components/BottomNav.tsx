@@ -14,6 +14,7 @@ import {
   Wrench,
   Shield,
   HardHat,
+  Briefcase,
   LucideIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -35,6 +36,7 @@ export function BottomNav() {
 
   const ferramentasGestor: SubMenuItem[] = [
     { href: "/estoque", icon: Package, label: "Estoque" },
+    { href: "/estoque/por-obra", icon: Briefcase, label: "Estoque por Obra" },
     { href: "/patrimonio", icon: Building2, label: "Patrimônio" },
     { href: "/movimentacoes", icon: ArrowLeftRight, label: "Movimentações" },
     { href: "/checkouts", icon: LogOut, label: "Checkouts" },
@@ -95,7 +97,7 @@ export function BottomNav() {
             </div>
             <div className="grid grid-cols-3 gap-2">
               {ferramentas.map((item) => {
-                const isActive = pathname === item.href || pathname.startsWith(item.href);
+                const isActive = pathname === item.href || (item.href !== "/estoque" && pathname.startsWith(item.href));
                 return (
                   <Link
                     key={item.href}

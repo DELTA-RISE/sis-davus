@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Product, StockMovement } from "@/lib/store";
-import { getProducts, isPendingSync, saveProduct, deleteProduct, saveMovement, getMovements } from "@/lib/db";
+import { getProducts, isPendingSync, saveProduct, deleteProduct, saveMovement } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { productSchema, movementSchema } from "@/lib/validations";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -80,7 +80,6 @@ import { Category } from "@/lib/store";
 export default function EstoquePage() {
   const { userName, user, currentRole, costCenter } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
-  const [movements, setMovements] = useState<StockMovement[]>([]);
   const { costCenters } = useCostCenters();
   const scopedCostCenter = getScopedCostCenter(currentRole, costCenter);
   const availableCostCenters = useMemo(
@@ -154,12 +153,8 @@ export default function EstoquePage() {
   const loadData = useCallback(async (silent = false) => {
     if (!silent) setIsLoading(true);
 
-    const [data, stockMovements] = await Promise.all([
-      getProducts(false, scopedCostCenter),
-      getMovements(),
-    ]);
+    const data = await getProducts(false, scopedCostCenter);
     setProducts(data);
-    setMovements(stockMovements);
 
     if (!silent) setIsLoading(false);
   }, [scopedCostCenter]);
@@ -246,70 +241,6 @@ export default function EstoquePage() {
       { low: 0, high: 0 }
     );
   }, [products]);
-
-  const stockByCostCenter = useMemo(() => {
-    type CostCenterStockSummary = {
-      id: string;
-      name: string;
-      productCount: number;
-      currentQuantity: number;
-      stockValue: number;
-      lowStockCount: number;
-      sentQuantity: number;
-      recentExits: StockMovement[];
-    };
-
-    const summaries = new Map<string, CostCenterStockSummary>();
-    const productsById = new Map(products.map((product) => [product.id, product]));
-
-    const getSummary = (costCenterId?: string) => {
-      const id = costCenterId || "almoxarifado";
-      const center = costCenters.find((item) => item.id === id || item.name === id);
-      const name = center?.name || (id === "almoxarifado" ? "Almoxarifado" : "Centro sem cadastro");
-
-      if (!summaries.has(id)) {
-        summaries.set(id, {
-          id,
-          name,
-          productCount: 0,
-          currentQuantity: 0,
-          stockValue: 0,
-          lowStockCount: 0,
-          sentQuantity: 0,
-          recentExits: [],
-        });
-      }
-
-      return summaries.get(id)!;
-    };
-
-    products.forEach((product) => {
-      const summary = getSummary(product.cost_center);
-      summary.productCount += 1;
-      summary.currentQuantity += product.quantity || 0;
-      summary.stockValue += (product.quantity || 0) * (product.unit_price || 0);
-      if ((product.quantity || 0) < (product.min_stock || 0)) summary.lowStockCount += 1;
-    });
-
-    movements
-      .filter((movement) => movement.type === "saida" && productsById.has(movement.product_id))
-      .forEach((movement) => {
-        const product = productsById.get(movement.product_id);
-        const summary = getSummary(product?.cost_center || movement.cost_center);
-        summary.sentQuantity += movement.quantity || 0;
-        summary.recentExits.push(movement);
-      });
-
-    return Array.from(summaries.values())
-      .filter((summary) => summary.productCount > 0)
-      .map((summary) => ({
-        ...summary,
-        recentExits: summary.recentExits
-          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-          .slice(0, 3),
-      }))
-      .sort((a, b) => b.stockValue - a.stockValue);
-  }, [products, movements, costCenters]);
 
   const exportFilteredProducts = useCallback(async (format: "xlsx" | "csv" | "json") => {
     const { exportProducts } = await import("@/lib/export-utils");
@@ -759,87 +690,6 @@ export default function EstoquePage() {
                 </Badge>
               )}
             </div>
-          )}
-
-          {stockByCostCenter.length > 0 && selectedIds.length === 0 && (
-            <section className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card/55 to-card/30 p-3 shadow-sm shadow-primary/5 md:p-4">
-              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/20 text-primary">
-                    <Building2 className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h2 className="text-base font-bold text-foreground">Estoque por obra</h2>
-                    <p className="text-xs text-muted-foreground">
-                      Saldo em cada centro de custo, saídas registradas e responsáveis.
-                    </p>
-                  </div>
-                </div>
-                <Badge variant="outline" className="w-fit border-primary/30 bg-background/60 text-[11px] text-foreground">
-                  {stockByCostCenter.length} centros acompanhados
-                </Badge>
-              </div>
-
-              <div className="grid gap-3 md:grid-cols-2">
-                {stockByCostCenter.map((center) => (
-                  <Card key={center.id} className="overflow-hidden border-border/60 bg-background/55">
-                    <CardContent className="space-y-3 p-0">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 border-l-4 border-primary px-3 pt-3">
-                          <p className="truncate text-base font-bold text-foreground">{center.name}</p>
-                          <p className="text-xs text-muted-foreground">{center.productCount} itens cadastrados</p>
-                        </div>
-                        {center.lowStockCount > 0 && (
-                          <Badge variant="destructive" className="mr-3 mt-3 shrink-0 text-[10px]">
-                            {center.lowStockCount} baixo
-                          </Badge>
-                        )}
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-2 px-3 text-xs">
-                        <div className="rounded-lg border border-border/40 bg-muted/35 p-2">
-                          <p className="text-muted-foreground">Saldo</p>
-                          <p className="mt-1 text-sm font-bold text-foreground">{center.currentQuantity}</p>
-                        </div>
-                        <div className="rounded-lg border border-border/40 bg-muted/35 p-2">
-                          <p className="text-muted-foreground">Saídas</p>
-                          <p className="mt-1 text-sm font-bold text-red-500">{center.sentQuantity}</p>
-                        </div>
-                        <div className="rounded-lg border border-border/40 bg-muted/35 p-2">
-                          <p className="text-muted-foreground">Valor</p>
-                          <p className="mt-1 truncate text-sm font-bold text-foreground">
-                            R$ {center.stockValue.toFixed(0)}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="border-t border-border/50 bg-muted/15 px-3 py-2.5">
-                        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-primary">
-                          Últimas saídas
-                        </p>
-                        {center.recentExits.length > 0 ? (
-                          <div className="space-y-2">
-                            {center.recentExits.map((movement) => (
-                              <div key={movement.id} className="grid grid-cols-[1fr_auto] items-center gap-2 text-xs">
-                                <span className="min-w-0 truncate font-medium text-foreground">{movement.product_name}</span>
-                                <Badge variant="outline" className="h-5 border-red-500/35 bg-red-500/10 px-2 text-[10px] text-red-500">
-                                  -{movement.quantity}
-                                </Badge>
-                                <span className="col-span-2 min-w-0 truncate text-muted-foreground">
-                                  Responsável: {(movement.user_name || "Usuário").split("@")[0]}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-xs text-muted-foreground">Nenhuma saída registrada.</p>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </section>
           )}
 
           <div className="flex flex-col sm:flex-row gap-3">

@@ -30,6 +30,7 @@ const adminItems = [
 
 const gestorItems = [
   { href: "/estoque", icon: Package, label: "Estoque" },
+  { href: "/estoque/por-obra", icon: Briefcase, label: "Estoque por Obra" },
   { href: "/patrimonio", icon: Building2, label: "Patrimônio" },
   { href: "/movimentacoes", icon: ArrowLeftRight, label: "Movimentações" },
   { href: "/checkouts", icon: LogOut, label: "Checkouts" },
