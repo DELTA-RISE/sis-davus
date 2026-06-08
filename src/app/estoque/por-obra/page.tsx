@@ -319,6 +319,7 @@ function ScrollingText({
   threshold?: number;
 }) {
   const shouldScroll = text.length > threshold;
+  const duration = `${Math.min(Math.max(text.length * 0.18, 4), 9)}s`;
 
   if (!shouldScroll) {
     return (
@@ -330,7 +331,10 @@ function ScrollingText({
 
   return (
     <div className="group min-w-0 overflow-hidden" title={text}>
-      <div className="flex w-max animate-marquee gap-8 whitespace-nowrap group-hover:[animation-play-state:paused]">
+      <div
+        className="flex w-max animate-marquee gap-8 whitespace-nowrap group-hover:[animation-play-state:paused]"
+        style={{ animationDuration: duration }}
+      >
         <span className={className}>{text}</span>
         <span className={className} aria-hidden="true">
           {text}
