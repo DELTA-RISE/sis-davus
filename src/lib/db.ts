@@ -283,14 +283,12 @@ async function getAllFiltered<T>(
 async function upsert<T extends { id?: string }>(table: string, item: Partial<T>): Promise<Persisted<T> | null> {
   const tableRef = db.table(table);
   let localItem = item as Partial<T>;
-  const remoteItem = sanitizeRemotePayload(table, item);
 
   // 1. Optimistic Update (Local)
   try {
     if (!localItem.id) {
       localItem.id = crypto.randomUUID();
     }
-    remoteItem.id = localItem.id;
     if (table === 'maintenance_tasks') {
       const existingLocal = await tableRef.get(localItem.id);
       if (existingLocal) {
@@ -301,6 +299,8 @@ async function upsert<T extends { id?: string }>(table: string, item: Partial<T>
   } catch (e) {
     console.warn("Local update failed", e);
   }
+
+  const remoteItem = sanitizeRemotePayload(table, localItem);
 
   // 2. Offline Handling
   if (!isOnline()) {
