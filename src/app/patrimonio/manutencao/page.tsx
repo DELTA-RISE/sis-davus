@@ -156,22 +156,28 @@ export default function ManutencaoKanbanPage() {
             </span>
           </div>
 
-          <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t border-border/50">
-            {Object.entries(statusConfig).map(([status, cfg]) => (
-              status !== task.status && (
-                <Button
-                  key={status}
-                  variant="outline"
-                  size="sm"
-                  className="h-8 rounded-lg border-border/60 bg-background/70 px-2.5 text-[11px] font-semibold text-foreground/85 hover:border-primary/50 hover:bg-primary/10 hover:text-primary"
-                  title={`Marcar como ${cfg.label}`}
-                  onClick={() => handleUpdateStatus(task, status as MaintenanceTask["status"])}
-                >
-                  <cfg.icon className="mr-1.5 h-3.5 w-3.5" />
-                  {cfg.label}
-                </Button>
-              )
-            ))}
+          <div className="mt-3 rounded-xl border border-primary/20 bg-primary/[0.03] p-2.5">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                Andamento
+              </span>
+              <Badge className={`h-5 px-2 text-[10px] ${statusCfg.color}`}>{statusCfg.label}</Badge>
+            </div>
+            <Select
+              value={task.status}
+              onValueChange={(value) => handleUpdateStatus(task, value as MaintenanceTask["status"])}
+            >
+              <SelectTrigger className="h-9 rounded-lg border-border/60 bg-background/70 text-xs font-semibold text-foreground">
+                <SelectValue placeholder="Atualizar status" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(statusConfig).map(([status, cfg]) => (
+                  <SelectItem key={status} value={status}>
+                    {cfg.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
