@@ -1046,7 +1046,7 @@ export default function PatrimonioPage() {
                             <p className="text-sm font-semibold">R$ {(asset.value || 0).toLocaleString("pt-BR", { minimumFractionDigits: 0 })}</p>
                             <div className="flex items-center gap-1">
                               <Button variant="ghost" size="sm" onClick={(e) => handleEdit(e, asset)} className="h-7 w-7 p-0"><Edit className="h-4 w-4" /></Button>
-                              <Button asChild variant="ghost" size="sm" className="h-7 w-7 p-0" title="Movimentar Patrimônio">
+                              <Button asChild variant="ghost" size="sm" className="h-7 w-7 p-0" title="Ver dados gerais">
                                 <Link href={`/patrimonio/detalhes?id=${asset.id}`}>
                                   <ArrowLeftRight className="h-4 w-4" />
                                 </Link>

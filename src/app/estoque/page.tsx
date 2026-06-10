@@ -53,6 +53,7 @@ import {
   Check,
   ChevronsUpDown,
   Building2,
+  RefreshCw,
 } from "lucide-react";
 import {
   Command,
@@ -139,7 +140,8 @@ export default function EstoquePage() {
   const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [newProduct, setNewProduct] = useState<Partial<Product>>({
-    category: "Escritório",
+    category: "",
+    location: "",
   });
   const [openCostCenterSelect, setOpenCostCenterSelect] = useState(false);
   const { addHistoryEntry } = useItemHistory();
@@ -242,19 +244,48 @@ export default function EstoquePage() {
     );
   }, [products]);
 
+  const generateProductSku = useCallback((currentProductId?: string) => {
+    const usedNumbers = products
+      .filter((product) => product.id !== currentProductId)
+      .map((product) => product.sku?.match(/^INS-(\d+)$/i)?.[1])
+      .filter(Boolean)
+      .map((value) => Number(value));
+
+    const nextNumber = usedNumbers.length > 0 ? Math.max(...usedNumbers) + 1 : 1;
+    return `INS-${String(nextNumber).padStart(3, "0")}`;
+  }, [products]);
+
+  const resetProductForm = useCallback(() => {
+    setEditingProduct(null);
+    setNewProduct({
+      category: "",
+      cost_center: scopedCostCenter || undefined,
+      sku: generateProductSku(),
+      location: "",
+    });
+    setErrors({});
+  }, [generateProductSku, scopedCostCenter]);
+
+  const openNewProductDialog = () => {
+    resetProductForm();
+    setIsDialogOpen(true);
+  };
+
   const exportFilteredProducts = useCallback(async (format: "xlsx" | "csv" | "json") => {
     const { exportProducts } = await import("@/lib/export-utils");
     exportProducts(filteredProducts, format);
   }, [filteredProducts]);
 
-  const validateForm = () => {
+  const validateForm = (productData = newProduct) => {
     const result = productSchema.safeParse({
-      ...newProduct,
-      cost_center: scopedCostCenter || newProduct.cost_center,
-      quantity: newProduct.quantity ?? 0,
-      min_stock: newProduct.min_stock ?? 0,
-      max_stock: newProduct.max_stock ?? 1,
-      unit_price: newProduct.unit_price ?? 0,
+      ...productData,
+      cost_center: scopedCostCenter || productData.cost_center,
+      sku: productData.sku || generateProductSku(editingProduct?.id),
+      location: "",
+      quantity: productData.quantity ?? 0,
+      min_stock: productData.min_stock ?? 0,
+      max_stock: productData.max_stock ?? 1,
+      unit_price: productData.unit_price ?? 0,
     });
 
     if (!result.success) {
@@ -271,15 +302,21 @@ export default function EstoquePage() {
   };
 
   const handleSaveProduct = async () => {
-    if (!validateForm()) {
+    const preparedProduct: Partial<Product> = {
+      ...newProduct,
+      sku: newProduct.sku || generateProductSku(editingProduct?.id),
+      location: "",
+    };
+
+    if (!validateForm(preparedProduct)) {
       toast.error("Corrija os erros do formulário");
       return;
     }
 
     setIsSaving(true);
     const payload: Partial<Product> = {
-      ...newProduct,
-      cost_center: scopedCostCenter || newProduct.cost_center,
+      ...preparedProduct,
+      cost_center: scopedCostCenter || preparedProduct.cost_center,
       updated_at: new Date().toISOString(),
     };
 
@@ -305,7 +342,7 @@ export default function EstoquePage() {
       });
       setIsDialogOpen(false);
       setEditingProduct(null);
-      setNewProduct({ category: "Escritório", cost_center: scopedCostCenter || undefined });
+      setNewProduct({ category: "", cost_center: scopedCostCenter || undefined, sku: generateProductSku(), location: "" });
     } else {
       toast.error("Erro ao salvar produto");
     }
@@ -313,7 +350,11 @@ export default function EstoquePage() {
 
   const handleEdit = (product: Product) => {
     setEditingProduct(product);
-    setNewProduct(product);
+    setNewProduct({
+      ...product,
+      sku: product.sku || generateProductSku(product.id),
+      location: "",
+    });
     setErrors({});
     setIsDialogOpen(true);
   };
@@ -472,13 +513,11 @@ export default function EstoquePage() {
                 <Dialog open={isDialogOpen} onOpenChange={(open) => {
                   setIsDialogOpen(open);
                   if (!open) {
-                    setEditingProduct(null);
-                    setNewProduct({ category: "Escritório", cost_center: scopedCostCenter || undefined });
-                    setErrors({});
+                    resetProductForm();
                   }
                 }}>
                   <DialogTrigger asChild>
-                    <Button id="stock-new-btn" size="sm" className="h-9 gap-1">
+                    <Button id="stock-new-btn" size="sm" className="h-9 gap-1" onClick={openNewProductDialog}>
                       <Plus className="h-4 w-4" />
                       <span className="hidden sm:inline">Novo</span>
                     </Button>
@@ -498,8 +537,8 @@ export default function EstoquePage() {
                         />
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
+                      <div className="grid gap-4 sm:grid-cols-[1fr_180px]">
+                        <div className="space-y-2 min-w-0">
                           <Label>Nome</Label>
                           <Input
                             value={newProduct.name || ""}
@@ -509,25 +548,36 @@ export default function EstoquePage() {
                           {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
                         </div>
                         <div className="space-y-2">
-                          <Label>SKU</Label>
-                          <Input
-                            value={newProduct.sku || ""}
-                            onChange={(e) => setNewProduct({ ...newProduct, sku: e.target.value })}
-                            placeholder="Ex: PAP001"
-                            className={errors.sku ? "border-destructive" : ""}
-                          />
+                          <Label>Código</Label>
+                          <div className="flex gap-2">
+                            <Input
+                              value={newProduct.sku || ""}
+                              readOnly
+                              placeholder="INS-001"
+                              className={cn("font-mono", errors.sku ? "border-destructive" : "")}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              onClick={() => setNewProduct({ ...newProduct, sku: generateProductSku(editingProduct?.id) })}
+                              title="Gerar código"
+                            >
+                              <RefreshCw className="h-4 w-4" />
+                            </Button>
+                          </div>
                           {errors.sku && <p className="text-xs text-destructive">{errors.sku}</p>}
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid gap-4 sm:grid-cols-2">
                         <div className="space-y-2">
                           <Label>Categoria</Label>
                           <Select
-                            value={newProduct.category}
+                            value={newProduct.category || undefined}
                             onValueChange={(v) => setNewProduct({ ...newProduct, category: v })}
                           >
                             <SelectTrigger>
-                              <SelectValue />
+                              <SelectValue placeholder="Selecione..." />
                             </SelectTrigger>
                             <SelectContent>
                               {categories.map((c) => (
@@ -585,17 +635,7 @@ export default function EstoquePage() {
                           {errors.cost_center && <p className="text-xs text-destructive">{errors.cost_center}</p>}
                         </div>
                       </div>
-                      <div className="space-y-2">
-                        <Label>Localização</Label>
-                        <Input
-                          value={newProduct.location || ""}
-                          onChange={(e) => setNewProduct({ ...newProduct, location: e.target.value })}
-                          placeholder="Ex: Almoxarifado A1"
-                          className={errors.location ? "border-destructive" : ""}
-                        />
-                        {errors.location && <p className="text-xs text-destructive">{errors.location}</p>}
-                      </div>
-                      <div className="grid grid-cols-3 gap-4">
+                      <div className="grid grid-cols-3 gap-3">
                         <div className="space-y-2">
                           <Label>Qtd Atual</Label>
                           <Input
@@ -621,7 +661,7 @@ export default function EstoquePage() {
                           />
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid gap-4 sm:grid-cols-2">
                         <div className="space-y-2">
                           <Label>Unidade de Medida</Label>
                           <Input
