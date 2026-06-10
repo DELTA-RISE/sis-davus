@@ -112,7 +112,16 @@ export async function processSyncQueue() {
 
       let result;
       if (item.action === "upsert") {
-        result = await supabase.from(item.table).upsert(normalizePayloadForSync(item.table, item.payload));
+        let payloadForSync = item.payload;
+
+        if (item.table === "maintenance_tasks" && item.payload?.id) {
+          const localTask = await db.maintenance_tasks.get(item.payload.id as string);
+          if (localTask) {
+            payloadForSync = { ...localTask, ...item.payload };
+          }
+        }
+
+        result = await supabase.from(item.table).upsert(normalizePayloadForSync(item.table, payloadForSync));
       } else if (item.action === "delete") {
         result = await supabase.from(item.table).delete().match(item.payload);
       }
