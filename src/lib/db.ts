@@ -112,6 +112,37 @@ function withPersistenceStatus<T extends object>(
   };
 }
 
+function sanitizeRemotePayload<T>(table: string, item: Partial<T>): Partial<T> {
+  const baseEntries = Object.entries(item as Record<string, unknown>)
+    .filter(([key]) => !key.startsWith('__'));
+
+  if (table !== 'maintenance_tasks') {
+    return Object.fromEntries(baseEntries) as Partial<T>;
+  }
+
+  const allowedMaintenanceColumns = new Set([
+    'id',
+    'title',
+    'description',
+    'asset_id',
+    'asset_name',
+    'asset_code',
+    'due_date',
+    'status',
+    'priority',
+    'assigned_to',
+    'cost',
+    'completed_date',
+    'steps_data',
+    'created_at',
+    'updated_at',
+  ]);
+
+  return Object.fromEntries(
+    baseEntries.filter(([key]) => allowedMaintenanceColumns.has(key))
+  ) as Partial<T>;
+}
+
 async function withTimeout<T>(promise: PromiseLike<T>, timeoutMs: number = TIMEOUT_MS): Promise<T> {
   let timeoutId: NodeJS.Timeout;
   const timeoutPromise = new Promise<T>((_, reject) => {
@@ -244,9 +275,7 @@ async function getAllFiltered<T>(
 async function upsert<T extends { id?: string }>(table: string, item: Partial<T>): Promise<Persisted<T> | null> {
   const tableRef = db.table(table);
   const localItem = item as Partial<T>;
-  const remoteItem = Object.fromEntries(
-    Object.entries(item).filter(([key]) => !key.startsWith('__'))
-  ) as Partial<T>;
+  const remoteItem = sanitizeRemotePayload(table, item);
 
   // 1. Optimistic Update (Local)
   try {
@@ -591,39 +620,13 @@ export const saveMovement = async (movement: Partial<StockMovement>, userInfo?: 
 
 // Maintenance
 export const getMaintenanceTasks = async (assetId?: string, forceRefresh = false) => {
-  // Offline / Dexie
-  if (!isOnline()) {
-    const tasks = await getAll<MaintenanceTask>('maintenance_tasks', 'due_date', true, forceRefresh);
-
-    let filtered = tasks;
-    if (assetId) {
-      filtered = filtered.filter(t => t.asset_id === assetId);
-    }
-
-    return filtered;
-  }
-
-  // Online / Supabase
-  let query = supabase.from('maintenance_tasks').select('*').order('due_date', { ascending: true });
+  const tasks = await getAll<MaintenanceTask>('maintenance_tasks', 'due_date', true, forceRefresh);
 
   if (assetId) {
-    query = query.eq('asset_id', assetId);
+    return tasks.filter(t => t.asset_id === assetId);
   }
 
-  try {
-    const { data, error } = await withTimeout(query);
-    if (error) {
-      console.error("Error fetching maintenance tasks:", error);
-      // Fallback or empty? 
-      // If error is PGRST204 (inner join failed?), it might be 406 or something.
-      // If we are strictly filtering for security/visibility, returning empty on error is safer.
-      return [];
-    }
-    return data as unknown as MaintenanceTask[];
-  } catch (error) {
-    console.error("Exception fetching maintenance tasks:", error);
-    return [];
-  }
+  return tasks;
 };
 export const saveMaintenanceTask = async (task: Partial<MaintenanceTask>, userInfo?: { name: string, id: string }) => {
   const result = await upsert<MaintenanceTask>('maintenance_tasks', task as MaintenanceTask);
