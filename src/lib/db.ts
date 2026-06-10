@@ -133,7 +133,6 @@ function sanitizeRemotePayload<T>(table: string, item: Partial<T>): Partial<T> {
     'assigned_to',
     'cost',
     'completed_date',
-    'steps_data',
     'created_at',
     'updated_at',
   ]);
@@ -307,7 +306,7 @@ async function upsert<T extends { id?: string }>(table: string, item: Partial<T>
     if (error) throw error;
 
     // Update local with confirmed server data (e.g. correct ID, timestamps)
-    await tableRef.put(data);
+    await tableRef.put(table === 'maintenance_tasks' ? { ...localItem, ...data } : data);
 
     return withPersistenceStatus(data as T, 'synced');
   } catch (err) {
