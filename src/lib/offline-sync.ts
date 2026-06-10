@@ -26,7 +26,6 @@ const normalizePayloadForSync = (table: string, payload: Record<string, unknown>
       "assigned_to",
       "cost",
       "completed_date",
-      "steps_data",
       "created_at",
       "updated_at",
     ]);

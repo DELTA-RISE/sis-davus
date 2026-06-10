@@ -161,13 +161,14 @@ export default function ManutencaoKanbanPage() {
               status !== task.status && (
                 <Button
                   key={status}
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
-                  className="h-6 w-6 p-0"
+                  className="h-8 rounded-lg border-border/60 bg-background/70 px-2.5 text-[11px] font-semibold text-foreground/85 hover:border-primary/50 hover:bg-primary/10 hover:text-primary"
                   title={`Marcar como ${cfg.label}`}
                   onClick={() => handleUpdateStatus(task, status as MaintenanceTask["status"])}
                 >
-                  <cfg.icon className="h-3 w-3" />
+                  <cfg.icon className="mr-1.5 h-3.5 w-3.5" />
+                  {cfg.label}
                 </Button>
               )
             ))}
