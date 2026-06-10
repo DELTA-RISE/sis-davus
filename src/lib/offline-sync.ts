@@ -12,6 +12,30 @@ const cleanPayload = (payload: Record<string, unknown>) =>
 const normalizePayloadForSync = (table: string, payload: Record<string, unknown>) => {
   const cleaned = cleanPayload(payload);
 
+  if (table === "maintenance_tasks") {
+    const allowedMaintenanceColumns = new Set([
+      "id",
+      "title",
+      "description",
+      "asset_id",
+      "asset_name",
+      "asset_code",
+      "due_date",
+      "status",
+      "priority",
+      "assigned_to",
+      "cost",
+      "completed_date",
+      "steps_data",
+      "created_at",
+      "updated_at",
+    ]);
+
+    return Object.fromEntries(
+      Object.entries(cleaned).filter(([key]) => allowedMaintenanceColumns.has(key))
+    );
+  }
+
   if (
     table === "asset_timelines" &&
     (cleaned.type === "location" || cleaned.type === "assignment" || cleaned.type === "movimentacao")
