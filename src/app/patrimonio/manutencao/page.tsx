@@ -96,7 +96,7 @@ export default function ManutencaoKanbanPage() {
 
   const handleUpdateStatus = async (task: MaintenanceTask, newStatus: MaintenanceTask["status"]) => {
     const updated = await saveMaintenanceTask(
-      { ...task, status: newStatus, updated_at: new Date().toISOString() },
+      { id: task.id, status: newStatus, updated_at: new Date().toISOString() },
       { name: userName, id: user?.id || "" }
     );
     if (!updated) toast.error("Erro ao atualizar status");
