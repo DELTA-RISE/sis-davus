@@ -570,24 +570,26 @@ export default function EstoquePage() {
                         </div>
                       </div>
                       <div className="grid gap-4 sm:grid-cols-2">
-                        <div className="space-y-2">
+                        <div className="space-y-2 min-w-0">
                           <Label>Categoria</Label>
                           <Select
                             value={newProduct.category || undefined}
                             onValueChange={(v) => setNewProduct({ ...newProduct, category: v })}
                           >
-                            <SelectTrigger>
+                            <SelectTrigger className="w-full min-w-0 overflow-hidden [&_[data-slot=select-value]]:block [&_[data-slot=select-value]]:max-w-[calc(100%-1.75rem)] [&_[data-slot=select-value]]:truncate">
                               <SelectValue placeholder="Selecione..." />
                             </SelectTrigger>
                             <SelectContent>
                               {categories.map((c) => (
-                                <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                                <SelectItem key={c.id} value={c.name}>
+                                  <span className="block max-w-[260px] truncate">{c.name}</span>
+                                </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
                           {errors.category && <p className="text-xs text-destructive">{errors.category}</p>}
                         </div>
-                        <div className="space-y-2 text-left">
+                        <div className="space-y-2 min-w-0 text-left">
                           <Label>Centro de Custo</Label>
                           <Popover open={openCostCenterSelect} onOpenChange={setOpenCostCenterSelect}>
                             <PopoverTrigger asChild>
@@ -595,11 +597,13 @@ export default function EstoquePage() {
                                 variant="outline"
                                 role="combobox"
                                 aria-expanded={openCostCenterSelect}
-                                className="w-full justify-between font-normal"
+                                className="w-full min-w-0 justify-between overflow-hidden font-normal"
                               >
-                                {newProduct.cost_center
-                                  ? costCenters.find((cc) => cc.id === newProduct.cost_center)?.name || newProduct.cost_center
-                                  : "Selecione..."}
+                                <span className="min-w-0 truncate">
+                                  {newProduct.cost_center
+                                    ? costCenters.find((cc) => cc.id === newProduct.cost_center)?.name || newProduct.cost_center
+                                    : "Selecione..."}
+                                </span>
                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                               </Button>
                             </PopoverTrigger>
