@@ -36,11 +36,12 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover";
 import { useAuth } from "@/lib/auth-context";
-import { saveMaintenanceTask, getAssets } from "@/lib/db";
-import { Asset, MaintenanceTask } from "@/lib/store";
+import { saveMaintenanceTask, getAssets, getUsers } from "@/lib/db";
+import { Asset, MaintenanceTask, User } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { getRoleLabel } from "@/lib/roles";
 import { getScopedCostCenter } from "@/lib/access-scope";
+import { findMaintenanceResponsible } from "@/lib/maintenance-responsibility";
 
 const steps = [
     { id: 1, title: "Identificação", description: "Selecione o patrimônio e prioridade" },
@@ -105,6 +106,7 @@ function NewMaintenanceContent() {
 
     const [currentStep, setCurrentStep] = useState(1);
     const [assets, setAssets] = useState<Asset[]>([]);
+    const [users, setUsers] = useState<User[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [evidenceFiles, setEvidenceFiles] = useState<File[]>([]);
     const [openAssetSelect, setOpenAssetSelect] = useState(false);
@@ -149,9 +151,16 @@ function NewMaintenanceContent() {
     }, [form, watchedQuotes]);
 
     const lowestQuotePreview = getLowestQuote(quotePreview);
+    const maintenanceResponsible = useMemo(() => findMaintenanceResponsible(users), [users]);
 
     useEffect(() => {
-        getAssets(false, scopedCostCenter).then(setAssets);
+        Promise.all([
+            getAssets(false, scopedCostCenter),
+            getUsers(false),
+        ]).then(([assetList, userList]) => {
+            setAssets(assetList);
+            setUsers(userList);
+        });
     }, [scopedCostCenter]);
 
     const onSubmit = async (data: MaintenanceFormData) => {
@@ -163,6 +172,12 @@ function NewMaintenanceContent() {
         setIsLoading(true);
         try {
             const selectedAsset = assets.find(a => a.id === data.asset_id);
+            if (!maintenanceResponsible) {
+                toast.error("Defina o responsável pela manutenção/matriz em Gestão de Usuários antes de solicitar manutenção.");
+                setIsLoading(false);
+                return;
+            }
+
             const quotes = buildQuotes(data);
             const lowestQuote = getLowestQuote(quotes);
             const quoteDescription = lowestQuote
@@ -180,6 +195,7 @@ function NewMaintenanceContent() {
                 status: "Aguardando Aprovação",
                 cost: lowestQuote?.value ?? 0,
                 created_by: user?.id,
+                assigned_to: maintenanceResponsible.id,
                 steps_data: [
                     {
                         id: "1",
@@ -208,8 +224,8 @@ function NewMaintenanceContent() {
                     },
                     {
                         id: "2",
-                        title: "Aprovação gerencial",
-                        description: "Aguardando análise do Administrador",
+                        title: "Aprovação da manutenção",
+                        description: `Aguardando análise de ${maintenanceResponsible.name}`,
                         completed: false,
                     },
                 ],
