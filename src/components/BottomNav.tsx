@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -20,6 +20,8 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { isOperatorRole } from "@/lib/roles";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { getUsers } from "@/lib/db";
+import { isMaintenanceResponsible, matchesUserIdentity } from "@/lib/maintenance-responsibility";
 
 
 interface SubMenuItem {
@@ -30,8 +32,33 @@ interface SubMenuItem {
 
 export function BottomNav() {
   const pathname = usePathname();
-  const { currentRole, gravatarUrl } = useAuth();
+  const { currentRole, gravatarUrl, user, userName } = useAuth();
   const [activeSubmenu, setActiveSubmenu] = useState<string | null>(null);
+  const [showMaintenanceNav, setShowMaintenanceNav] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    getUsers(false).then((users) => {
+      if (!isMounted) return;
+      const currentUser = { id: user?.id, email: user?.email, name: userName };
+      setShowMaintenanceNav(
+        users.some(
+          (candidate) =>
+            isMaintenanceResponsible(candidate) &&
+            (
+              matchesUserIdentity(currentUser, candidate.id) ||
+              matchesUserIdentity(currentUser, candidate.email) ||
+              matchesUserIdentity(currentUser, candidate.name)
+            )
+        )
+      );
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.email, user?.id, userName]);
 
   const ferramentasGestor: SubMenuItem[] = [
     { href: "/estoque", icon: Package, label: "Estoque" },
@@ -40,6 +67,7 @@ export function BottomNav() {
     { href: "/checkouts", icon: LogOut, label: "Checkouts" },
     { href: "/relatorios", icon: FileBarChart, label: "Relatórios" },
   ];
+  const maintenanceItem: SubMenuItem = { href: "/patrimonio/manutencao", icon: Wrench, label: "Manutenção" };
 
   const ferramentasAdmin: SubMenuItem[] = [
     ...ferramentasGestor,
@@ -52,6 +80,7 @@ export function BottomNav() {
     : isOperatorRole(currentRole) || currentRole === "user"
       ? ferramentasOperador
       : ferramentasGestor;
+  const visibleFerramentas = showMaintenanceNav ? [...ferramentas, maintenanceItem] : ferramentas;
 
   const handleNavClick = (key: string) => {
     if (activeSubmenu === key) {
@@ -65,7 +94,7 @@ export function BottomNav() {
     setActiveSubmenu(null);
   };
 
-  const isFerramentasActive = ferramentas.some(item =>
+  const isFerramentasActive = visibleFerramentas.some(item =>
     pathname.startsWith(item.href) || pathname.startsWith("/admin")
   );
   const isPerfilActive = pathname === "/perfil";
@@ -94,8 +123,8 @@ export function BottomNav() {
               </button>
             </div>
             <div className="grid grid-cols-3 gap-2">
-              {ferramentas.map((item) => {
-                const isActive = pathname === item.href || pathname.startsWith(item.href);
+              {visibleFerramentas.map((item) => {
+                const isActive = pathname === item.href || (item.href !== "/estoque" && pathname.startsWith(item.href));
                 return (
                   <Link
                     key={item.href}
