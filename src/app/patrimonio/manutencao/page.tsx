@@ -83,6 +83,7 @@ export default function ManutencaoKanbanPage() {
   const [users, setUsers] = useState<UserType[]>([]);
   const [viewMode, setViewMode] = useState<"kanban" | "list">("list");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [savingStatusIds, setSavingStatusIds] = useState<Set<string>>(new Set());
 
   const loadData = useCallback(async () => {
     const [maintenanceTasks, userList] = await Promise.all([
@@ -131,11 +132,46 @@ export default function ManutencaoKanbanPage() {
       return;
     }
 
-    const updated = await saveMaintenanceTask(
-      { ...task, status: newStatus, updated_at: new Date().toISOString() },
-      { name: userName, id: user?.id || "" }
+    if (task.status === newStatus || savingStatusIds.has(task.id)) return;
+
+    const previousStatus = task.status;
+    const updatedAt = new Date().toISOString();
+
+    setSavingStatusIds((current) => new Set(current).add(task.id));
+    setTasks((current) =>
+      current.map((item) =>
+        item.id === task.id ? { ...item, status: newStatus, updated_at: updatedAt } : item
+      )
     );
-    if (!updated) toast.error("Erro ao atualizar status");
+
+    try {
+      const updated = await saveMaintenanceTask(
+        { ...task, status: newStatus, updated_at: updatedAt },
+        { name: userName, id: user?.id || "" }
+      );
+
+      if (!updated) {
+        throw new Error("Erro ao atualizar status");
+      }
+
+      setTasks((current) =>
+        current.map((item) => (item.id === task.id ? { ...item, ...updated } : item))
+      );
+      toast.success(`Status alterado para ${statusConfig[newStatus].label}.`);
+    } catch (_error) {
+      setTasks((current) =>
+        current.map((item) =>
+          item.id === task.id ? { ...item, status: previousStatus } : item
+        )
+      );
+      toast.error("Erro ao atualizar status. A alteração foi desfeita.");
+    } finally {
+      setSavingStatusIds((current) => {
+        const next = new Set(current);
+        next.delete(task.id);
+        return next;
+      });
+    }
   };
 
   const columns: { status: MaintenanceTask["status"]; tasks: MaintenanceTask[] }[] = [
@@ -156,6 +192,7 @@ export default function ManutencaoKanbanPage() {
     const { lowestQuote } = getQuoteInfo(task);
     const assignedName = getUserDisplayName(users, task.assigned_to) || "Sem responsável";
     const canManageTask = canOperateMaintenance && canManageMaintenanceTask(currentUserIdentity, task);
+    const isSavingStatus = savingStatusIds.has(task.id);
 
     return (
       <Card className="border-border/50 bg-card">
@@ -197,14 +234,14 @@ export default function ManutencaoKanbanPage() {
           <div className="mt-3 rounded-xl border border-primary/20 bg-primary/[0.03] p-2.5">
             <div className="mb-2 flex items-center justify-between gap-2">
               <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                Andamento
+                {isSavingStatus ? "Salvando..." : "Andamento"}
               </span>
               <Badge className={`h-5 px-2 text-[10px] ${statusCfg.color}`}>{statusCfg.label}</Badge>
             </div>
             <Select
               value={task.status}
               onValueChange={(value) => handleUpdateStatus(task, value as MaintenanceTask["status"])}
-              disabled={!canManageTask}
+              disabled={!canManageTask || isSavingStatus}
             >
               <SelectTrigger className="h-9 rounded-lg border-border/60 bg-background/70 text-xs font-semibold text-foreground">
                 <SelectValue placeholder="Atualizar status" />
