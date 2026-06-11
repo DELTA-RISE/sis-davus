@@ -123,13 +123,7 @@ export default function ManutencaoKanbanPage() {
 
   const canOperateMaintenance = Boolean(currentProfile && isMaintenanceResponsible(currentProfile));
 
-  const visibleTasks = useMemo(
-    () =>
-      canOperateMaintenance
-        ? tasks.filter((task) => canManageMaintenanceTask(currentUserIdentity, task))
-        : [],
-    [canOperateMaintenance, currentUserIdentity, tasks]
-  );
+  const visibleTasks = tasks;
 
   const handleUpdateStatus = async (task: MaintenanceTask, newStatus: MaintenanceTask["status"]) => {
     if (!canOperateMaintenance || !canManageMaintenanceTask(currentUserIdentity, task)) {
@@ -273,9 +267,7 @@ export default function ManutencaoKanbanPage() {
             {filteredTasks.length === 0 && (
               <Card className="border-border/50 bg-card md:col-span-2 lg:col-span-3">
                 <CardContent className="p-8 text-center text-sm text-muted-foreground">
-                  {canOperateMaintenance
-                    ? "Nenhuma solicitação atribuída a você no momento."
-                    : "As solicitações aparecem apenas para o responsável pela manutenção/matriz definido pelo administrador."}
+                  Nenhuma solicitação de manutenção no momento.
                 </CardContent>
               </Card>
             )}

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -14,11 +15,14 @@ import {
   ChevronRight,
   Briefcase,
   Tags,
+  Wrench,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { useSidebar } from "@/lib/sidebar-context";
 import { isCostCenterScopedRole, isOperatorRole } from "@/lib/roles";
+import { getUsers } from "@/lib/db";
+import { isMaintenanceResponsible, matchesUserIdentity } from "@/lib/maintenance-responsibility";
 
 const adminItems = [
   { href: "/admin/logs", icon: FileText, label: "Logs de Auditoria" },
@@ -42,8 +46,37 @@ const operadorItems = gestorItems.filter((item) => item.href !== "/relatorios");
 export function Sidebar() {
   const pathname = usePathname();
   const { isCollapsed, setIsCollapsed } = useSidebar();
-  const { currentRole, costCenter } = useAuth();
-  const visibleGestaoItems = isOperatorRole(currentRole) || currentRole === "user" ? operadorItems : gestorItems;
+  const { currentRole, costCenter, user, userName } = useAuth();
+  const [showMaintenanceNav, setShowMaintenanceNav] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    getUsers(false).then((users) => {
+      if (!isMounted) return;
+      const currentUser = { id: user?.id, email: user?.email, name: userName };
+      setShowMaintenanceNav(
+        users.some(
+          (candidate) =>
+            isMaintenanceResponsible(candidate) &&
+            (
+              matchesUserIdentity(currentUser, candidate.id) ||
+              matchesUserIdentity(currentUser, candidate.email) ||
+              matchesUserIdentity(currentUser, candidate.name)
+            )
+        )
+      );
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.email, user?.id, userName]);
+
+  const visibleGestaoItems = [
+    ...(isOperatorRole(currentRole) || currentRole === "user" ? operadorItems : gestorItems),
+    ...(showMaintenanceNav ? [{ href: "/patrimonio/manutencao", icon: Wrench, label: "Manutenção" }] : []),
+  ];
   const sectionLabel = isOperatorRole(currentRole) || currentRole === "user" ? "Operação" : "Gestão";
 
   return (
