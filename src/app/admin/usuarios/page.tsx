@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -72,6 +73,12 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
+import {
+  MAINTENANCE_RESPONSIBLE_DEPARTMENT,
+  MAINTENANCE_RESPONSIBLE_LABEL,
+  canBeMaintenanceResponsible,
+  isMaintenanceResponsible,
+} from "@/lib/maintenance-responsibility";
 
 const roleLabels: Record<UserRole, string> = {
   admin: "Administrador",
@@ -205,8 +212,30 @@ export default function UsersPage() {
     setIsSaving(true);
     try {
       if (editingUser) {
-        const result = await saveUser(newUser, { name: userName, id: user?.id || "" });
+        const auditUser = { name: userName, id: user?.id || "" };
+        const shouldBeMaintenanceResponsible =
+          canBeMaintenanceResponsible(newUser as User) &&
+          newUser.department === MAINTENANCE_RESPONSIBLE_DEPARTMENT;
+        const userPayload: Partial<User> = {
+          ...newUser,
+          department: shouldBeMaintenanceResponsible
+            ? MAINTENANCE_RESPONSIBLE_DEPARTMENT
+            : null as unknown as string,
+        };
+
+        const result = await saveUser(userPayload, auditUser);
         if (result) {
+          if (shouldBeMaintenanceResponsible) {
+            await Promise.all(
+              users
+                .filter((candidate) => candidate.id !== result.id && isMaintenanceResponsible(candidate))
+                .map((candidate) =>
+                  saveUser({ id: candidate.id, department: null as unknown as string }, auditUser)
+                )
+            );
+            syncUsers();
+          }
+
           if (newPassword) {
             const pwResult = await updateUserPasswordAction(editingUser.id, newPassword);
             if (!pwResult.success) {
@@ -377,7 +406,20 @@ export default function UsersPage() {
                       <Label>Perfil</Label>
                       <Select
                         value={newUser.role}
-                        onValueChange={(v) => setNewUser({ ...newUser, role: v as User["role"] })}
+                        onValueChange={(v) => {
+                          const nextRole = v as User["role"];
+                          const keepsMaintenanceResponsibility =
+                            (nextRole === "gestor" || nextRole === "operador") &&
+                            newUser.department === MAINTENANCE_RESPONSIBLE_DEPARTMENT;
+
+                          setNewUser({
+                            ...newUser,
+                            role: nextRole,
+                            department: keepsMaintenanceResponsibility
+                              ? MAINTENANCE_RESPONSIBLE_DEPARTMENT
+                              : undefined,
+                          });
+                        }}
                       >
                         <SelectTrigger>
                           <SelectValue />
@@ -470,6 +512,34 @@ export default function UsersPage() {
                       Vincula o usuário a um centro de custo específico.
                     </p>
                   </div>
+
+                  {editingUser && (
+                    <div className="rounded-xl border border-primary/25 bg-primary/5 p-3 space-y-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="space-y-1">
+                          <Label>Responsável pela manutenção/matriz</Label>
+                          <p className="text-xs text-muted-foreground">
+                            Recebe e decide solicitações de manutenção. Esta função é independente do centro de custo do usuário.
+                          </p>
+                        </div>
+                        <Switch
+                          checked={newUser.department === MAINTENANCE_RESPONSIBLE_DEPARTMENT}
+                          disabled={!canBeMaintenanceResponsible(newUser as User)}
+                          onCheckedChange={(checked) =>
+                            setNewUser({
+                              ...newUser,
+                              department: checked ? MAINTENANCE_RESPONSIBLE_DEPARTMENT : undefined,
+                            })
+                          }
+                        />
+                      </div>
+                      {!canBeMaintenanceResponsible(newUser as User) && (
+                        <p className="text-[11px] text-muted-foreground">
+                          Apenas perfis de gestor ou operador podem assumir esta responsabilidade.
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   {editingUser && (
                     <div className="space-y-2 pt-2 border-t border-border/50">
@@ -712,11 +782,16 @@ export default function UsersPage() {
                         <Mail className="h-3 w-3" />
                         <span className="truncate">{user.email}</span>
                       </div>
-                      <div className="flex items-center gap-3 mt-2">
+                      <div className="flex flex-wrap items-center gap-2 mt-2">
                         <Badge variant="outline" className={`text-[10px] ${roleColors[user.role]}`}>
                           <RoleIcon className="h-3 w-3 mr-1" />
                           {roleLabels[user.role]}
                         </Badge>
+                        {isMaintenanceResponsible(user) && (
+                          <Badge variant="outline" className="text-[10px] border-primary/30 bg-primary/10 text-primary">
+                            {MAINTENANCE_RESPONSIBLE_LABEL}
+                          </Badge>
+                        )}
                         <span className="text-[10px] text-muted-foreground flex items-center gap-1 hidden md:flex">
                           <Calendar className="h-3 w-3" />
                           Último acesso: {user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Nunca'}

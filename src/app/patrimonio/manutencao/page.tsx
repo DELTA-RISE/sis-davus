@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
-import { MaintenanceTask } from "@/lib/store";
-import { getMaintenanceTasks, saveMaintenanceTask } from "@/lib/db";
+import { MaintenanceTask, User as UserType } from "@/lib/store";
+import { getMaintenanceTasks, getUsers, saveMaintenanceTask } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +31,12 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
+import {
+  canManageMaintenanceTask,
+  getUserDisplayName,
+  isMaintenanceResponsible,
+  matchesUserIdentity,
+} from "@/lib/maintenance-responsibility";
 
 const statusConfig = {
   Pendente: { label: "Pendente", color: "bg-slate-500/20 text-slate-400 border-slate-500/30", icon: Clock },
@@ -74,12 +80,17 @@ const getQuoteInfo = (task: MaintenanceTask) => {
 export default function ManutencaoKanbanPage() {
   const { userName, user } = useAuth();
   const [tasks, setTasks] = useState<MaintenanceTask[]>([]);
+  const [users, setUsers] = useState<UserType[]>([]);
   const [viewMode, setViewMode] = useState<"kanban" | "list">("list");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const loadData = useCallback(async () => {
-    const maintenanceTasks = await getMaintenanceTasks();
+    const [maintenanceTasks, userList] = await Promise.all([
+      getMaintenanceTasks(),
+      getUsers(false),
+    ]);
     setTasks(maintenanceTasks);
+    setUsers(userList);
   }, []);
 
   useEffect(() => {
@@ -94,30 +105,63 @@ export default function ManutencaoKanbanPage() {
     };
   }, [loadData]);
 
+  const currentUserIdentity = useMemo(
+    () => ({ id: user?.id, email: user?.email, name: userName }),
+    [user?.id, user?.email, userName]
+  );
+
+  const currentProfile = useMemo(
+    () =>
+      users.find(
+        (candidate) =>
+          matchesUserIdentity(currentUserIdentity, candidate.id) ||
+          matchesUserIdentity(currentUserIdentity, candidate.email) ||
+          matchesUserIdentity(currentUserIdentity, candidate.name)
+      ) || null,
+    [currentUserIdentity, users]
+  );
+
+  const canOperateMaintenance = Boolean(currentProfile && isMaintenanceResponsible(currentProfile));
+
+  const visibleTasks = useMemo(
+    () =>
+      canOperateMaintenance
+        ? tasks.filter((task) => canManageMaintenanceTask(currentUserIdentity, task))
+        : [],
+    [canOperateMaintenance, currentUserIdentity, tasks]
+  );
+
   const handleUpdateStatus = async (task: MaintenanceTask, newStatus: MaintenanceTask["status"]) => {
+    if (!canOperateMaintenance || !canManageMaintenanceTask(currentUserIdentity, task)) {
+      toast.error("Somente o responsável pela manutenção/matriz pode alterar esta solicitação.");
+      return;
+    }
+
     const updated = await saveMaintenanceTask(
-      { id: task.id, status: newStatus, updated_at: new Date().toISOString() },
+      { ...task, status: newStatus, updated_at: new Date().toISOString() },
       { name: userName, id: user?.id || "" }
     );
     if (!updated) toast.error("Erro ao atualizar status");
   };
 
   const columns: { status: MaintenanceTask["status"]; tasks: MaintenanceTask[] }[] = [
-    { status: "Pendente", tasks: tasks.filter((task) => task.status === "Pendente") },
-    { status: "Em Andamento", tasks: tasks.filter((task) => task.status === "Em Andamento") },
-    { status: "Aguardando Aprovação", tasks: tasks.filter((task) => task.status === "Aguardando Aprovação") },
-    { status: "Aprovado", tasks: tasks.filter((task) => task.status === "Aprovado") },
-    { status: "Rejeitado", tasks: tasks.filter((task) => task.status === "Rejeitado") },
-    { status: "Atrasada", tasks: tasks.filter((task) => task.status === "Atrasada") },
-    { status: "Concluída", tasks: tasks.filter((task) => task.status === "Concluída") },
+    { status: "Pendente", tasks: visibleTasks.filter((task) => task.status === "Pendente") },
+    { status: "Em Andamento", tasks: visibleTasks.filter((task) => task.status === "Em Andamento") },
+    { status: "Aguardando Aprovação", tasks: visibleTasks.filter((task) => task.status === "Aguardando Aprovação") },
+    { status: "Aprovado", tasks: visibleTasks.filter((task) => task.status === "Aprovado") },
+    { status: "Rejeitado", tasks: visibleTasks.filter((task) => task.status === "Rejeitado") },
+    { status: "Atrasada", tasks: visibleTasks.filter((task) => task.status === "Atrasada") },
+    { status: "Concluída", tasks: visibleTasks.filter((task) => task.status === "Concluída") },
   ];
 
-  const filteredTasks = statusFilter === "all" ? tasks : tasks.filter(task => task.status === statusFilter);
+  const filteredTasks = statusFilter === "all" ? visibleTasks : visibleTasks.filter(task => task.status === statusFilter);
 
   const TaskCard = ({ task, showStatus = false }: { task: MaintenanceTask; showStatus?: boolean }) => {
     const priorityCfg = priorityConfig[task.priority] || { label: task.priority, color: "bg-slate-500/20 text-slate-400" };
     const statusCfg = statusConfig[task.status] || { label: task.status, color: "bg-slate-500/20 text-slate-400" };
     const { lowestQuote } = getQuoteInfo(task);
+    const assignedName = getUserDisplayName(users, task.assigned_to) || "Sem responsável";
+    const canManageTask = canOperateMaintenance && canManageMaintenanceTask(currentUserIdentity, task);
 
     return (
       <Card className="border-border/50 bg-card">
@@ -152,7 +196,7 @@ export default function ManutencaoKanbanPage() {
             </span>
             <span className="flex items-center gap-1 truncate">
               <User className="h-2.5 w-2.5 shrink-0" />
-              {task.assigned_to || "Sem responsável"}
+              {assignedName}
             </span>
           </div>
 
@@ -166,6 +210,7 @@ export default function ManutencaoKanbanPage() {
             <Select
               value={task.status}
               onValueChange={(value) => handleUpdateStatus(task, value as MaintenanceTask["status"])}
+              disabled={!canManageTask}
             >
               <SelectTrigger className="h-9 rounded-lg border-border/60 bg-background/70 text-xs font-semibold text-foreground">
                 <SelectValue placeholder="Atualizar status" />
@@ -178,6 +223,11 @@ export default function ManutencaoKanbanPage() {
                 ))}
               </SelectContent>
             </Select>
+            {!canManageTask && (
+              <p className="mt-2 text-[10px] text-muted-foreground">
+                Status liberado apenas para o responsável pela manutenção/matriz.
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -196,7 +246,7 @@ export default function ManutencaoKanbanPage() {
                 <h1 className="text-lg font-bold">Manutenções</h1>
                 <Badge variant="outline" className="h-5 px-1.5 gap-1 bg-primary/5"><Zap className="h-2 w-2 text-primary animate-pulse" /> Realtime</Badge>
               </div>
-              <p className="text-xs text-muted-foreground">{tasks.length} tarefas</p>
+              <p className="text-xs text-muted-foreground">{visibleTasks.length} tarefas</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -220,6 +270,15 @@ export default function ManutencaoKanbanPage() {
         {viewMode === "list" || (typeof window !== "undefined" && window.innerWidth < 768) ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {filteredTasks.map(task => <TaskCard key={task.id} task={task} showStatus={statusFilter === "all"} />)}
+            {filteredTasks.length === 0 && (
+              <Card className="border-border/50 bg-card md:col-span-2 lg:col-span-3">
+                <CardContent className="p-8 text-center text-sm text-muted-foreground">
+                  {canOperateMaintenance
+                    ? "Nenhuma solicitação atribuída a você no momento."
+                    : "As solicitações aparecem apenas para o responsável pela manutenção/matriz definido pelo administrador."}
+                </CardContent>
+              </Card>
+            )}
           </div>
         ) : (
           <div className="flex gap-4 overflow-x-auto pb-4">

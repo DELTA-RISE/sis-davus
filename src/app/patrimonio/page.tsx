@@ -11,6 +11,7 @@ import {
   saveAssetTimeline,
   getMaintenanceTasks,
   saveMaintenanceTask,
+  getUsers,
 } from "@/lib/db";
 import { requestWriteOff } from "@/actions/write-off";
 import { db } from "@/lib/dexie-db";
@@ -86,6 +87,7 @@ import {
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { ImageUpload } from "@/components/ui/image-upload"; // Imported component
+import { findMaintenanceResponsible } from "@/lib/maintenance-responsibility";
 
 const conditionColors: Record<string, string> = {
   Excelente: "bg-green-500/20 text-green-500 border-green-500/30",
@@ -307,6 +309,12 @@ export default function PatrimonioPage() {
 
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + 7);
+    const maintenanceResponsible = findMaintenanceResponsible(await getUsers(false));
+
+    if (!maintenanceResponsible) {
+      toast.error("Defina o responsável pela manutenção/matriz antes de abrir manutenção automática.");
+      return;
+    }
 
     await saveMaintenanceTask({
       title: `Manutenção - ${asset.name}`,
@@ -319,9 +327,9 @@ export default function PatrimonioPage() {
       due_date: dueDate.toISOString().slice(0, 10),
       priority: "media",
       status: "Pendente",
-      assigned_to: asset.assigned_to,
-      cost: 0,
       created_by: user?.id,
+      assigned_to: maintenanceResponsible.id,
+      cost: 0,
       steps_data: [
         {
           id: "1",
