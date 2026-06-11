@@ -28,13 +28,13 @@ const adminItems = [
   { href: "/admin/logs", icon: FileText, label: "Logs de Auditoria" },
   { href: "/admin/usuarios", icon: Users, label: "Gestão de Usuários" },
   { href: "/admin/centros-custo", icon: Briefcase, label: "Centros de Custo" },
+  { href: "/estoque/por-obra", icon: Briefcase, label: "Estoque por Centro" },
   { href: "/admin/categorias-insumos", icon: Tags, label: "Categorias Insumos" },
   { href: "/admin/categorias-patrimonio", icon: Tags, label: "Categorias Patrimônio" },
 ];
 
 const gestorItems = [
   { href: "/estoque", icon: Package, label: "Estoque" },
-  { href: "/estoque/por-obra", icon: Briefcase, label: "Estoque por Obra" },
   { href: "/patrimonio", icon: Building2, label: "Patrimônio" },
   { href: "/movimentacoes", icon: ArrowLeftRight, label: "Movimentações" },
   { href: "/checkouts", icon: LogOut, label: "Checkouts" },

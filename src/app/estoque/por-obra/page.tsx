@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Building2, Package, Search, TrendingDown, WalletCards } from "lucide-react";
+import { Building2, Package, Search, TrendingDown, TrendingUp, WalletCards } from "lucide-react";
 import { Product, StockMovement } from "@/lib/store";
 import { getMovements, getProducts } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
@@ -24,8 +24,9 @@ type CostCenterStockSummary = {
   currentQuantity: number;
   stockValue: number;
   lowStockCount: number;
+  receivedQuantity: number;
   sentQuantity: number;
-  recentExits: StockMovement[];
+  recentMovements: StockMovement[];
 };
 
 const formatCurrency = (value: number) =>
@@ -36,7 +37,7 @@ const formatCurrency = (value: number) =>
   });
 
 export default function EstoquePorObraPage() {
-  const { currentRole, costCenter } = useAuth();
+  const { currentRole, costCenter, isLoading: isAuthLoading } = useAuth();
   const { costCenters } = useCostCenters();
   const scopedCostCenter = getScopedCostCenter(currentRole, costCenter);
   const [products, setProducts] = useState<Product[]>([]);
@@ -46,6 +47,13 @@ export default function EstoquePorObraPage() {
   const debouncedSearch = useDebounce(searchTerm, 250);
 
   const loadData = useCallback(async (silent = false) => {
+    if (currentRole !== "admin") {
+      setProducts([]);
+      setMovements([]);
+      setIsLoading(false);
+      return;
+    }
+
     if (!silent) setIsLoading(true);
 
     const [stockItems, stockMovements] = await Promise.all([
@@ -56,7 +64,7 @@ export default function EstoquePorObraPage() {
     setProducts(stockItems);
     setMovements(stockMovements);
     if (!silent) setIsLoading(false);
-  }, [scopedCostCenter]);
+  }, [currentRole, scopedCostCenter]);
 
   useEffect(() => {
     loadData();
@@ -96,8 +104,9 @@ export default function EstoquePorObraPage() {
           currentQuantity: 0,
           stockValue: 0,
           lowStockCount: 0,
+          receivedQuantity: 0,
           sentQuantity: 0,
-          recentExits: [],
+          recentMovements: [],
         });
       }
 
@@ -113,19 +122,23 @@ export default function EstoquePorObraPage() {
     });
 
     movements
-      .filter((movement) => movement.type === "saida" && productsById.has(movement.product_id))
+      .filter((movement) => productsById.has(movement.product_id))
       .forEach((movement) => {
         const product = productsById.get(movement.product_id);
         const summary = getSummary(product?.cost_center || movement.cost_center);
-        summary.sentQuantity += movement.quantity || 0;
-        summary.recentExits.push(movement);
+        if (movement.type === "entrada") {
+          summary.receivedQuantity += movement.quantity || 0;
+        } else {
+          summary.sentQuantity += movement.quantity || 0;
+        }
+        summary.recentMovements.push(movement);
       });
 
     return Array.from(summaries.values())
       .filter((summary) => summary.productCount > 0)
       .map((summary) => ({
         ...summary,
-        recentExits: summary.recentExits
+        recentMovements: summary.recentMovements
           .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
           .slice(0, 5),
       }))
@@ -142,14 +155,28 @@ export default function EstoquePorObraPage() {
     return filteredSummaries.reduce(
       (acc, center) => {
         acc.items += center.currentQuantity;
+        acc.received += center.receivedQuantity;
         acc.sent += center.sentQuantity;
         acc.value += center.stockValue;
         acc.low += center.lowStockCount;
         return acc;
       },
-      { items: 0, sent: 0, value: 0, low: 0 }
+      { items: 0, received: 0, sent: 0, value: 0, low: 0 }
     );
   }, [filteredSummaries]);
+
+  if (!isAuthLoading && currentRole !== "admin") {
+    return (
+      <PageTransition>
+        <div className="flex min-h-screen items-center justify-center p-4">
+          <EmptyState
+            title="Acesso restrito"
+            description="O estoque por centro de custo é uma área administrativa."
+          />
+        </div>
+      </PageTransition>
+    );
+  }
 
   return (
     <PageTransition>
@@ -162,9 +189,9 @@ export default function EstoquePorObraPage() {
                   <Building2 className="h-6 w-6" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-foreground">Estoque por obra</h1>
+                  <h1 className="text-xl font-bold text-foreground">Estoque por centro</h1>
                   <p className="text-sm text-muted-foreground">
-                    Itens em estoque, saídas registradas e responsáveis por centro de custo.
+                    Itens em estoque, entradas, saídas e responsáveis por centro de custo.
                   </p>
                 </div>
               </div>
@@ -173,8 +200,9 @@ export default function EstoquePorObraPage() {
               </Badge>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
               <SummaryTile icon={Package} label="Itens em estoque" value={totals.items.toString()} />
+              <SummaryTile icon={TrendingUp} label="Entradas registradas" value={totals.received.toString()} accent="text-emerald-500" />
               <SummaryTile icon={TrendingDown} label="Saídas registradas" value={totals.sent.toString()} accent="text-red-500" />
               <SummaryTile icon={WalletCards} label="Valor em estoque" value={formatCurrency(totals.value)} />
               <SummaryTile icon={Package} label="Itens abaixo do mínimo" value={totals.low.toString()} accent="text-amber-500" />
@@ -197,8 +225,8 @@ export default function EstoquePorObraPage() {
             <CardSkeletonList count={4} />
           ) : filteredSummaries.length === 0 ? (
             <EmptyState
-              title="Nenhum estoque por obra encontrado"
-              description="Cadastre produtos com centro de custo para acompanhar os saldos por obra."
+              title="Nenhum estoque por centro encontrado"
+              description="Cadastre produtos com centro de custo para acompanhar os saldos."
             />
           ) : (
             <StaggerContainer className="grid gap-4 xl:grid-cols-2">
@@ -223,8 +251,9 @@ export default function EstoquePorObraPage() {
                           )}
                         </div>
 
-                        <div className="grid gap-2 sm:grid-cols-3">
+                        <div className="grid gap-2 sm:grid-cols-4">
                           <Metric label="Itens em estoque" value={center.currentQuantity.toString()} />
+                          <Metric label="Entradas" value={center.receivedQuantity.toString()} className="text-emerald-500" />
                           <Metric label="Saídas" value={center.sentQuantity.toString()} className="text-red-500" />
                           <Metric label="Valor" value={formatCurrency(center.stockValue)} />
                         </div>
@@ -232,11 +261,11 @@ export default function EstoquePorObraPage() {
 
                       <div className="border-t border-border/50 bg-muted/10 p-4 lg:border-l lg:border-t-0">
                         <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-primary">
-                          Últimas saídas
+                          Últimas movimentações
                         </p>
-                        {center.recentExits.length > 0 ? (
+                        {center.recentMovements.length > 0 ? (
                           <div className="space-y-3">
-                            {center.recentExits.map((movement) => (
+                            {center.recentMovements.map((movement) => (
                               <div key={movement.id} className="grid grid-cols-[1fr_auto] items-start gap-3 rounded-xl border border-border/40 bg-background/45 p-3 text-sm">
                                 <div className="min-w-0">
                                   <ScrollingText
@@ -250,15 +279,22 @@ export default function EstoquePorObraPage() {
                                     threshold={30}
                                   />
                                 </div>
-                                <Badge variant="outline" className="border-red-500/35 bg-red-500/10 text-red-500">
-                                  -{movement.quantity}
+                                <Badge
+                                  variant="outline"
+                                  className={cn(
+                                    movement.type === "entrada"
+                                      ? "border-emerald-500/35 bg-emerald-500/10 text-emerald-500"
+                                      : "border-red-500/35 bg-red-500/10 text-red-500"
+                                  )}
+                                >
+                                  {movement.type === "entrada" ? "+" : "-"}{movement.quantity}
                                 </Badge>
                               </div>
                             ))}
                           </div>
                         ) : (
                           <p className="rounded-xl border border-dashed border-border/50 p-4 text-sm text-muted-foreground">
-                            Nenhuma saída registrada para este centro.
+                            Nenhuma movimentação registrada para este centro.
                           </p>
                         )}
                       </div>
