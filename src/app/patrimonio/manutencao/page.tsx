@@ -337,7 +337,7 @@ export default function ManutencaoKanbanPage() {
           </Card>
           <Card className="border-border/50 bg-card/60">
             <CardContent className="p-3">
-              <p className="text-xs text-muted-foreground">Em tratativa</p>
+              <p className="text-xs text-muted-foreground">Em andamento</p>
               <p className="mt-1 text-2xl font-bold text-blue-500">{statusTotals.active}</p>
             </CardContent>
           </Card>
