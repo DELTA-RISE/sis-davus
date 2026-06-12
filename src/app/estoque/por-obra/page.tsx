@@ -232,11 +232,11 @@ export default function EstoquePorObraPage() {
               description="Cadastre produtos com centro de custo para acompanhar os saldos."
             />
           ) : (
-            <StaggerContainer className="grid gap-4 xl:grid-cols-2">
+            <StaggerContainer className="grid max-w-5xl gap-4">
               {filteredSummaries.map((center) => (
                 <StaggerItem key={center.id}>
                   <Card className="h-full overflow-hidden border-border/60 bg-card/55">
-                    <CardContent className="grid min-h-[330px] gap-0 p-0 lg:grid-cols-[minmax(300px,0.95fr)_minmax(360px,1.05fr)]">
+                    <CardContent className="grid gap-0 p-0 lg:grid-cols-[minmax(320px,0.9fr)_minmax(420px,1.1fr)]">
                       <div className="flex flex-col justify-between gap-4 border-l-4 border-primary p-4">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
@@ -254,7 +254,7 @@ export default function EstoquePorObraPage() {
                           )}
                         </div>
 
-                        <div className="grid gap-2 sm:grid-cols-2">
+                        <div className="grid gap-2 sm:grid-cols-4 lg:grid-cols-2">
                           <Metric label="Itens em estoque" value={center.currentQuantity.toString()} />
                           <Metric label="Entradas" value={center.receivedQuantity.toString()} className="text-emerald-500" />
                           <Metric label="Saídas" value={center.sentQuantity.toString()} className="text-red-500" />
@@ -262,7 +262,7 @@ export default function EstoquePorObraPage() {
                         </div>
                       </div>
 
-                      <div className="border-t border-border/50 bg-muted/10 p-4 lg:border-l lg:border-t-0">
+                      <div className="min-w-0 border-t border-border/50 bg-muted/10 p-4 lg:border-l lg:border-t-0">
                         <div className="mb-3 flex items-center justify-between gap-3">
                           <p className="text-xs font-semibold uppercase tracking-wide text-primary">
                             Últimas movimentações
@@ -274,17 +274,17 @@ export default function EstoquePorObraPage() {
                         {center.recentMovements.length > 0 ? (
                           <div className="space-y-2">
                             {center.recentMovements.map((movement) => (
-                              <div key={movement.id} className="grid grid-cols-[1fr_auto] items-start gap-3 rounded-xl border border-border/40 bg-background/45 p-3 text-sm">
+                              <div key={movement.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 rounded-xl border border-border/40 bg-background/45 p-3 text-sm">
                                 <div className="min-w-0">
                                   <ScrollingText
                                     text={movement.product_name}
                                     className="font-semibold text-foreground"
-                                    threshold={24}
+                                    threshold={80}
                                   />
                                   <ScrollingText
                                     text={`Responsável: ${(movement.user_name || "Usuário").split("@")[0]}`}
                                     className="text-xs text-muted-foreground"
-                                    threshold={30}
+                                    threshold={80}
                                   />
                                 </div>
                                 <Badge
