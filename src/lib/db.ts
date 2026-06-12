@@ -656,6 +656,20 @@ export const saveMaintenanceTask = async (task: Partial<MaintenanceTask>, userIn
   return result;
 };
 
+export const deleteMaintenanceTask = async (id: string, userInfo?: { name: string, id: string }) => {
+  const success = await remove('maintenance_tasks', id);
+  if (success && userInfo) {
+    await logActivity(
+      "DELETE",
+      "MANUTENCAO",
+      `Tarefa de manutenção (ID: ${id}) excluída por ${userInfo.name}.`,
+      id,
+      userInfo.name
+    );
+  }
+  return success;
+};
+
 // Checkouts
 export const createWriteOffRequest = async (request: Partial<WriteOffRequest>) => {
   return upsert<WriteOffRequest>('write_off_requests', request as WriteOffRequest);
