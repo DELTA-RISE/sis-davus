@@ -142,6 +142,12 @@ export default function ManutencaoKanbanPage() {
   const canOperateMaintenance = Boolean(currentProfile && isMaintenanceResponsible(currentProfile));
 
   const visibleTasks = tasks;
+  const canManageVisibleTask = useCallback(
+    (task: MaintenanceTask) =>
+      canOperateMaintenance &&
+      (!task.assigned_to || canManageMaintenanceTask(currentUserIdentity, task)),
+    [canOperateMaintenance, currentUserIdentity]
+  );
   const statusTotals = useMemo(
     () => ({
       total: visibleTasks.length,
@@ -153,7 +159,7 @@ export default function ManutencaoKanbanPage() {
   );
 
   const handleUpdateStatus = async (task: MaintenanceTask, newStatus: MaintenanceTask["status"]) => {
-    if (!canOperateMaintenance || !canManageMaintenanceTask(currentUserIdentity, task)) {
+    if (!canManageVisibleTask(task)) {
       toast.error("Somente o responsável pela manutenção/matriz pode alterar esta solicitação.");
       return;
     }
@@ -203,7 +209,7 @@ export default function ManutencaoKanbanPage() {
   const handleDeleteTask = async () => {
     if (!taskToDelete) return;
 
-    if (!canOperateMaintenance || !canManageMaintenanceTask(currentUserIdentity, taskToDelete)) {
+    if (!canManageVisibleTask(taskToDelete)) {
       toast.error("Somente o responsável pela manutenção/matriz pode excluir esta solicitação.");
       setTaskToDelete(null);
       return;
@@ -242,7 +248,7 @@ export default function ManutencaoKanbanPage() {
     const statusCfg = statusConfig[task.status] || { label: task.status, color: "bg-slate-500/20 text-slate-400" };
     const { lowestQuote } = getQuoteInfo(task);
     const assignedName = getUserDisplayName(users, task.assigned_to) || "Sem responsável";
-    const canManageTask = canOperateMaintenance && canManageMaintenanceTask(currentUserIdentity, task);
+    const canManageTask = canManageVisibleTask(task);
     const isSavingStatus = savingStatusIds.has(task.id);
     const progress = statusProgress[task.status] || 0;
     const isFinished = completedStatuses.has(task.status);
