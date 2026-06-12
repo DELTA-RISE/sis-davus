@@ -207,9 +207,20 @@ export async function syncTable(table: string, orderColumn: string = 'created_at
       .equals(table)
       .filter((item) => item.action === 'upsert' && item.status !== 'failed')
       .toArray();
+    const queuedDeleteIds = new Set(
+      (await db.sync_queue
+        .where('table')
+        .equals(table)
+        .filter((item) => item.action === 'delete' && item.status !== 'failed' && Boolean(item.payload?.id))
+        .toArray())
+        .map((item) => String(item.payload.id))
+    );
     const queuedPayloads = queuedUpserts
       .map((item) => item.payload)
-      .filter((payload): payload is Record<string, unknown> => Boolean(payload && payload.id));
+      .filter(
+        (payload): payload is Record<string, unknown> =>
+          Boolean(payload && payload.id && !queuedDeleteIds.has(String(payload.id)))
+      );
 
     const { data, error } = await withTimeout(
       supabase
@@ -222,7 +233,9 @@ export async function syncTable(table: string, orderColumn: string = 'created_at
 
     await db.transaction('rw', db.table(table), async () => {
       await db.table(table).clear();
-      await db.table(table).bulkAdd(data);
+      await db.table(table).bulkAdd(
+        (data || []).filter((item: { id?: string }) => !queuedDeleteIds.has(String(item.id)))
+      );
       if (queuedPayloads.length > 0) {
         await db.table(table).bulkPut(queuedPayloads);
       }
@@ -404,6 +417,16 @@ async function remove(table: string, id: string): Promise<boolean> {
 
   // 1. Optimistic Delete (Local)
   try {
+    const pendingUpserts = await db.sync_queue
+      .where('table')
+      .equals(table)
+      .filter((item) => item.action === 'upsert' && item.payload?.id === id)
+      .toArray();
+
+    if (pendingUpserts.length > 0) {
+      await db.sync_queue.bulkDelete(pendingUpserts.map((item) => item.id!).filter(Boolean));
+    }
+
     await tableRef.delete(id);
   } catch (e) { console.warn("Local delete failed", e); }
 
