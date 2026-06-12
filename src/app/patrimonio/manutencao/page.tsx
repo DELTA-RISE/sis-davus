@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -77,6 +78,18 @@ const getQuoteInfo = (task: MaintenanceTask) => {
   return { quotes, lowestQuote };
 };
 
+const statusProgress: Record<MaintenanceTask["status"], number> = {
+  Pendente: 12,
+  "Aguardando Aprovação": 32,
+  "Em Andamento": 58,
+  Aprovado: 72,
+  Rejeitado: 100,
+  Atrasada: 45,
+  Concluída: 100,
+};
+
+const completedStatuses = new Set<MaintenanceTask["status"]>(["Concluída", "Rejeitado"]);
+
 export default function ManutencaoKanbanPage() {
   const { userName, user } = useAuth();
   const [tasks, setTasks] = useState<MaintenanceTask[]>([]);
@@ -125,6 +138,15 @@ export default function ManutencaoKanbanPage() {
   const canOperateMaintenance = Boolean(currentProfile && isMaintenanceResponsible(currentProfile));
 
   const visibleTasks = tasks;
+  const statusTotals = useMemo(
+    () => ({
+      total: visibleTasks.length,
+      waiting: visibleTasks.filter((task) => task.status === "Pendente" || task.status === "Aguardando Aprovação").length,
+      active: visibleTasks.filter((task) => task.status === "Em Andamento" || task.status === "Aprovado" || task.status === "Atrasada").length,
+      finished: visibleTasks.filter((task) => completedStatuses.has(task.status)).length,
+    }),
+    [visibleTasks]
+  );
 
   const handleUpdateStatus = async (task: MaintenanceTask, newStatus: MaintenanceTask["status"]) => {
     if (!canOperateMaintenance || !canManageMaintenanceTask(currentUserIdentity, task)) {
@@ -193,9 +215,11 @@ export default function ManutencaoKanbanPage() {
     const assignedName = getUserDisplayName(users, task.assigned_to) || "Sem responsável";
     const canManageTask = canOperateMaintenance && canManageMaintenanceTask(currentUserIdentity, task);
     const isSavingStatus = savingStatusIds.has(task.id);
+    const progress = statusProgress[task.status] || 0;
+    const isFinished = completedStatuses.has(task.status);
 
     return (
-      <Card className="border-border/50 bg-card">
+      <Card className="overflow-hidden border-border/60 bg-card/70 shadow-sm transition-colors hover:border-primary/30">
         <CardContent className="p-4">
           <Link href={`/patrimonio/detalhes?id=${task.asset_id}`} className="group">
             <p className="font-semibold text-sm truncate group-hover:text-primary transition-colors">{task.title}</p>
@@ -234,29 +258,37 @@ export default function ManutencaoKanbanPage() {
           <div className="mt-3 rounded-xl border border-primary/20 bg-primary/[0.03] p-2.5">
             <div className="mb-2 flex items-center justify-between gap-2">
               <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                {isSavingStatus ? "Salvando..." : "Andamento"}
+                {isSavingStatus ? "Salvando..." : "Status da solicitação"}
               </span>
               <Badge className={`h-5 px-2 text-[10px] ${statusCfg.color}`}>{statusCfg.label}</Badge>
             </div>
-            <Select
-              value={task.status}
-              onValueChange={(value) => handleUpdateStatus(task, value as MaintenanceTask["status"])}
-              disabled={!canManageTask || isSavingStatus}
-            >
-              <SelectTrigger className="h-9 rounded-lg border-border/60 bg-background/70 text-xs font-semibold text-foreground">
-                <SelectValue placeholder="Atualizar status" />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(statusConfig).map(([status, cfg]) => (
-                  <SelectItem key={status} value={status}>
-                    {cfg.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Progress value={progress} className="h-2 bg-background/70" />
+            <div className="mt-2 grid grid-cols-3 gap-2 text-[10px] text-muted-foreground">
+              <span className="truncate">Solicitada</span>
+              <span className="truncate text-center">Em análise</span>
+              <span className="truncate text-right">{isFinished ? "Finalizada" : "Conclusão"}</span>
+            </div>
+            {canManageTask && (
+              <Select
+                value={task.status}
+                onValueChange={(value) => handleUpdateStatus(task, value as MaintenanceTask["status"])}
+                disabled={isSavingStatus}
+              >
+                <SelectTrigger className="h-9 rounded-lg border-border/60 bg-background/70 text-xs font-semibold text-foreground">
+                  <SelectValue placeholder="Atualizar status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(statusConfig).map(([status, cfg]) => (
+                    <SelectItem key={status} value={status}>
+                      {cfg.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             {!canManageTask && (
-              <p className="mt-2 text-[10px] text-muted-foreground">
-                Status liberado apenas para o responsável pela manutenção/matriz.
+              <p className="mt-3 rounded-lg border border-border/40 bg-background/40 px-3 py-2 text-[11px] text-muted-foreground">
+                Acompanhe por aqui. A atualização do andamento é feita somente pelo responsável da manutenção.
               </p>
             )}
           </div>
@@ -277,7 +309,7 @@ export default function ManutencaoKanbanPage() {
                 <h1 className="text-lg font-bold">Manutenções</h1>
                 <Badge variant="outline" className="h-5 px-1.5 gap-1 bg-primary/5"><Zap className="h-2 w-2 text-primary animate-pulse" /> Realtime</Badge>
               </div>
-              <p className="text-xs text-muted-foreground">{visibleTasks.length} tarefas</p>
+              <p className="text-xs text-muted-foreground">{visibleTasks.length} solicitações acompanhadas</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -290,6 +322,33 @@ export default function ManutencaoKanbanPage() {
       </header>
 
       <div className="p-4 bg-background">
+        <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <Card className="border-border/50 bg-card/60">
+            <CardContent className="p-3">
+              <p className="text-xs text-muted-foreground">Solicitações</p>
+              <p className="mt-1 text-2xl font-bold">{statusTotals.total}</p>
+            </CardContent>
+          </Card>
+          <Card className="border-border/50 bg-card/60">
+            <CardContent className="p-3">
+              <p className="text-xs text-muted-foreground">Aguardando análise</p>
+              <p className="mt-1 text-2xl font-bold text-purple-500">{statusTotals.waiting}</p>
+            </CardContent>
+          </Card>
+          <Card className="border-border/50 bg-card/60">
+            <CardContent className="p-3">
+              <p className="text-xs text-muted-foreground">Em tratativa</p>
+              <p className="mt-1 text-2xl font-bold text-blue-500">{statusTotals.active}</p>
+            </CardContent>
+          </Card>
+          <Card className="border-border/50 bg-card/60">
+            <CardContent className="p-3">
+              <p className="text-xs text-muted-foreground">Finalizadas</p>
+              <p className="mt-1 text-2xl font-bold text-emerald-500">{statusTotals.finished}</p>
+            </CardContent>
+          </Card>
+        </div>
+
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-[200px] mb-4 bg-card/50"><SelectValue placeholder="Status" /></SelectTrigger>
           <SelectContent>

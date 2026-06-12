@@ -214,7 +214,7 @@ export default function EstoquePorObraPage() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Buscar obra ou centro de custo..."
+              placeholder="Buscar centro de custo..."
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
               className="h-11 border-border/50 bg-card/50 pl-9"
