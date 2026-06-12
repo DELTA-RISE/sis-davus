@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Bell, Check, Trash2, Package, Building2, Calendar, FileWarning, HardHat } from "lucide-react";
+import { Bell, Package, Building2, Calendar, FileWarning, HardHat } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -10,12 +10,10 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
-    DropdownMenuLabel,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
 import { useNotifications } from "@/hooks/useNotifications";
 
 export function NotificationCenter() {
@@ -24,7 +22,6 @@ export function NotificationCenter() {
         notifications,
         markAsRead,
         markAllAsRead,
-        dismissNotification
     } = useNotifications();
 
     const unreadCount = notifications.filter(n => n.unread).length;
@@ -77,8 +74,10 @@ export function NotificationCenter() {
                                     )}
                                     onSelect={() => {
                                         markAsRead(notif.id);
-                                        if (notif.type === 'write_off_request' || notif.type === 'maintenance_request') {
+                                        if (notif.type === 'write_off_request') {
                                             router.push('/notificacoes');
+                                        } else if (notif.type === 'maintenance_request') {
+                                            router.push('/patrimonio/manutencao');
                                         } else if (notif.type === 'low_stock') {
                                             router.push('/estoque');
                                         } else if (notif.type === 'maintenance') {

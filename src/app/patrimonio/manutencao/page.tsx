@@ -35,7 +35,6 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
 import {
-  canManageMaintenanceTask,
   getUserDisplayName,
   isMaintenanceResponsible,
   matchesUserIdentity,
@@ -92,6 +91,14 @@ const statusProgress: Record<MaintenanceTask["status"], number> = {
 
 const completedStatuses = new Set<MaintenanceTask["status"]>(["Concluída", "Rejeitado"]);
 
+const getApprovalStatusFromStatus = (
+  status: MaintenanceTask["status"]
+): MaintenanceTask["approval_status"] => {
+  if (status === "Rejeitado") return "rejected";
+  if (status === "Pendente" || status.startsWith("Aguardando")) return "pending";
+  return "approved";
+};
+
 export default function ManutencaoKanbanPage() {
   const { userName, user } = useAuth();
   const [tasks, setTasks] = useState<MaintenanceTask[]>([]);
@@ -143,10 +150,8 @@ export default function ManutencaoKanbanPage() {
 
   const visibleTasks = tasks;
   const canManageVisibleTask = useCallback(
-    (task: MaintenanceTask) =>
-      canOperateMaintenance &&
-      (!task.assigned_to || canManageMaintenanceTask(currentUserIdentity, task)),
-    [canOperateMaintenance, currentUserIdentity]
+    (_task: MaintenanceTask) => canOperateMaintenance,
+    [canOperateMaintenance]
   );
   const statusTotals = useMemo(
     () => ({
@@ -168,17 +173,26 @@ export default function ManutencaoKanbanPage() {
 
     const previousStatus = task.status;
     const updatedAt = new Date().toISOString();
+    const updatedTask: MaintenanceTask = {
+      ...task,
+      status: newStatus,
+      approval_status: getApprovalStatusFromStatus(newStatus),
+      updated_at: updatedAt,
+      completed_date: completedStatuses.has(newStatus)
+        ? task.completed_date || updatedAt
+        : undefined,
+    };
 
     setSavingStatusIds((current) => new Set(current).add(task.id));
     setTasks((current) =>
       current.map((item) =>
-        item.id === task.id ? { ...item, status: newStatus, updated_at: updatedAt } : item
+        item.id === task.id ? updatedTask : item
       )
     );
 
     try {
       const updated = await saveMaintenanceTask(
-        { ...task, status: newStatus, updated_at: updatedAt },
+        updatedTask,
         { name: userName, id: user?.id || "" }
       );
 
