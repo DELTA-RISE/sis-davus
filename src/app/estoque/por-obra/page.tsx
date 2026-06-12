@@ -26,6 +26,7 @@ type CostCenterStockSummary = {
   lowStockCount: number;
   receivedQuantity: number;
   sentQuantity: number;
+  movementCount: number;
   recentMovements: StockMovement[];
 };
 
@@ -106,6 +107,7 @@ export default function EstoquePorObraPage() {
           lowStockCount: 0,
           receivedQuantity: 0,
           sentQuantity: 0,
+          movementCount: 0,
           recentMovements: [],
         });
       }
@@ -131,6 +133,7 @@ export default function EstoquePorObraPage() {
         } else {
           summary.sentQuantity += movement.quantity || 0;
         }
+        summary.movementCount += 1;
         summary.recentMovements.push(movement);
       });
 
@@ -140,7 +143,7 @@ export default function EstoquePorObraPage() {
         ...summary,
         recentMovements: summary.recentMovements
           .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-          .slice(0, 5),
+          .slice(0, 4),
       }))
       .sort((a, b) => b.stockValue - a.stockValue);
   }, [products, movements, costCenters]);
@@ -233,8 +236,8 @@ export default function EstoquePorObraPage() {
               {filteredSummaries.map((center) => (
                 <StaggerItem key={center.id}>
                   <Card className="h-full overflow-hidden border-border/60 bg-card/55">
-                    <CardContent className="grid h-full gap-0 p-0 lg:grid-cols-[minmax(280px,0.9fr)_minmax(320px,1.1fr)]">
-                      <div className="space-y-4 border-l-4 border-primary p-4">
+                    <CardContent className="grid min-h-[330px] gap-0 p-0 lg:grid-cols-[minmax(300px,0.95fr)_minmax(360px,1.05fr)]">
+                      <div className="flex flex-col justify-between gap-4 border-l-4 border-primary p-4">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <ScrollingText
@@ -251,7 +254,7 @@ export default function EstoquePorObraPage() {
                           )}
                         </div>
 
-                        <div className="grid gap-2 sm:grid-cols-4">
+                        <div className="grid gap-2 sm:grid-cols-2">
                           <Metric label="Itens em estoque" value={center.currentQuantity.toString()} />
                           <Metric label="Entradas" value={center.receivedQuantity.toString()} className="text-emerald-500" />
                           <Metric label="Saídas" value={center.sentQuantity.toString()} className="text-red-500" />
@@ -260,11 +263,16 @@ export default function EstoquePorObraPage() {
                       </div>
 
                       <div className="border-t border-border/50 bg-muted/10 p-4 lg:border-l lg:border-t-0">
-                        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-primary">
-                          Últimas movimentações
-                        </p>
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                            Últimas movimentações
+                          </p>
+                          <Badge variant="outline" className="shrink-0 border-border/60 bg-background/60 text-[10px]">
+                            {center.movementCount} no total
+                          </Badge>
+                        </div>
                         {center.recentMovements.length > 0 ? (
-                          <div className="space-y-3">
+                          <div className="space-y-2">
                             {center.recentMovements.map((movement) => (
                               <div key={movement.id} className="grid grid-cols-[1fr_auto] items-start gap-3 rounded-xl border border-border/40 bg-background/45 p-3 text-sm">
                                 <div className="min-w-0">
