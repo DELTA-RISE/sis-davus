@@ -3,12 +3,13 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { MaintenanceTask, User as UserType } from "@/lib/store";
-import { getMaintenanceTasks, getUsers, saveMaintenanceTask } from "@/lib/db";
+import { deleteMaintenanceTask, getMaintenanceTasks, getUsers, saveMaintenanceTask } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import {
   Select,
   SelectContent,
@@ -26,6 +27,7 @@ import {
   List,
   Pause,
   PlayCircle,
+  Trash2,
   User,
   Wrench,
   Zap,
@@ -97,6 +99,8 @@ export default function ManutencaoKanbanPage() {
   const [viewMode, setViewMode] = useState<"kanban" | "list">("list");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [savingStatusIds, setSavingStatusIds] = useState<Set<string>>(new Set());
+  const [taskToDelete, setTaskToDelete] = useState<MaintenanceTask | null>(null);
+  const [isDeletingTask, setIsDeletingTask] = useState(false);
 
   const loadData = useCallback(async () => {
     const [maintenanceTasks, userList] = await Promise.all([
@@ -196,6 +200,31 @@ export default function ManutencaoKanbanPage() {
     }
   };
 
+  const handleDeleteTask = async () => {
+    if (!taskToDelete) return;
+
+    if (!canOperateMaintenance || !canManageMaintenanceTask(currentUserIdentity, taskToDelete)) {
+      toast.error("Somente o responsável pela manutenção/matriz pode excluir esta solicitação.");
+      setTaskToDelete(null);
+      return;
+    }
+
+    setIsDeletingTask(true);
+    try {
+      const success = await deleteMaintenanceTask(taskToDelete.id, { name: userName, id: user?.id || "" });
+      if (!success) {
+        toast.error("Erro ao excluir manutenção.");
+        return;
+      }
+
+      setTasks((current) => current.filter((task) => task.id !== taskToDelete.id));
+      toast.success("Manutenção excluída com sucesso.");
+      setTaskToDelete(null);
+    } finally {
+      setIsDeletingTask(false);
+    }
+  };
+
   const columns: { status: MaintenanceTask["status"]; tasks: MaintenanceTask[] }[] = [
     { status: "Pendente", tasks: visibleTasks.filter((task) => task.status === "Pendente") },
     { status: "Em Andamento", tasks: visibleTasks.filter((task) => task.status === "Em Andamento") },
@@ -269,22 +298,34 @@ export default function ManutencaoKanbanPage() {
               <span className="truncate text-right">{isFinished ? "Finalizada" : "Conclusão"}</span>
             </div>
             {canManageTask && (
-              <Select
-                value={task.status}
-                onValueChange={(value) => handleUpdateStatus(task, value as MaintenanceTask["status"])}
-                disabled={isSavingStatus}
-              >
-                <SelectTrigger className="h-9 rounded-lg border-border/60 bg-background/70 text-xs font-semibold text-foreground">
-                  <SelectValue placeholder="Atualizar status" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(statusConfig).map(([status, cfg]) => (
-                    <SelectItem key={status} value={status}>
-                      {cfg.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <Select
+                  value={task.status}
+                  onValueChange={(value) => handleUpdateStatus(task, value as MaintenanceTask["status"])}
+                  disabled={isSavingStatus}
+                >
+                  <SelectTrigger className="h-9 flex-1 rounded-lg border-border/60 bg-background/70 text-xs font-semibold text-foreground">
+                    <SelectValue placeholder="Atualizar status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(statusConfig).map(([status, cfg]) => (
+                      <SelectItem key={status} value={status}>
+                        {cfg.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-9 gap-2 border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  onClick={() => setTaskToDelete(task)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Excluir
+                </Button>
+              </div>
             )}
             {!canManageTask && (
               <p className="mt-3 rounded-lg border border-border/40 bg-background/40 px-3 py-2 text-[11px] text-muted-foreground">
@@ -383,6 +424,17 @@ export default function ManutencaoKanbanPage() {
             ))}
           </div>
         )}
+        <ConfirmDialog
+          open={!!taskToDelete}
+          onOpenChange={(open) => {
+            if (!open && !isDeletingTask) setTaskToDelete(null);
+          }}
+          title="Excluir manutenção"
+          description={`Tem certeza que deseja excluir "${taskToDelete?.title || "esta manutenção"}"? Esta ação não pode ser desfeita.`}
+          onConfirm={handleDeleteTask}
+          confirmText={isDeletingTask ? "Excluindo..." : "Excluir"}
+          variant="destructive"
+        />
       </div>
     </div>
   );
