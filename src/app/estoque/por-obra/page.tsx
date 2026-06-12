@@ -127,7 +127,7 @@ export default function EstoquePorObraPage() {
       .filter((movement) => productsById.has(movement.product_id))
       .forEach((movement) => {
         const product = productsById.get(movement.product_id);
-        const summary = getSummary(product?.cost_center || movement.cost_center);
+        const summary = getSummary(movement.cost_center || product?.cost_center);
         if (movement.type === "entrada") {
           summary.receivedQuantity += movement.quantity || 0;
         } else {
@@ -232,38 +232,38 @@ export default function EstoquePorObraPage() {
               description="Cadastre produtos com centro de custo para acompanhar os saldos."
             />
           ) : (
-            <StaggerContainer className="grid max-w-5xl gap-4">
+            <StaggerContainer className="grid max-w-6xl gap-3">
               {filteredSummaries.map((center) => (
                 <StaggerItem key={center.id}>
-                  <Card className="h-full overflow-hidden border-border/60 bg-card/55">
-                    <CardContent className="grid gap-0 p-0 lg:grid-cols-[minmax(320px,0.9fr)_minmax(420px,1.1fr)]">
-                      <div className="flex flex-col justify-between gap-4 border-l-4 border-primary p-4">
-                        <div className="flex items-start justify-between gap-3">
+                  <Card className="overflow-hidden border-border/60 bg-card/55">
+                    <CardContent className="grid gap-4 border-l-4 border-primary p-4 lg:grid-cols-[220px_330px_minmax(0,1fr)] lg:items-start">
+                      <div className="min-w-0">
+                        <div className="flex items-start justify-between gap-2 lg:block">
                           <div className="min-w-0">
                             <ScrollingText
                               text={center.name}
                               className="text-lg font-bold text-foreground"
                               threshold={20}
                             />
-                            <p className="text-sm text-muted-foreground">{center.productCount} itens cadastrados</p>
+                            <p className="text-xs text-muted-foreground">{center.productCount} itens cadastrados</p>
                           </div>
                           {center.lowStockCount > 0 && (
-                            <Badge variant="destructive" className="shrink-0 text-[11px]">
+                            <Badge variant="destructive" className="mt-0 shrink-0 text-[10px] lg:mt-3">
                               {center.lowStockCount} baixo
                             </Badge>
                           )}
                         </div>
-
-                        <div className="grid gap-2 sm:grid-cols-4 lg:grid-cols-2">
-                          <Metric label="Itens em estoque" value={center.currentQuantity.toString()} />
-                          <Metric label="Entradas" value={center.receivedQuantity.toString()} className="text-emerald-500" />
-                          <Metric label="Saídas" value={center.sentQuantity.toString()} className="text-red-500" />
-                          <Metric label="Valor" value={formatCurrency(center.stockValue)} />
-                        </div>
                       </div>
 
-                      <div className="min-w-0 border-t border-border/50 bg-muted/10 p-4 lg:border-l lg:border-t-0">
-                        <div className="mb-3 flex items-center justify-between gap-3">
+                      <div className="grid gap-2 sm:grid-cols-4 lg:grid-cols-2">
+                        <Metric label="Itens" value={center.currentQuantity.toString()} />
+                        <Metric label="Entradas" value={center.receivedQuantity.toString()} className="text-emerald-500" />
+                        <Metric label="Saídas" value={center.sentQuantity.toString()} className="text-red-500" />
+                        <Metric label="Valor" value={formatCurrency(center.stockValue)} />
+                      </div>
+
+                      <div className="min-w-0 border-t border-border/50 pt-3 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
+                        <div className="mb-2 flex items-center justify-between gap-3">
                           <p className="text-xs font-semibold uppercase tracking-wide text-primary">
                             Últimas movimentações
                           </p>
@@ -272,24 +272,21 @@ export default function EstoquePorObraPage() {
                           </Badge>
                         </div>
                         {center.recentMovements.length > 0 ? (
-                          <div className="space-y-2">
+                          <div className="grid gap-2 sm:grid-cols-2">
                             {center.recentMovements.map((movement) => (
-                              <div key={movement.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 rounded-xl border border-border/40 bg-background/45 p-3 text-sm">
+                              <div key={movement.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-border/40 bg-background/45 px-3 py-2 text-sm">
                                 <div className="min-w-0">
-                                  <ScrollingText
-                                    text={movement.product_name}
-                                    className="font-semibold text-foreground"
-                                    threshold={80}
-                                  />
-                                  <ScrollingText
-                                    text={`Responsável: ${(movement.user_name || "Usuário").split("@")[0]}`}
-                                    className="text-xs text-muted-foreground"
-                                    threshold={80}
-                                  />
+                                  <p className="truncate font-semibold text-foreground" title={movement.product_name}>
+                                    {movement.product_name}
+                                  </p>
+                                  <p className="truncate text-xs text-muted-foreground" title={(movement.user_name || "Usuário").split("@")[0]}>
+                                    {(movement.user_name || "Usuário").split("@")[0]}
+                                  </p>
                                 </div>
                                 <Badge
                                   variant="outline"
                                   className={cn(
+                                    "h-6 shrink-0 px-2 text-[11px]",
                                     movement.type === "entrada"
                                       ? "border-emerald-500/35 bg-emerald-500/10 text-emerald-500"
                                       : "border-red-500/35 bg-red-500/10 text-red-500"
@@ -301,7 +298,7 @@ export default function EstoquePorObraPage() {
                             ))}
                           </div>
                         ) : (
-                          <p className="rounded-xl border border-dashed border-border/50 p-4 text-sm text-muted-foreground">
+                          <p className="rounded-lg border border-dashed border-border/50 p-3 text-sm text-muted-foreground">
                             Nenhuma movimentação registrada para este centro.
                           </p>
                         )}
@@ -346,9 +343,13 @@ function SummaryTile({
 
 function Metric({ label, value, className }: { label: string; value: string; className?: string }) {
   return (
-    <div className="rounded-xl border border-border/40 bg-muted/30 p-3">
-      <ScrollingText text={label} className="text-xs leading-tight text-muted-foreground" threshold={16} />
-      <ScrollingText text={value} className={cn("mt-1 text-base font-bold text-foreground", className)} threshold={7} />
+    <div className="min-w-0 rounded-lg border border-border/40 bg-muted/25 px-3 py-2">
+      <p className="truncate text-[11px] leading-tight text-muted-foreground" title={label}>
+        {label}
+      </p>
+      <p className={cn("mt-0.5 truncate text-sm font-bold text-foreground", className)} title={value}>
+        {value}
+      </p>
     </div>
   );
 }
