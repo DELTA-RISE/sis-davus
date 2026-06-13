@@ -47,6 +47,12 @@ export class SisDavusDB extends Dexie {
         this.version(2).stores({
             maintenance_tasks: 'id, status, priority, due_date, asset_id, approval_status',
         });
+        this.version(3).stores({
+            products: 'id, name, sku, category, cost_center',
+            assets: 'id, name, code, category, location, status, cost_center',
+            stock_movements: 'id, type, product_id, cost_center, date',
+            checkouts: 'id, item_id, user_id, status, checkout_date',
+        });
     }
 }
 
