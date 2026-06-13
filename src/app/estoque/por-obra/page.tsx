@@ -1,14 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Building2, Package, Search, TrendingDown, TrendingUp, WalletCards } from "lucide-react";
 import { Product, StockMovement } from "@/lib/store";
-import { getMovements, getProducts } from "@/lib/db";
+import { syncTable } from "@/lib/db";
+import { db } from "@/lib/dexie-db";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { getScopedCostCenter } from "@/lib/access-scope";
 import { useCostCenters } from "@/hooks/use-queries";
 import { useDebounce } from "@/hooks/useDebounce";
+import { useLiveQuery } from "dexie-react-hooks";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +18,9 @@ import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/EmptyState";
 import { CardSkeletonList } from "@/components/CardSkeleton";
 import { PageTransition, StaggerContainer, StaggerItem } from "@/components/PageTransition";
+
+const EMPTY_PRODUCTS: Product[] = [];
+const EMPTY_MOVEMENTS: StockMovement[] = [];
 
 type CostCenterStockSummary = {
   id: string;
@@ -41,52 +46,63 @@ export default function EstoquePorObraPage() {
   const { currentRole, costCenter, isLoading: isAuthLoading } = useAuth();
   const { costCenters } = useCostCenters();
   const scopedCostCenter = getScopedCostCenter(currentRole, costCenter);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [movements, setMovements] = useState<StockMovement[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const debouncedSearch = useDebounce(searchTerm, 250);
 
-  const loadData = useCallback(async (silent = false) => {
+  const localData = useLiveQuery(async () => {
     if (currentRole !== "admin") {
-      setProducts([]);
-      setMovements([]);
-      setIsLoading(false);
-      return;
+      return { products: [] as Product[], movements: [] as StockMovement[] };
     }
 
-    if (!silent) setIsLoading(true);
+    let productsQuery = db.products.filter((product) => !product.deleted_at);
+    if (scopedCostCenter) {
+      productsQuery = productsQuery.filter((product) => product.cost_center === scopedCostCenter);
+    }
 
     const [stockItems, stockMovements] = await Promise.all([
-      getProducts(false, scopedCostCenter),
-      getMovements(),
+      productsQuery.toArray(),
+      scopedCostCenter
+        ? db.stock_movements.where("cost_center").equals(scopedCostCenter).toArray()
+        : db.stock_movements.toArray(),
     ]);
 
-    setProducts(stockItems);
-    setMovements(stockMovements);
-    if (!silent) setIsLoading(false);
+    return { products: stockItems, movements: stockMovements };
   }, [currentRole, scopedCostCenter]);
 
+  const products = useMemo(() => localData?.products || EMPTY_PRODUCTS, [localData?.products]);
+  const movements = useMemo(() => localData?.movements || EMPTY_MOVEMENTS, [localData?.movements]);
+  const isLoading = isAuthLoading || localData === undefined;
+
   useEffect(() => {
-    loadData();
+    if (currentRole !== "admin") return;
+
+    const refreshLocalCache = () => {
+      void Promise.all([
+        syncTable("products", "name", true),
+        syncTable("stock_movements", "date", false),
+      ]);
+    };
+
+    const timeoutId = window.setTimeout(refreshLocalCache, 250);
 
     const productsChannel = supabase
       .channel("stock-by-cost-center-products")
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .on("postgres_changes" as any, { event: "*", table: "products" }, () => loadData(true))
+      .on("postgres_changes" as any, { event: "*", table: "products" }, refreshLocalCache)
       .subscribe();
 
     const movementsChannel = supabase
       .channel("stock-by-cost-center-movements")
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .on("postgres_changes" as any, { event: "*", table: "stock_movements" }, () => loadData(true))
+      .on("postgres_changes" as any, { event: "*", table: "stock_movements" }, refreshLocalCache)
       .subscribe();
 
     return () => {
+      window.clearTimeout(timeoutId);
       supabase.removeChannel(productsChannel);
       supabase.removeChannel(movementsChannel);
     };
-  }, [loadData]);
+  }, [currentRole]);
 
   const stockByCostCenter = useMemo(() => {
     const summaries = new Map<string, CostCenterStockSummary>();
