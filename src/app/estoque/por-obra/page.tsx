@@ -232,13 +232,13 @@ export default function EstoquePorObraPage() {
               description="Cadastre produtos com centro de custo para acompanhar os saldos."
             />
           ) : (
-            <StaggerContainer className="grid max-w-6xl gap-3">
+            <StaggerContainer className="grid gap-4 2xl:grid-cols-2">
               {filteredSummaries.map((center) => (
                 <StaggerItem key={center.id}>
-                  <Card className="overflow-hidden border-border/60 bg-card/55">
-                    <CardContent className="grid gap-4 border-l-4 border-primary p-4 lg:grid-cols-[220px_330px_minmax(0,1fr)] lg:items-start">
-                      <div className="min-w-0">
-                        <div className="flex items-start justify-between gap-2 lg:block">
+                  <Card className="max-w-[820px] overflow-hidden border-border/60 bg-card/55">
+                    <CardContent className="grid min-h-[270px] p-0 sm:grid-cols-[minmax(260px,0.9fr)_minmax(300px,1.1fr)]">
+                      <div className="flex min-w-0 flex-col justify-between gap-4 border-l-4 border-primary p-4">
+                        <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <ScrollingText
                               text={center.name}
@@ -248,22 +248,22 @@ export default function EstoquePorObraPage() {
                             <p className="text-xs text-muted-foreground">{center.productCount} itens cadastrados</p>
                           </div>
                           {center.lowStockCount > 0 && (
-                            <Badge variant="destructive" className="mt-0 shrink-0 text-[10px] lg:mt-3">
+                            <Badge variant="destructive" className="shrink-0 text-[10px]">
                               {center.lowStockCount} baixo
                             </Badge>
                           )}
                         </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <Metric label="Itens" value={center.currentQuantity.toString()} />
+                          <Metric label="Entradas" value={center.receivedQuantity.toString()} className="text-emerald-500" />
+                          <Metric label="Saídas" value={center.sentQuantity.toString()} className="text-red-500" />
+                          <Metric label="Valor" value={formatCurrency(center.stockValue)} />
+                        </div>
                       </div>
 
-                      <div className="grid gap-2 sm:grid-cols-4 lg:grid-cols-2">
-                        <Metric label="Itens" value={center.currentQuantity.toString()} />
-                        <Metric label="Entradas" value={center.receivedQuantity.toString()} className="text-emerald-500" />
-                        <Metric label="Saídas" value={center.sentQuantity.toString()} className="text-red-500" />
-                        <Metric label="Valor" value={formatCurrency(center.stockValue)} />
-                      </div>
-
-                      <div className="min-w-0 border-t border-border/50 pt-3 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
-                        <div className="mb-2 flex items-center justify-between gap-3">
+                      <div className="min-w-0 border-t border-border/50 bg-muted/10 p-4 sm:border-l sm:border-t-0">
+                        <div className="mb-3 flex items-center justify-between gap-3">
                           <p className="text-xs font-semibold uppercase tracking-wide text-primary">
                             Últimas movimentações
                           </p>
@@ -272,9 +272,9 @@ export default function EstoquePorObraPage() {
                           </Badge>
                         </div>
                         {center.recentMovements.length > 0 ? (
-                          <div className="grid gap-2 sm:grid-cols-2">
+                          <div className="space-y-2">
                             {center.recentMovements.map((movement) => (
-                              <div key={movement.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-border/40 bg-background/45 px-3 py-2 text-sm">
+                              <div key={movement.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-border/40 bg-background/45 px-3 py-2.5 text-sm">
                                 <div className="min-w-0">
                                   <p className="truncate font-semibold text-foreground" title={movement.product_name}>
                                     {movement.product_name}
@@ -343,11 +343,11 @@ function SummaryTile({
 
 function Metric({ label, value, className }: { label: string; value: string; className?: string }) {
   return (
-    <div className="min-w-0 rounded-lg border border-border/40 bg-muted/25 px-3 py-2">
+    <div className="min-w-0 rounded-xl border border-border/40 bg-muted/25 px-3 py-2.5">
       <p className="truncate text-[11px] leading-tight text-muted-foreground" title={label}>
         {label}
       </p>
-      <p className={cn("mt-0.5 truncate text-sm font-bold text-foreground", className)} title={value}>
+      <p className={cn("mt-1 truncate text-base font-bold text-foreground", className)} title={value}>
         {value}
       </p>
     </div>
