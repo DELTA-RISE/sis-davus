@@ -5,6 +5,7 @@ import { UserRole } from "./store";
 import { supabase } from "./supabase";
 import { User as SupabaseUser } from "@supabase/supabase-js";
 import { getProfile, saveUser, logActivity } from "./db";
+import { db } from "./dexie-db";
 import { normalizeRole } from "./roles";
 
 import { getGravatarUrl } from "./gravatar";
@@ -57,7 +58,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setUser(session?.user ?? null);
       if (session?.user) {
-        await fetchProfile(session.user.id);
+        const cachedProfile = await hydrateCachedProfile(session.user.id);
+        if (isMounted) {
+          setIsLoading(false);
+          void fetchProfile(session.user.id, { keepLoading: false });
+          if (!cachedProfile) {
+            setUserName(session.user.email?.split("@")[0] || "Usuário");
+            setEmail(session.user.email || "");
+          }
+        }
       } else {
         setIsLoading(false);
       }
@@ -89,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         if (event === "SIGNED_IN" || event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED" || event === "PASSWORD_RECOVERY") {
-          const profile = await fetchProfile(session.user.id);
+          const profile = await fetchProfile(session.user.id, { keepLoading: event === "SIGNED_IN" && !isSameUser });
 
           if (event === "SIGNED_IN" && profile) {
             await logActivity(
@@ -134,9 +143,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isMounted = false;
       subscription.unsubscribe();
     };
+    // The profile helpers intentionally run as mount-time session bootstrapping.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const fetchProfile = async (userId: string) => {
+  const applyProfile = async (profile: NonNullable<Awaited<ReturnType<typeof getProfile>>>) => {
+    setCurrentRole(normalizeRole(profile.role));
+    setCostCenter(profile.cost_center);
+    setUserName(profile.name);
+    setEmail(profile.email);
+    setMustChangePassword(profile.must_change_password || false);
+    setGravatarEmail(profile.gravatar_email || "");
+    setLockPin(profile.lock_pin || null);
+    const url = await getGravatarUrl(profile.gravatar_email || profile.email);
+    setGravatarUrl(url);
+  };
+
+  const hydrateCachedProfile = async (userId: string) => {
+    try {
+      const cachedProfile = await db.profiles.get(userId);
+      if (!cachedProfile) return null;
+      await applyProfile({ ...cachedProfile, role: normalizeRole(cachedProfile.role) });
+      return cachedProfile;
+    } catch (error) {
+      console.warn("[AuthContext] Failed to hydrate cached profile:", error);
+      return null;
+    }
+  };
+
+  const fetchProfile = async (userId: string, options: { keepLoading?: boolean } = {}) => {
     if (!userId) {
       console.warn("[AuthContext] fetchProfile called with empty userId");
       return null;
@@ -160,15 +195,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(null);
         } else {
           console.log("[AuthContext] Setting user data:", profile.name);
-          setCurrentRole(normalizeRole(profile.role));
-          setCostCenter(profile.cost_center);
-          setUserName(profile.name);
-          setEmail(profile.email);
-          setMustChangePassword(profile.must_change_password || false);
-          setGravatarEmail(profile.gravatar_email || "");
-          setLockPin(profile.lock_pin || null);
-          const url = await getGravatarUrl(profile.gravatar_email || profile.email);
-          setGravatarUrl(url);
+          await db.profiles.put(profile);
+          await applyProfile(profile);
           return profile;
         }
       }
@@ -177,7 +205,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error("[AuthContext] Error in fetchProfile:", error);
       return null;
     } finally {
-      setIsLoading(false);
+      if (options.keepLoading !== false) {
+        setIsLoading(false);
+      }
     }
   };
 

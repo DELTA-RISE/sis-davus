@@ -7,6 +7,7 @@ import { db } from "@/lib/dexie-db";
 import { DateRange } from "react-day-picker";
 import { isWithinInterval, subDays, startOfDay, endOfDay, eachDayOfInterval, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { Checkout, StockMovement } from "@/lib/store";
 
 interface DashboardDataParams {
     role?: string;
@@ -21,11 +22,28 @@ const EMPTY_ARRAY: never[] = [];
 export function useDashboardData({ role, costCenterId, userId, userName, dateRange }: DashboardDataParams = {}) {
     // Trigger Syncs
     useEffect(() => {
-        if (role) {
-            syncTable('products', 'name', true);
-            syncTable('assets', 'name', true);
-            syncTable('stock_movements', 'date', false);
-            syncTable('checkouts', 'checkout_date', false);
+        if (role && typeof window !== "undefined") {
+            const runSync = () => {
+                void Promise.all([
+                    syncTable('products', 'name', true),
+                    syncTable('assets', 'name', true),
+                    syncTable('stock_movements', 'date', false),
+                    syncTable('checkouts', 'checkout_date', false)
+                ]);
+            };
+
+            const win = window as Window & {
+                requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+                cancelIdleCallback?: (id: number) => void;
+            };
+
+            if (win.requestIdleCallback && win.cancelIdleCallback) {
+                const idleId = win.requestIdleCallback(runSync, { timeout: 2000 });
+                return () => win.cancelIdleCallback?.(idleId);
+            }
+
+            const timeoutId = globalThis.setTimeout(runSync, 250);
+            return () => globalThis.clearTimeout(timeoutId);
         }
     }, [role]);
 
@@ -47,21 +65,28 @@ export function useDashboardData({ role, costCenterId, userId, userName, dateRan
             assetsQuery = assetsQuery.filter(a => a.cost_center === costCenterId);
         }
 
-        const [products, assets, allMovements, allCheckouts] = await Promise.all([
+        const [products, assets] = await Promise.all([
             productsQuery.toArray(),
             assetsQuery.toArray(),
-            db.stock_movements.toArray(),
+        ]);
+
+        const visibleProductIds = new Set(products.map(p => p.id));
+        const visibleAssetIds = new Set(assets.map(a => a.id));
+        const [allMovements, allCheckouts] = await Promise.all([
+            costCenterId
+                ? db.stock_movements
+                    .where('cost_center')
+                    .equals(costCenterId)
+                    .toArray()
+                : db.stock_movements.toArray(),
             db.checkouts.toArray()
         ]);
 
-        // Post-filter movements based on visible products?
-        // Or if we want to be strict, we need to join.
-        // For dashboard speed, let's filter movements that relate to the visible products.
-        const visibleProductIds = new Set(products.map(p => p.id));
-        const movements = allMovements.filter(m => visibleProductIds.has(m.product_id));
+        const movements = (allMovements as StockMovement[]).filter(m =>
+            visibleProductIds.has(m.product_id) ||
+            Boolean(costCenterId && m.cost_center === costCenterId)
+        );
 
-        // Checkouts: filter by asset_id (if asset) or item_id (if product)
-        const visibleAssetIds = new Set(assets.map(a => a.id));
         const checkouts = allCheckouts.filter(c => {
             const belongsToCurrentUser =
                 Boolean(userId && c.user_id === userId) ||
@@ -71,7 +96,7 @@ export function useDashboardData({ role, costCenterId, userId, userName, dateRan
             // if c.item_type === 'product' // Checkouts usually only assets in this system?
             // Interface says item_type: 'product' | 'asset'.
             return visibleProductIds.has(c.item_id); // Fallback
-        });
+        }) as Checkout[];
 
 
         return { products, assets, movements, checkouts };

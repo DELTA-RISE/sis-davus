@@ -24,6 +24,7 @@ const allMenuItems = [
   { href: "/admin/usuarios", icon: Users, label: "Gestão de Usuários", description: "Gerenciar acessos", category: "admin", color: "bg-purple-500/20 text-purple-500" },
   { href: "/admin/centros-custo", icon: Briefcase, label: "Centros de Custo", description: "Gerenciar centros", category: "admin", color: "bg-amber-500/20 text-amber-500" },
   { href: "/admin/locais", icon: MapPin, label: "Locais de Armazenamento", description: "Pontos de armazenamento", category: "admin", color: "bg-green-500/20 text-green-500" },
+  { href: "/estoque/por-obra", icon: Briefcase, label: "Estoque por Centro", description: "Resumo por centro de custo", category: "admin", color: "bg-orange-500/20 text-orange-500" },
   { href: "/estoque", icon: Package, label: "Estoque", description: "Controle de produtos", category: "gestor", color: "bg-primary/20 text-primary" },
   { href: "/patrimonio", icon: Building2, label: "Patrimônio", description: "Gestão de bens", category: "gestor", color: "bg-chart-5/20 text-chart-5" },
   { href: "/movimentacoes", icon: ArrowLeftRight, label: "Movimentações", description: "Entrada e saída", category: "gestor", color: "bg-green-500/20 text-green-500" },

@@ -426,33 +426,33 @@ export default function DashboardPage() {
                     Ver todas <ChevronRight className="h-3 w-3" />
                   </Link>
                 </div>
-                <div className="space-y-2">
+                <div className="overflow-hidden rounded-xl border border-border/50 bg-card/40 backdrop-blur-sm">
                   {recentMovements.map((movement) => (
-                    <Card key={movement.id} className="border-border/50 bg-card/40 backdrop-blur-sm hover:bg-card/60 transition-colors">
-                      <CardContent className="p-3 flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${movement.type === "entrada" ? "bg-green-500/20" : "bg-red-500/20"
+                    <Card key={movement.id} className="rounded-none border-0 border-b border-border/45 bg-transparent shadow-none last:border-b-0 hover:bg-card/60 transition-colors">
+                      <CardContent className="px-3 py-2.5 flex items-center gap-3">
+                        <div className={`w-8 h-8 shrink-0 rounded-lg flex items-center justify-center ${movement.type === "entrada" ? "bg-emerald-500/15" : "bg-red-500/15"
                           }`}>
-                          <TrendingUp className={`h-4 w-4 ${movement.type === "entrada" ? "text-green-500" : "text-red-500 rotate-180"
+                          <TrendingUp className={`h-4 w-4 ${movement.type === "entrada" ? "text-emerald-500" : "text-red-500 rotate-180"
                             }`} />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{movement.product_name}</p>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                            <span>{movement.reason}</span>
-                            <span className="text-border mx-[-2px]">|</span>
+                          <p className="text-sm font-semibold truncate">{movement.product_name}</p>
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
+                            <span className="truncate max-w-[180px]">{movement.reason}</span>
+                            <span className="text-border">•</span>
                             <div className="flex items-center gap-1.5" title={`Por: ${movement.user_name || movement.user_id}`}>
                               <Avatar className="h-4 w-4">
                                 <AvatarFallback className="text-[8px] bg-primary/10 text-primary">
                                   {(movement.user_name || movement.user_id || "?").substring(0, 1).toUpperCase()}
                                 </AvatarFallback>
                               </Avatar>
-                              <span className="truncate max-w-[80px] hidden sm:inline-block">
+                              <span className="truncate max-w-[120px] hidden sm:inline-block">
                                 {movement.user_name || "Usuário"}
                               </span>
                             </div>
                           </div>
                         </div>
-                        <Badge variant="outline" className={`text-xs ${movement.type === "entrada" ? "border-green-500 text-green-500" : "border-red-500 text-red-500"
+                        <Badge variant="outline" className={`h-7 min-w-10 justify-center px-2 text-xs ${movement.type === "entrada" ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-500" : "border-red-500/40 bg-red-500/10 text-red-500"
                           }`}>
                           {movement.type === "entrada" ? "+" : "-"}{movement.quantity}
                         </Badge>

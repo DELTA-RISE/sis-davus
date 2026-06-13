@@ -14,6 +14,7 @@ import {
   Wrench,
   Shield,
   HardHat,
+  Briefcase,
   LucideIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -71,6 +72,7 @@ export function BottomNav() {
 
   const ferramentasAdmin: SubMenuItem[] = [
     ...ferramentasGestor,
+    { href: "/estoque/por-obra", icon: Briefcase, label: "Estoque por Centro" },
     { href: "/admin/hub", icon: Shield, label: "Hub Admin" },
   ];
 
