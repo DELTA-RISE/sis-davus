@@ -60,6 +60,30 @@ const actionColors: Record<string, string> = {
   RESTORE: "bg-teal-500/20 text-teal-500",
 };
 
+const detailsTextKeys = ["value", "message", "description", "detail", "name", "reason"];
+
+function formatLogDetails(details: AuditLog["details"]) {
+  if (!details) return "Sem detalhes registrados.";
+  if (typeof details === "string") return details;
+
+  for (const key of detailsTextKeys) {
+    const value = details[key];
+    if (typeof value === "string" && value.trim()) return value;
+  }
+
+  const readableEntries = Object.entries(details)
+    .filter(([key, value]) => key !== "device" && value !== null && value !== undefined && typeof value !== "object")
+    .map(([key, value]) => `${key}: ${String(value)}`);
+
+  return readableEntries.length > 0 ? readableEntries.join(" • ") : "Detalhes técnicos disponíveis.";
+}
+
+function formatRawDetails(details: AuditLog["details"]) {
+  if (!details) return "N/A";
+  if (typeof details === "string") return details;
+  return JSON.stringify(details, null, 2);
+}
+
 export default function AuditLogsPage() {
   const { userName, user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
@@ -77,8 +101,9 @@ export default function AuditLogsPage() {
   }, []);
 
   const filteredLogs = logs.filter((log) => {
+    const detailText = formatLogDetails(log.details).toLowerCase();
     const matchesSearch =
-      (typeof log.details === 'string' ? log.details : JSON.stringify(log.details))?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      detailText.includes(searchTerm.toLowerCase()) ||
       log.user_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       log.resource?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesAction = actionFilter === "all" || log.action === actionFilter;
@@ -197,7 +222,7 @@ export default function AuditLogsPage() {
                           {log.resource}
                         </Badge>
                       </div>
-                      <p className="text-sm font-medium truncate">{typeof log.details === 'string' ? log.details : JSON.stringify(log.details)}</p>
+                      <p className="text-sm font-medium line-clamp-2 text-foreground/95">{formatLogDetails(log.details)}</p>
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <UserIcon className="h-3 w-3" />
@@ -244,7 +269,7 @@ export default function AuditLogsPage() {
                 <div className="space-y-3 text-sm">
                   <div className="grid grid-cols-[100px_1fr] gap-2">
                     <span className="text-muted-foreground">Descrição:</span>
-                    <span className="font-medium break-words whitespace-pre-wrap">{typeof selectedLog.details === 'string' ? selectedLog.details : JSON.stringify(selectedLog.details, null, 2)}</span>
+                    <span className="font-medium break-words whitespace-pre-wrap">{formatLogDetails(selectedLog.details)}</span>
                   </div>
                   <div className="grid grid-cols-[100px_1fr] gap-2">
                     <span className="text-muted-foreground">Usuário:</span>
@@ -263,6 +288,10 @@ export default function AuditLogsPage() {
                     <span className="font-medium flex items-center gap-1">
                       <Monitor className="h-3 w-3" /> {selectedLog.ip_address || "Não registrado"}
                     </span>
+                  </div>
+                  <div className="border-t border-border/50 my-2 pt-2">
+                    <p className="text-xs font-semibold text-muted-foreground mb-1">Dados brutos</p>
+                    <span className="font-mono break-all whitespace-pre-wrap block text-xs rounded-lg border border-border/50 bg-muted/20 p-2">{formatRawDetails(selectedLog.details)}</span>
                   </div>
                   <div className="border-t border-border/50 my-2 pt-2">
                     <p className="text-xs font-semibold text-muted-foreground mb-1">User Agent</p>

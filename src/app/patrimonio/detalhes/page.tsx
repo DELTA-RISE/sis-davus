@@ -13,6 +13,7 @@ import {
   saveAssetTimeline,
   saveCheckout,
   saveMaintenanceTask,
+  getUsers,
 
   getCostCenters,
 } from "@/lib/db";
@@ -44,7 +45,6 @@ import {
 import {
   Building2,
   ArrowLeft,
-  MapPin,
   User as UserIcon,
   Calendar,
   DollarSign,
@@ -68,6 +68,7 @@ import { QRCodeCanvas } from "qrcode.react";
 import { toast } from "sonner";
 import { UserSelect } from "@/components/UserSelect";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { findMaintenanceResponsible } from "@/lib/maintenance-responsibility";
 
 const conditionColors: Record<string, string> = {
   Excelente: "bg-green-500/20 text-green-500 border-green-500/30",
@@ -220,6 +221,12 @@ export default function AssetHubPage() {
 
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + 7);
+    const maintenanceResponsible = findMaintenanceResponsible(await getUsers(false));
+
+    if (!maintenanceResponsible) {
+      toast.error("Defina o responsável pela manutenção/matriz antes de abrir manutenção automática.");
+      return;
+    }
 
     await saveMaintenanceTask({
       title: `Manutenção - ${targetAsset.name}`,
@@ -230,9 +237,9 @@ export default function AssetHubPage() {
       due_date: dueDate.toISOString().slice(0, 10),
       priority: "media",
       status: "Pendente",
-      assigned_to: targetAsset.assigned_to,
-      cost: 0,
       created_by: user?.id,
+      assigned_to: maintenanceResponsible.id,
+      cost: 0,
       steps_data: [
         {
           id: "1",
@@ -656,16 +663,12 @@ export default function AssetHubPage() {
                 </CardContent>
               </Card>
               <Card className="border-border/50 bg-card/50">
-                <CardContent className="p-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Local Atual</p>
-                      <p className="text-sm font-medium flex items-center gap-1 truncate">
-                        <MapPin className="h-3 w-3" />
-                        {asset.location}
-                      </p>
+                <CardContent className="p-4 h-full flex items-center">
+                  <div className="flex items-center gap-3 w-full min-w-0">
+                    <div className="w-10 h-10 rounded-xl bg-orange-500/20 flex items-center justify-center shrink-0">
+                      <Building2 className="h-5 w-5 text-orange-500" />
                     </div>
-                    <div className="space-y-1">
+                    <div className="min-w-0">
                       <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Centro de Custo</p>
                       <p className="text-sm font-medium truncate">{currentCostCenterName}</p>
                     </div>
@@ -774,7 +777,7 @@ export default function AssetHubPage() {
                     Nenhum evento registrado
                   </p>
                 ) : (
-                  <div className="relative">
+                  <div className="relative max-h-[420px] overflow-y-auto overflow-x-hidden pr-2">
                     <div className="absolute left-4 top-4 bottom-4 w-px bg-gradient-to-b from-transparent via-primary/25 to-transparent dark:via-white/10" />
                     <div className="space-y-4">
                       {timeline.slice(0, 5).map((event) => {
@@ -789,8 +792,8 @@ export default function AssetHubPage() {
                               <Icon className="h-4 w-4" />
                             </div>
                             <div className="flex-1 min-w-0 pt-1">
-                              <p className="text-sm font-medium">{event.title}</p>
-                              <p className="text-xs text-muted-foreground">{event.description}</p>
+                              <p className="text-sm font-medium break-words">{event.title}</p>
+                              <p className="text-xs text-muted-foreground break-words">{event.description}</p>
                               {event.image_url && (
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img
@@ -799,10 +802,10 @@ export default function AssetHubPage() {
                                   className="mt-2 h-16 w-24 rounded-md object-cover border border-border/60"
                                 />
                               )}
-                              <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
                                 <span>{new Date(event.date).toLocaleDateString("pt-BR")}</span>
                                 <span>•</span>
-                                <span>{event.user_name}</span>
+                                <span className="min-w-0 break-words">{event.user_name}</span>
                               </div>
                             </div>
                           </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -22,11 +22,12 @@ import {
 } from "@/components/ui/dialog";
 
 import { getReadNotifications, saveReadNotifications, getDismissedNotifications } from "@/lib/localStorage";
-import { getProducts, getAssets, getWriteOffRequests, getMaintenanceTasks } from "@/lib/db";
-import { Product, Asset } from "@/lib/store";
+import { getWriteOffRequests, getMaintenanceTasks, syncTable } from "@/lib/db";
 import { cn } from "@/lib/utils";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { DialogTitle } from "@/components/ui/dialog";
+import { useLiveQuery } from "dexie-react-hooks";
+import { db } from "@/lib/dexie-db";
 
 interface Notification {
   id: string;
@@ -57,16 +58,30 @@ export function DesktopTopBar() {
   const inputRef = useRef<HTMLInputElement>(null);
   const prevUnreadCountRef = useRef(0);
 
-  const [products, setProducts] = useState<Product[]>([]);
-  const [assets, setAssets] = useState<Asset[]>([]);
+  const liveData = useLiveQuery(async () => {
+    const [products, assets] = await Promise.all([
+      db.products.orderBy("name").toArray(),
+      db.assets.orderBy("name").toArray(),
+    ]);
+
+    return {
+      products: products.filter((product) => !product.deleted_at),
+      assets: assets.filter((asset) => !asset.deleted_at),
+    };
+  }, []);
+
+  const products = useMemo(() => liveData?.products || [], [liveData?.products]);
+  const assets = useMemo(() => liveData?.assets || [], [liveData?.assets]);
 
   useEffect(() => {
-    const fetchData = async () => {
-      const [p, a] = await Promise.all([getProducts(), getAssets()]);
-      setProducts(p);
-      setAssets(a);
-    };
-    fetchData();
+    const timeoutId = window.setTimeout(() => {
+      void Promise.all([
+        syncTable("products", "name", true),
+        syncTable("assets", "name", true),
+      ]);
+    }, 500);
+
+    return () => window.clearTimeout(timeoutId);
   }, []);
 
   useEffect(() => {

@@ -112,6 +112,45 @@ function withPersistenceStatus<T extends object>(
   };
 }
 
+function sanitizeRemotePayload<T>(table: string, item: Partial<T>): Partial<T> {
+  const baseEntries = Object.entries(item as Record<string, unknown>)
+    .filter(([key]) => !key.startsWith('__'));
+
+  if (table !== 'maintenance_tasks') {
+    return Object.fromEntries(baseEntries) as Partial<T>;
+  }
+
+  const allowedMaintenanceColumns = new Set([
+    'id',
+    'title',
+    'description',
+    'asset_id',
+    'asset_name',
+    'asset_code',
+    'due_date',
+    'status',
+    'priority',
+    'assigned_to',
+    'cost',
+    'steps_data',
+    'approval_status',
+    'rejection_reason',
+    'created_by',
+    'manager_signature',
+    'manager_signed_at',
+    'approved_by',
+    'admin_signature',
+    'admin_signed_at',
+    'completed_date',
+    'created_at',
+    'updated_at',
+  ]);
+
+  return Object.fromEntries(
+    baseEntries.filter(([key]) => allowedMaintenanceColumns.has(key))
+  ) as Partial<T>;
+}
+
 async function withTimeout<T>(promise: PromiseLike<T>, timeoutMs: number = TIMEOUT_MS): Promise<T> {
   let timeoutId: NodeJS.Timeout;
   const timeoutPromise = new Promise<T>((_, reject) => {
@@ -168,9 +207,20 @@ export async function syncTable(table: string, orderColumn: string = 'created_at
       .equals(table)
       .filter((item) => item.action === 'upsert' && item.status !== 'failed')
       .toArray();
+    const queuedDeleteIds = new Set(
+      (await db.sync_queue
+        .where('table')
+        .equals(table)
+        .filter((item) => item.action === 'delete' && item.status !== 'failed' && Boolean(item.payload?.id))
+        .toArray())
+        .map((item) => String(item.payload.id))
+    );
     const queuedPayloads = queuedUpserts
       .map((item) => item.payload)
-      .filter((payload): payload is Record<string, unknown> => Boolean(payload && payload.id));
+      .filter(
+        (payload): payload is Record<string, unknown> =>
+          Boolean(payload && payload.id && !queuedDeleteIds.has(String(payload.id)))
+      );
 
     const { data, error } = await withTimeout(
       supabase
@@ -183,7 +233,9 @@ export async function syncTable(table: string, orderColumn: string = 'created_at
 
     await db.transaction('rw', db.table(table), async () => {
       await db.table(table).clear();
-      await db.table(table).bulkAdd(data);
+      await db.table(table).bulkAdd(
+        (data || []).filter((item: { id?: string }) => !queuedDeleteIds.has(String(item.id)))
+      );
       if (queuedPayloads.length > 0) {
         await db.table(table).bulkPut(queuedPayloads);
       }
@@ -243,21 +295,25 @@ async function getAllFiltered<T>(
 
 async function upsert<T extends { id?: string }>(table: string, item: Partial<T>): Promise<Persisted<T> | null> {
   const tableRef = db.table(table);
-  const localItem = item as Partial<T>;
-  const remoteItem = Object.fromEntries(
-    Object.entries(item).filter(([key]) => !key.startsWith('__'))
-  ) as Partial<T>;
+  let localItem = item as Partial<T>;
 
   // 1. Optimistic Update (Local)
   try {
     if (!localItem.id) {
       localItem.id = crypto.randomUUID();
     }
-    remoteItem.id = localItem.id;
+    if (table === 'maintenance_tasks') {
+      const existingLocal = await tableRef.get(localItem.id);
+      if (existingLocal) {
+        localItem = { ...existingLocal, ...localItem };
+      }
+    }
     await tableRef.put(localItem);
   } catch (e) {
     console.warn("Local update failed", e);
   }
+
+  const remoteItem = sanitizeRemotePayload(table, localItem);
 
   // 2. Offline Handling
   if (!isOnline()) {
@@ -278,7 +334,7 @@ async function upsert<T extends { id?: string }>(table: string, item: Partial<T>
     if (error) throw error;
 
     // Update local with confirmed server data (e.g. correct ID, timestamps)
-    await tableRef.put(data);
+    await tableRef.put(table === 'maintenance_tasks' ? { ...data, ...localItem } : data);
 
     return withPersistenceStatus(data as T, 'synced');
   } catch (err) {
@@ -361,6 +417,16 @@ async function remove(table: string, id: string): Promise<boolean> {
 
   // 1. Optimistic Delete (Local)
   try {
+    const pendingUpserts = await db.sync_queue
+      .where('table')
+      .equals(table)
+      .filter((item) => item.action === 'upsert' && item.payload?.id === id)
+      .toArray();
+
+    if (pendingUpserts.length > 0) {
+      await db.sync_queue.bulkDelete(pendingUpserts.map((item) => item.id!).filter(Boolean));
+    }
+
     await tableRef.delete(id);
   } catch (e) { console.warn("Local delete failed", e); }
 
@@ -591,39 +657,13 @@ export const saveMovement = async (movement: Partial<StockMovement>, userInfo?: 
 
 // Maintenance
 export const getMaintenanceTasks = async (assetId?: string, forceRefresh = false) => {
-  // Offline / Dexie
-  if (!isOnline()) {
-    const tasks = await getAll<MaintenanceTask>('maintenance_tasks', 'due_date', true, forceRefresh);
-
-    let filtered = tasks;
-    if (assetId) {
-      filtered = filtered.filter(t => t.asset_id === assetId);
-    }
-
-    return filtered;
-  }
-
-  // Online / Supabase
-  let query = supabase.from('maintenance_tasks').select('*').order('due_date', { ascending: true });
+  const tasks = await getAll<MaintenanceTask>('maintenance_tasks', 'due_date', true, forceRefresh);
 
   if (assetId) {
-    query = query.eq('asset_id', assetId);
+    return tasks.filter(t => t.asset_id === assetId);
   }
 
-  try {
-    const { data, error } = await withTimeout(query);
-    if (error) {
-      console.error("Error fetching maintenance tasks:", error);
-      // Fallback or empty? 
-      // If error is PGRST204 (inner join failed?), it might be 406 or something.
-      // If we are strictly filtering for security/visibility, returning empty on error is safer.
-      return [];
-    }
-    return data as unknown as MaintenanceTask[];
-  } catch (error) {
-    console.error("Exception fetching maintenance tasks:", error);
-    return [];
-  }
+  return tasks;
 };
 export const saveMaintenanceTask = async (task: Partial<MaintenanceTask>, userInfo?: { name: string, id: string }) => {
   const result = await upsert<MaintenanceTask>('maintenance_tasks', task as MaintenanceTask);
@@ -637,6 +677,20 @@ export const saveMaintenanceTask = async (task: Partial<MaintenanceTask>, userIn
     );
   }
   return result;
+};
+
+export const deleteMaintenanceTask = async (id: string, userInfo?: { name: string, id: string }) => {
+  const success = await remove('maintenance_tasks', id);
+  if (success && userInfo) {
+    await logActivity(
+      "DELETE",
+      "MANUTENCAO",
+      `Tarefa de manutenção (ID: ${id}) excluída por ${userInfo.name}.`,
+      id,
+      userInfo.name
+    );
+  }
+  return success;
 };
 
 // Checkouts

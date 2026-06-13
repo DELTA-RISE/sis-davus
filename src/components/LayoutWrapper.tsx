@@ -41,6 +41,15 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
     }
   }, [user, isLoading, isPublicPage, isLoginPage, isWikiPage, isChangePasswordPage, mustChangePassword, router]);
 
+  useEffect(() => {
+    if (isPublicPage || isLoginPage || isTVMode || isChangePasswordPage || isWikiPage) return;
+
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      document.querySelector("main")?.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    });
+  }, [pathname, isPublicPage, isLoginPage, isTVMode, isChangePasswordPage, isWikiPage]);
+
   if (isPublicPage || isLoginPage || isTVMode || isChangePasswordPage || isWikiPage) {
     return (
       <div className="relative">

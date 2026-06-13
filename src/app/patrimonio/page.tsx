@@ -2,9 +2,8 @@
 
 import { useState, useCallback, useMemo, useEffect } from "react";
 import Link from "next/link";
-import { Asset, Category } from "@/lib/store";
+import { Asset } from "@/lib/store";
 import {
-  getCategories,
   isPendingSync,
   saveAsset,
   deleteAsset,
@@ -12,6 +11,7 @@ import {
   saveAssetTimeline,
   getMaintenanceTasks,
   saveMaintenanceTask,
+  getUsers,
 } from "@/lib/db";
 import { requestWriteOff } from "@/actions/write-off";
 import { db } from "@/lib/dexie-db";
@@ -87,6 +87,7 @@ import {
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { ImageUpload } from "@/components/ui/image-upload"; // Imported component
+import { findMaintenanceResponsible } from "@/lib/maintenance-responsibility";
 
 const conditionColors: Record<string, string> = {
   Excelente: "bg-green-500/20 text-green-500 border-green-500/30",
@@ -114,6 +115,7 @@ function deriveAssetStatus(asset: Partial<Asset>, condition: Asset["condition"])
   if (asset.status === "Em Manutenção") return "Disponível";
   return asset.status || "Disponível";
 }
+
 const openMaintenanceStatuses = new Set([
   "Pendente",
   "Em Andamento",
@@ -158,6 +160,7 @@ export default function PatrimonioPage() {
   const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+  const [assetToDelete, setAssetToDelete] = useState<Asset | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [newAsset, setNewAsset] = useState<Partial<Asset>>({
@@ -307,6 +310,12 @@ export default function PatrimonioPage() {
 
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + 7);
+    const maintenanceResponsible = findMaintenanceResponsible(await getUsers(false));
+
+    if (!maintenanceResponsible) {
+      toast.error("Defina o responsável pela manutenção/matriz antes de abrir manutenção automática.");
+      return;
+    }
 
     await saveMaintenanceTask({
       title: `Manutenção - ${asset.name}`,
@@ -319,9 +328,9 @@ export default function PatrimonioPage() {
       due_date: dueDate.toISOString().slice(0, 10),
       priority: "media",
       status: "Pendente",
-      assigned_to: asset.assigned_to,
-      cost: 0,
       created_by: user?.id,
+      assigned_to: maintenanceResponsible.id,
+      cost: 0,
       steps_data: [
         {
           id: "1",
@@ -598,6 +607,41 @@ export default function PatrimonioPage() {
     setSelectedIds(prev =>
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
     );
+  };
+
+  const handleDeleteAsset = (e: React.MouseEvent, asset: Asset) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setAssetToDelete(asset);
+  };
+
+  const confirmDeleteAsset = async () => {
+    if (!assetToDelete) return;
+
+    const activeTasks = await db.maintenance_tasks
+      .where('asset_id')
+      .equals(assetToDelete.id)
+      .filter((task) => (task.status as string) !== 'Concluída' && (task.status as string) !== 'Concluida')
+      .count();
+
+    if (activeTasks > 0) {
+      toast.warning(`Não é possível excluir "${assetToDelete.name}". Existem manutenções pendentes.`, {
+        duration: 5000,
+      });
+      setAssetToDelete(null);
+      return;
+    }
+
+    const success = await deleteAsset(assetToDelete.id, { name: userName, id: user?.id || "" });
+
+    if (!success) {
+      toast.error("Erro ao excluir patrimônio.");
+      return;
+    }
+
+    setSelectedIds((current) => current.filter((id) => id !== assetToDelete.id));
+    toast.success(`Patrimônio "${assetToDelete.name}" excluído com sucesso.`);
+    setAssetToDelete(null);
   };
 
   const bulkDelete = async () => {
@@ -1046,10 +1090,19 @@ export default function PatrimonioPage() {
                             <p className="text-sm font-semibold">R$ {(asset.value || 0).toLocaleString("pt-BR", { minimumFractionDigits: 0 })}</p>
                             <div className="flex items-center gap-1">
                               <Button variant="ghost" size="sm" onClick={(e) => handleEdit(e, asset)} className="h-7 w-7 p-0"><Edit className="h-4 w-4" /></Button>
-                              <Button asChild variant="ghost" size="sm" className="h-7 w-7 p-0" title="Movimentar Patrimônio">
+                              <Button asChild variant="ghost" size="sm" className="h-7 w-7 p-0" title="Ver dados gerais">
                                 <Link href={`/patrimonio/detalhes?id=${asset.id}`}>
                                   <ArrowLeftRight className="h-4 w-4" />
                                 </Link>
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => handleDeleteAsset(e, asset)}
+                                className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                title="Excluir patrimônio"
+                              >
+                                <Trash2 className="h-4 w-4" />
                               </Button>
                               {(currentRole === 'gestor' || currentRole === 'manager') && (
                                 <Button variant="ghost" size="sm" onClick={(e) => handleOpenWriteOff(e, asset)} className="h-7 w-7 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50" title="Solicitar Baixa">
@@ -1069,6 +1122,17 @@ export default function PatrimonioPage() {
 
           <InfiniteScrollLoader ref={loaderRef} hasMore={hasMore} />
         </div>
+        <ConfirmDialog
+          open={!!assetToDelete}
+          onOpenChange={(open) => {
+            if (!open) setAssetToDelete(null);
+          }}
+          title="Excluir Patrimônio"
+          description={`Tem certeza que deseja excluir "${assetToDelete?.name || "este patrimônio"}"? Esta ação não pode ser desfeita.`}
+          onConfirm={confirmDeleteAsset}
+          confirmText="Excluir"
+          variant="destructive"
+        />
         <ConfirmDialog
           open={isBulkDeleteOpen}
           onOpenChange={setIsBulkDeleteOpen}
