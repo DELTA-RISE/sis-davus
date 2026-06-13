@@ -160,6 +160,7 @@ export default function PatrimonioPage() {
   const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+  const [assetToDelete, setAssetToDelete] = useState<Asset | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [newAsset, setNewAsset] = useState<Partial<Asset>>({
@@ -606,6 +607,41 @@ export default function PatrimonioPage() {
     setSelectedIds(prev =>
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
     );
+  };
+
+  const handleDeleteAsset = (e: React.MouseEvent, asset: Asset) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setAssetToDelete(asset);
+  };
+
+  const confirmDeleteAsset = async () => {
+    if (!assetToDelete) return;
+
+    const activeTasks = await db.maintenance_tasks
+      .where('asset_id')
+      .equals(assetToDelete.id)
+      .filter((task) => (task.status as string) !== 'Concluída' && (task.status as string) !== 'Concluida')
+      .count();
+
+    if (activeTasks > 0) {
+      toast.warning(`Não é possível excluir "${assetToDelete.name}". Existem manutenções pendentes.`, {
+        duration: 5000,
+      });
+      setAssetToDelete(null);
+      return;
+    }
+
+    const success = await deleteAsset(assetToDelete.id, { name: userName, id: user?.id || "" });
+
+    if (!success) {
+      toast.error("Erro ao excluir patrimônio.");
+      return;
+    }
+
+    setSelectedIds((current) => current.filter((id) => id !== assetToDelete.id));
+    toast.success(`Patrimônio "${assetToDelete.name}" excluído com sucesso.`);
+    setAssetToDelete(null);
   };
 
   const bulkDelete = async () => {
@@ -1059,6 +1095,15 @@ export default function PatrimonioPage() {
                                   <ArrowLeftRight className="h-4 w-4" />
                                 </Link>
                               </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => handleDeleteAsset(e, asset)}
+                                className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                title="Excluir patrimônio"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                               {(currentRole === 'gestor' || currentRole === 'manager') && (
                                 <Button variant="ghost" size="sm" onClick={(e) => handleOpenWriteOff(e, asset)} className="h-7 w-7 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50" title="Solicitar Baixa">
                                   <FileWarning className="h-4 w-4" />
@@ -1077,6 +1122,17 @@ export default function PatrimonioPage() {
 
           <InfiniteScrollLoader ref={loaderRef} hasMore={hasMore} />
         </div>
+        <ConfirmDialog
+          open={!!assetToDelete}
+          onOpenChange={(open) => {
+            if (!open) setAssetToDelete(null);
+          }}
+          title="Excluir Patrimônio"
+          description={`Tem certeza que deseja excluir "${assetToDelete?.name || "este patrimônio"}"? Esta ação não pode ser desfeita.`}
+          onConfirm={confirmDeleteAsset}
+          confirmText="Excluir"
+          variant="destructive"
+        />
         <ConfirmDialog
           open={isBulkDeleteOpen}
           onOpenChange={setIsBulkDeleteOpen}
