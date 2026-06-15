@@ -7,6 +7,7 @@ import { Printer } from "lucide-react";
 import { toast } from "sonner";
 import { renderToStaticMarkup } from "react-dom/server";
 import { QRCodeSVG } from "qrcode.react";
+import { getAssetQrValue } from "@/lib/asset-qr";
 
 
 // Inline styled component for printing - Optimized for 300x150px Label (Standard)
@@ -52,7 +53,7 @@ const PrintableAssetLabel = ({ asset }: { asset: Asset }) => (
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <QRCodeSVG
-                value={asset.code}
+                value={getAssetQrValue(asset)}
                 size={110}
                 level={"H"}
                 includeMargin={false}

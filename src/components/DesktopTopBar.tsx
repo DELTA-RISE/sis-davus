@@ -4,7 +4,7 @@ import { useMemo, useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { Search, Bell, Command, CheckCheck, Shield, HardHat } from "lucide-react";
+import { Search, Bell, Command, CheckCheck, Shield, HardHat, QrCode } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -28,6 +28,9 @@ import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { DialogTitle } from "@/components/ui/dialog";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/dexie-db";
+import { QRScanner } from "@/components/QRScanner";
+import { getPatrimonioRouteFromQr } from "@/lib/asset-qr";
+import { toast } from "sonner";
 
 interface Notification {
   id: string;
@@ -49,6 +52,7 @@ export function DesktopTopBar() {
   const { userName, currentRole, gravatarUrl } = useAuth();
   const router = useRouter();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isQrScannerOpen, setIsQrScannerOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -246,6 +250,15 @@ export function DesktopTopBar() {
     }
   };
 
+  const handleQrScan = (value: string) => {
+    const route = getPatrimonioRouteFromQr(value);
+    if (!route) {
+      toast.error("QR Code inválido.");
+      return;
+    }
+    router.push(route);
+  };
+
   const handleKeyDownSearch = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowDown") {
       e.preventDefault();
@@ -286,6 +299,17 @@ export function DesktopTopBar() {
           </div>
 
           <div className="h-6 w-px bg-border mx-2" />
+
+          <Button
+            variant="ghost"
+            size="icon"
+            id="header-qr-scanner"
+            className="h-10 w-10 rounded-xl hover:bg-primary/10 hover:text-primary transition-all"
+            title="Ler QR Code de patrimônio"
+            onClick={() => setIsQrScannerOpen(true)}
+          >
+            <QrCode className="h-5 w-5" />
+          </Button>
 
           <Popover>
             <PopoverTrigger asChild>
@@ -447,6 +471,12 @@ export function DesktopTopBar() {
           )}
         </DialogContent>
       </Dialog>
+
+      <QRScanner
+        open={isQrScannerOpen}
+        onOpenChange={setIsQrScannerOpen}
+        onScan={handleQrScan}
+      />
     </>
   );
 }
