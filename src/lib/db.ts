@@ -568,6 +568,35 @@ export const getAssetById = async (id: string): Promise<Asset | null> => {
     return await db.assets.get(id) as Asset || null;
   }
 };
+
+export const getAssetByCode = async (code: string): Promise<Asset | null> => {
+  const cleanCode = code.trim();
+  if (!cleanCode) return null;
+
+  try {
+    const localAsset = await db.assets
+      .where('code')
+      .equals(cleanCode)
+      .first();
+    if (localAsset) return localAsset as Asset;
+
+    const { data, error } = await withTimeout(supabase
+      .from('assets')
+      .select('*')
+      .eq('code', cleanCode)
+      .is('deleted_at', null)
+      .maybeSingle());
+    if (error) return null;
+    if (data) await db.assets.put(data as Asset);
+    return data as Asset;
+  } catch (error) {
+    console.error("Error in getAssetByCode:", error);
+    return await db.assets
+      .where('code')
+      .equals(cleanCode)
+      .first() as Asset || null;
+  }
+};
 export const saveAsset = async (asset: Partial<Asset>, userInfo?: { name: string, id: string }) => {
   const result = await upsert<Asset>('assets', asset as Asset);
   if (result && userInfo) {

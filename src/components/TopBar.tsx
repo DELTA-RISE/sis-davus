@@ -28,6 +28,9 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { QRScanner } from "@/components/QRScanner";
+import { getPatrimonioRouteFromQr } from "@/lib/asset-qr";
+import { toast } from "sonner";
 
 interface Notification {
   id: string;
@@ -47,6 +50,7 @@ interface SearchResult {
 export function TopBar() {
   const router = useRouter();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isQrScannerOpen, setIsQrScannerOpen] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -188,6 +192,15 @@ export function TopBar() {
     }
   };
 
+  const handleQrScan = (value: string) => {
+    const route = getPatrimonioRouteFromQr(value);
+    if (!route) {
+      toast.error("QR Code inválido.");
+      return;
+    }
+    router.push(route);
+  };
+
 
 
   return (
@@ -215,7 +228,7 @@ export function TopBar() {
               variant="ghost"
               size="icon"
               className="h-9 w-9"
-              onClick={() => router.push("/patrimonio")}
+              onClick={() => setIsQrScannerOpen(true)}
             >
               <QrCode className="h-5 w-5" />
             </Button>
@@ -346,6 +359,11 @@ export function TopBar() {
         </DialogContent>
       </Dialog>
 
+      <QRScanner
+        open={isQrScannerOpen}
+        onOpenChange={setIsQrScannerOpen}
+        onScan={handleQrScan}
+      />
 
     </>
   );

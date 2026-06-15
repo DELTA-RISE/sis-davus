@@ -1,6 +1,7 @@
 import { QRCodeCanvas } from "qrcode.react";
 import { Asset } from "@/lib/store";
 import { Building2 } from "lucide-react";
+import { getAssetQrValue } from "@/lib/asset-qr";
 
 export type AssetLabelLayout = 'standard' | 'compact';
 
@@ -15,7 +16,7 @@ export function AssetLabel({ asset, layout = 'standard' }: AssetLabelProps) {
             <div className="w-[200px] h-[100px] border-2 border-black p-2 flex gap-2 bg-white print:border-black print:flex print:break-inside-avoid overflow-hidden relative items-center box-border">
                 <div className="flex items-center justify-center shrink-0">
                     <QRCodeCanvas
-                        value={asset.code}
+                        value={getAssetQrValue(asset)}
                         size={80}
                         level={"H"}
                         includeMargin={false}
@@ -54,7 +55,7 @@ export function AssetLabel({ asset, layout = 'standard' }: AssetLabelProps) {
 
             <div className="flex items-center justify-center shrink-0">
                 <QRCodeCanvas
-                    value={asset.code}
+                    value={getAssetQrValue(asset)}
                     size={110}
                     level={"H"}
                     includeMargin={false}
