@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Asset, MaintenanceTask, AssetTimeline, Checkout, CostCenter } from "@/lib/store";
 import {
   getAssetById,
+  getAssetByCode,
   getMaintenanceTasks,
   getAssetTimelines,
   getCheckouts,
@@ -69,6 +70,7 @@ import { toast } from "sonner";
 import { UserSelect } from "@/components/UserSelect";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { findMaintenanceResponsible } from "@/lib/maintenance-responsibility";
+import { getAssetQrValue } from "@/lib/asset-qr";
 
 const conditionColors: Record<string, string> = {
   Excelente: "bg-green-500/20 text-green-500 border-green-500/30",
@@ -108,6 +110,7 @@ const openMaintenanceStatuses = new Set([
 export default function AssetHubPage() {
   const searchParams = useSearchParams();
   const id = searchParams.get("id");
+  const code = searchParams.get("code");
   const router = useRouter();
   const { userName, user, currentRole, costCenter } = useAuth();
   const scopedCostCenter = getScopedCostCenter(currentRole, costCenter);
@@ -157,14 +160,21 @@ export default function AssetHubPage() {
   });
 
   const loadData = useCallback(async () => {
-    if (!id) return;
+    if (!id && !code) return;
     setIsLoading(true);
     try {
-      const [assetData, tasksData, timelineData, checkoutsData, ccsData] = await Promise.all([
-        getAssetById(id),
-        getMaintenanceTasks(id),
-        getAssetTimelines(id),
-        getCheckouts(id, "asset"),
+      const assetData = id ? await getAssetById(id) : await getAssetByCode(code || "");
+
+      if (!assetData) {
+        toast.error("Patrimônio não encontrado para este QR Code.");
+        router.push("/patrimonio");
+        return;
+      }
+
+      const [tasksData, timelineData, checkoutsData, ccsData] = await Promise.all([
+        getMaintenanceTasks(assetData.id),
+        getAssetTimelines(assetData.id),
+        getCheckouts(assetData.id, "asset"),
         getCostCenters()
       ]);
 
@@ -189,14 +199,14 @@ export default function AssetHubPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [id, router, scopedCostCenter]);
+  }, [code, id, router, scopedCostCenter]);
 
 
   useEffect(() => {
-    if (id) {
+    if (id || code) {
       loadData();
     }
-  }, [id, loadData]);
+  }, [code, id, loadData]);
 
   const downloadQR = () => {
     const canvas = document.getElementById("qr-code-canvas") as HTMLCanvasElement;
@@ -1103,7 +1113,7 @@ export default function AssetHubPage() {
                 <div className="hidden">
                   <QRCodeCanvas
                     id="qr-code-canvas"
-                    value={asset.code}
+                    value={getAssetQrValue(asset)}
                     size={500}
                     level={"H"}
                     includeMargin={true}
