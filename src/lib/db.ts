@@ -65,6 +65,8 @@ export const getPublicIp = async (): Promise<string> => {
 const isOnline = () => typeof window !== 'undefined' && window.navigator.onLine;
 
 const TIMEOUT_MS = 15000;
+const SYNC_FRESHNESS_MS = 60_000;
+const syncInFlight = new Map<string, Promise<void>>();
 // memoryCache removed in favor of Dexie
 
 export type PersistenceStatus = 'synced' | 'queued';
@@ -81,6 +83,24 @@ const getErrorMessage = (error: unknown) => {
   }
   if (typeof error === 'string') return error;
   return undefined;
+};
+
+const getSyncTimestampKey = (table: string) => `sis-davus:last-sync:${table}`;
+
+const getLastSyncTime = (table: string) => {
+  if (typeof window === 'undefined') return 0;
+  const value = window.localStorage.getItem(getSyncTimestampKey(table));
+  return value ? Number(value) || 0 : 0;
+};
+
+const markTableSynced = (table: string) => {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(getSyncTimestampKey(table), String(Date.now()));
+};
+
+const isRecentlySynced = (table: string) => {
+  const lastSync = getLastSyncTime(table);
+  return lastSync > 0 && Date.now() - lastSync < SYNC_FRESHNESS_MS;
 };
 
 export function isPendingSync<T>(item: Persisted<T> | null | undefined): boolean {
@@ -182,7 +202,7 @@ async function getAll<T>(table: string, orderColumn: keyof T = 'created_at' as k
 
   // Network First (if online)
   try {
-    await syncTable(table, orderColumn as string, ascending);
+    await syncTable(table, orderColumn as string, ascending, _forceRefresh);
     const refreshed = await db.table(table).toArray();
     return refreshed.sort((a, b) => {
       const valA = a[orderColumn] as unknown as string | number;
@@ -198,51 +218,64 @@ async function getAll<T>(table: string, orderColumn: keyof T = 'created_at' as k
 }
 
 // Explicit Sync Function (Fire and Forget)
-export async function syncTable(table: string, orderColumn: string = 'created_at', ascending: boolean = false) {
+export async function syncTable(table: string, orderColumn: string = 'created_at', ascending: boolean = false, force = false) {
   if (!isOnline()) return;
+  if (!force && isRecentlySynced(table)) return;
 
-  try {
-    const queuedUpserts = await db.sync_queue
-      .where('table')
-      .equals(table)
-      .filter((item) => item.action === 'upsert' && item.status !== 'failed')
-      .toArray();
-    const queuedDeleteIds = new Set(
-      (await db.sync_queue
+  const inFlightKey = `${table}:${orderColumn}:${ascending}`;
+  const currentSync = syncInFlight.get(inFlightKey);
+  if (currentSync) return currentSync;
+
+  const syncPromise = (async () => {
+    try {
+      const queuedUpserts = await db.sync_queue
         .where('table')
         .equals(table)
-        .filter((item) => item.action === 'delete' && item.status !== 'failed' && Boolean(item.payload?.id))
-        .toArray())
-        .map((item) => String(item.payload.id))
-    );
-    const queuedPayloads = queuedUpserts
-      .map((item) => item.payload)
-      .filter(
-        (payload): payload is Record<string, unknown> =>
-          Boolean(payload && payload.id && !queuedDeleteIds.has(String(payload.id)))
+        .filter((item) => item.action === 'upsert' && item.status !== 'failed')
+        .toArray();
+      const queuedDeleteIds = new Set(
+        (await db.sync_queue
+          .where('table')
+          .equals(table)
+          .filter((item) => item.action === 'delete' && item.status !== 'failed' && Boolean(item.payload?.id))
+          .toArray())
+          .map((item) => String(item.payload.id))
+      );
+      const queuedPayloads = queuedUpserts
+        .map((item) => item.payload)
+        .filter(
+          (payload): payload is Record<string, unknown> =>
+            Boolean(payload && payload.id && !queuedDeleteIds.has(String(payload.id)))
+        );
+
+      const { data, error } = await withTimeout(
+        supabase
+          .from(table)
+          .select('*')
+          .order(orderColumn, { ascending })
       );
 
-    const { data, error } = await withTimeout(
-      supabase
-        .from(table)
-        .select('*')
-        .order(orderColumn, { ascending })
-    );
+      if (error) throw error;
 
-    if (error) throw error;
+      await db.transaction('rw', db.table(table), async () => {
+        await db.table(table).clear();
+        await db.table(table).bulkAdd(
+          (data || []).filter((item: { id?: string }) => !queuedDeleteIds.has(String(item.id)))
+        );
+        if (queuedPayloads.length > 0) {
+          await db.table(table).bulkPut(queuedPayloads);
+        }
+      });
+      markTableSynced(table);
+    } catch (error) {
+      console.error(`Sync failed for ${table}:`, error);
+    } finally {
+      syncInFlight.delete(inFlightKey);
+    }
+  })();
 
-    await db.transaction('rw', db.table(table), async () => {
-      await db.table(table).clear();
-      await db.table(table).bulkAdd(
-        (data || []).filter((item: { id?: string }) => !queuedDeleteIds.has(String(item.id)))
-      );
-      if (queuedPayloads.length > 0) {
-        await db.table(table).bulkPut(queuedPayloads);
-      }
-    });
-  } catch (error) {
-    console.error(`Sync failed for ${table}:`, error);
-  }
+  syncInFlight.set(inFlightKey, syncPromise);
+  return syncPromise;
 }
 
 // Specialized getter with filtering

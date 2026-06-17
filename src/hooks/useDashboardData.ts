@@ -29,7 +29,8 @@ export function useDashboardData({ role, costCenterId, userId, userName, dateRan
         }
 
         let cancelled = false;
-        setIsInitialSyncing(true);
+        let timeoutId: ReturnType<typeof setTimeout> | undefined;
+        let idleId: number | undefined;
 
         const hasCachedData = async () => {
             const [productsCount, assetsCount, movementsCount, checkoutsCount] = await Promise.all([
@@ -54,28 +55,27 @@ export function useDashboardData({ role, costCenterId, userId, userName, dateRan
             }
         };
 
-        void hasCachedData().then((hasCache) => {
-            if (!cancelled && hasCache) setIsInitialSyncing(false);
-        });
-
         const win = window as Window & {
             requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
             cancelIdleCallback?: (id: number) => void;
         };
 
-        if (win.requestIdleCallback && win.cancelIdleCallback) {
-            const idleId = win.requestIdleCallback(() => void runScopedSync(), { timeout: 1200 });
-            return () => {
-                cancelled = true;
-                win.cancelIdleCallback?.(idleId);
-            };
-        }
+        void hasCachedData().then((hasCache) => {
+            if (cancelled) return;
+            setIsInitialSyncing(!hasCache);
 
-        const timeoutId = globalThis.setTimeout(() => void runScopedSync(), 100);
+            if (hasCache && win.requestIdleCallback) {
+                idleId = win.requestIdleCallback(() => void runScopedSync(), { timeout: 2000 });
+                return;
+            }
+
+            timeoutId = globalThis.setTimeout(() => void runScopedSync(), hasCache ? 800 : 50);
+        });
 
         return () => {
             cancelled = true;
-            globalThis.clearTimeout(timeoutId);
+            if (timeoutId) globalThis.clearTimeout(timeoutId);
+            if (idleId) win.cancelIdleCallback?.(idleId);
         };
     }, [role, costCenterId]);
 
@@ -136,10 +136,10 @@ export function useDashboardData({ role, costCenterId, userId, userName, dateRan
 
     const refreshData = async () => {
         await Promise.all([
-            syncTable('products', 'name', true),
-            syncTable('assets', 'name', true),
-            syncTable('stock_movements', 'date', false),
-            syncTable('checkouts', 'checkout_date', false)
+            syncTable('products', 'name', true, true),
+            syncTable('assets', 'name', true, true),
+            syncTable('stock_movements', 'date', false, true),
+            syncTable('checkouts', 'checkout_date', false, true)
         ]);
         toast.success("Dados atualizados!");
     };

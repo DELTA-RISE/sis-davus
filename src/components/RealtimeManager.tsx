@@ -11,8 +11,6 @@ export function RealtimeManager() {
         const handleRealtimeEvent = async (table: string, payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
             const { eventType, new: newRecord, old: oldRecord } = payload;
 
-            console.log(`Realtime event [${table}]: ${eventType}`, payload);
-
             try {
                 if (eventType === 'INSERT' || eventType === 'UPDATE') {
                     // Update Dexie with the new record
@@ -67,11 +65,7 @@ export function RealtimeManager() {
             .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_movements' }, (payload) => {
                 handleRealtimeEvent('stock_movements', payload);
             })
-            .subscribe((status) => {
-                if (status === 'SUBSCRIBED') {
-                    console.log('RealtimeManager: Connected to Supabase Realtime');
-                }
-            });
+            .subscribe();
 
         return () => {
             supabase.removeChannel(channel);

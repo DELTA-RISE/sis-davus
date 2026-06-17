@@ -126,7 +126,7 @@ export async function addToSyncQueue(action: {
   }
 }
 
-export async function processSyncQueue() {
+export async function processSyncQueue(options: { showToast?: boolean } = {}) {
   if (typeof window === "undefined") return;
   if (!window.navigator.onLine) return;
 
@@ -142,9 +142,12 @@ export async function processSyncQueue() {
 
   if (pendingActions.length === 0) return;
 
-  const toastId = toast.loading("SIS DAVUS sincronizando dados", {
-    description: `${pluralizeChanges(pendingActions.length)} pendentes na fila de sincronização.`,
-  });
+  const showToast = options.showToast ?? true;
+  const toastId = showToast
+    ? toast.loading("SIS DAVUS sincronizando dados", {
+      description: `${pluralizeChanges(pendingActions.length)} pendentes na fila de sincronização.`,
+    })
+    : undefined;
   let successCount = 0;
 
   for (const item of pendingActions) {
@@ -190,21 +193,23 @@ export async function processSyncQueue() {
       if (isPermanentError) {
         console.warn(`Cleaned up failing sync item ${item.id} due to permanent error:`, item.payload);
         await db.sync_queue.delete(item.id!);
-        toast.error("Falha permanente na sincronização", {
-          description: getErrorMessage(error),
-        });
+        if (showToast) {
+          toast.error("Falha permanente na sincronização", {
+            description: getErrorMessage(error),
+          });
+        }
       } else {
         await db.sync_queue.update(item.id!, { status: "pending" });
       }
     }
   }
 
-  if (successCount > 0) {
+  if (showToast && successCount > 0) {
     toast.success("Sincronização concluída", {
       id: toastId,
       description: `${pluralizeChanges(successCount)} enviadas com sucesso para o Supabase.`,
     });
-  } else {
+  } else if (toastId) {
     toast.dismiss(toastId);
   }
 }

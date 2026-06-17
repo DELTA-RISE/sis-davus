@@ -34,13 +34,13 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
   );
 
   useEffect(() => {
-    const runSync = async () => {
+    const runSync = async (showToast = false) => {
       if (!shouldSync || !navigator.onLine) return;
 
       const { data } = await supabase.auth.getSession();
       if (!data.session) return;
 
-      await processSyncQueue();
+      await processSyncQueue({ showToast });
     };
 
     const handleOnline = () => {
@@ -49,7 +49,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
       toast.success("Conexão restabelecida", {
         description: "O SIS DAVUS verificará se existem alterações pendentes.",
       });
-      runSync();
+      void runSync(true);
     };
 
     const handleOffline = () => {
