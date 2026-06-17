@@ -687,7 +687,45 @@ export const restoreAsset = async (id: string, userInfo?: { name: string, id: st
 };
 
 // Movements
-export const getMovements = (forceRefresh = false) => getAll<StockMovement>('stock_movements', 'date', false, forceRefresh);
+export const getMovements = async (limitOrForceRefresh?: number | boolean, forceRefresh = false): Promise<StockMovement[]> => {
+  if (typeof limitOrForceRefresh === 'boolean') {
+    return getAll<StockMovement>('stock_movements', 'date', false, limitOrForceRefresh);
+  }
+
+  if (typeof limitOrForceRefresh !== 'number') {
+    return getAll<StockMovement>('stock_movements', 'date', false, forceRefresh);
+  }
+
+  const limit = limitOrForceRefresh;
+  const localData = await db.stock_movements
+    .orderBy('date')
+    .reverse()
+    .limit(limit)
+    .toArray();
+
+  if (!isOnline() || (!forceRefresh && isRecentlySynced('stock_movements'))) {
+    return localData;
+  }
+
+  try {
+    const { data, error } = await withTimeout(
+      supabase
+        .from('stock_movements')
+        .select('*')
+        .order('date', { ascending: false })
+        .limit(limit)
+    );
+
+    if (error) throw error;
+
+    await db.stock_movements.bulkPut(data || []);
+    markTableSynced('stock_movements');
+    return data || [];
+  } catch (error) {
+    console.error('Fetch error stock_movements, falling back to cache:', error);
+    return localData;
+  }
+};
 export const saveMovement = async (movement: Partial<StockMovement>, userInfo?: { name: string, id: string }) => {
   const quantity = Number(movement.quantity || 0);
   const productId = movement.product_id;

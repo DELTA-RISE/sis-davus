@@ -71,6 +71,8 @@ import { PageTransition, StaggerContainer, StaggerItem } from "@/components/Page
 type StockMovementItem = StockMovement & { source: "stock" };
 type AssetMovementItem = Omit<AssetTimeline, "type"> & { source: "asset"; type: "patrimonio" };
 type MovementItem = StockMovementItem | AssetMovementItem;
+const MOVEMENTS_FETCH_LIMIT = 120;
+const MOVEMENTS_PAGE_SIZE = 10;
 
 export default function MovementsPage() {
   const { userName, user, currentRole, costCenter } = useAuth();
@@ -88,6 +90,7 @@ export default function MovementsPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [openProductSelect, setOpenProductSelect] = useState(false);
   const [prefillApplied, setPrefillApplied] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(MOVEMENTS_PAGE_SIZE);
   const [newMovement, setNewMovement] = useState<Partial<StockMovement>>({
     type: "entrada",
   });
@@ -95,7 +98,7 @@ export default function MovementsPage() {
   const loadData = useCallback(async (silent = false) => {
     if (!silent) setIsLoading(true);
     const [m, p, a, assetTimeline] = await Promise.all([
-      getMovements(),
+      getMovements(MOVEMENTS_FETCH_LIMIT),
       getProducts(false, scopedCostCenter),
       getAssets(false, scopedCostCenter),
       getAssetTimelines()
@@ -114,6 +117,10 @@ export default function MovementsPage() {
     ));
     if (!silent) setIsLoading(false);
   }, [scopedCostCenter]);
+
+  useEffect(() => {
+    setVisibleCount(MOVEMENTS_PAGE_SIZE);
+  }, [debouncedSearch, typeFilter, dateRange]);
 
   useEffect(() => {
     loadData();
@@ -184,6 +191,9 @@ export default function MovementsPage() {
       return matchesSearch && matchesType && matchesDate;
     });
   }, [movements, assetMovements, debouncedSearch, typeFilter, dateRange]);
+
+  const visibleMovements = filteredMovements.slice(0, visibleCount);
+  const hasMoreMovements = visibleCount < filteredMovements.length;
 
   const validateForm = () => {
     const result = movementSchema.safeParse({
@@ -265,7 +275,7 @@ export default function MovementsPage() {
                       Realtime
                     </Badge>
                   </div>
-                  <p className="text-xs text-muted-foreground">{movements.length} registros</p>
+                  <p className="text-xs text-muted-foreground">{filteredMovements.length} registros recentes</p>
                 </div>
               </div>
               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -417,7 +427,7 @@ export default function MovementsPage() {
             <EmptyState type="search" />
           ) : (
             <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {filteredMovements.map((m) => {
+              {visibleMovements.map((m) => {
                 const isAssetMovement = m.source === "asset";
                 const title = isAssetMovement ? m.title : m.product_name;
                 const description = isAssetMovement ? m.description : m.reason;
@@ -446,6 +456,16 @@ export default function MovementsPage() {
                   </StaggerItem>
                 );
               })}
+              {hasMoreMovements && (
+                <div className="col-span-full flex justify-center pt-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setVisibleCount((count) => count + MOVEMENTS_PAGE_SIZE)}
+                  >
+                    Carregar mais movimentações
+                  </Button>
+                </div>
+              )}
             </StaggerContainer>
 
           )}
