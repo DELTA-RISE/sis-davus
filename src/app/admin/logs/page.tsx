@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -91,11 +92,17 @@ export default function AuditLogsPage() {
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [isLoadingLogs, setIsLoadingLogs] = useState(true);
 
   useEffect(() => {
     const fetchLogs = async () => {
-      const data = await getAuditLogs();
-      setLogs(data);
+      try {
+        setIsLoadingLogs(true);
+        const data = await getAuditLogs();
+        setLogs(data);
+      } finally {
+        setIsLoadingLogs(false);
+      }
     };
     fetchLogs();
   }, []);
@@ -162,7 +169,9 @@ export default function AuditLogsPage() {
             </div>
             <div>
               <h1 className="text-lg font-bold">Logs de Auditoria</h1>
-              <p className="text-xs text-muted-foreground">{filteredLogs.length} registros</p>
+              <p className="text-xs text-muted-foreground">
+                {isLoadingLogs ? "Carregando registros..." : `${filteredLogs.length} registros`}
+              </p>
             </div>
           </div>
         </div>
@@ -197,8 +206,42 @@ export default function AuditLogsPage() {
           </Select>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3">
-          {filteredLogs.map((log) => {
+        {isLoadingLogs ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <Card key={index} className="border-border/50 bg-card/50">
+                <CardContent className="p-3 md:p-4">
+                  <div className="flex items-start gap-3">
+                    <Skeleton className="h-9 w-9 rounded-lg" />
+                    <div className="flex-1 space-y-2">
+                      <div className="flex gap-2">
+                        <Skeleton className="h-5 w-16 rounded-full" />
+                        <Skeleton className="h-5 w-20 rounded-full" />
+                      </div>
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-2/3" />
+                      <div className="flex gap-3 pt-1">
+                        <Skeleton className="h-3 w-24" />
+                        <Skeleton className="h-3 w-28" />
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : filteredLogs.length === 0 ? (
+          <Card className="border-border/50 bg-card/50">
+            <CardContent className="p-8 text-center">
+              <p className="text-sm font-medium">Nenhum registro encontrado.</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Ajuste a busca ou o filtro para visualizar outros logs.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3">
+            {filteredLogs.map((log) => {
             const Icon = actionIcons[log.action] || Edit;
             const colorClass = actionColors[log.action] || "bg-gray-500/20 text-gray-500";
 
@@ -242,8 +285,9 @@ export default function AuditLogsPage() {
                 </CardContent>
               </Card>
             );
-          })}
-        </div>
+            })}
+          </div>
+        )}
 
         {/* Detail Dialog */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

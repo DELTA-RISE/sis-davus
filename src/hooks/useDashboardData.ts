@@ -1,4 +1,4 @@
-import { useMemo, useEffect } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { syncTable } from "@/lib/db";
 import { useLiveQuery } from "dexie-react-hooks";
@@ -20,32 +20,64 @@ interface DashboardDataParams {
 const EMPTY_ARRAY: never[] = [];
 
 export function useDashboardData({ role, costCenterId, userId, userName, dateRange }: DashboardDataParams = {}) {
-    // Trigger Syncs
+    const [isInitialSyncing, setIsInitialSyncing] = useState(true);
+
     useEffect(() => {
-        if (role && typeof window !== "undefined") {
-            const runSync = () => {
-                void Promise.all([
+        if (!role || typeof window === "undefined") {
+            setIsInitialSyncing(false);
+            return;
+        }
+
+        let cancelled = false;
+        setIsInitialSyncing(true);
+
+        const hasCachedData = async () => {
+            const [productsCount, assetsCount, movementsCount, checkoutsCount] = await Promise.all([
+                db.products.count(),
+                db.assets.count(),
+                db.stock_movements.count(),
+                db.checkouts.count(),
+            ]);
+            return productsCount + assetsCount + movementsCount + checkoutsCount > 0;
+        };
+
+        const runScopedSync = async () => {
+            try {
+                await Promise.all([
                     syncTable('products', 'name', true),
                     syncTable('assets', 'name', true),
                     syncTable('stock_movements', 'date', false),
                     syncTable('checkouts', 'checkout_date', false)
                 ]);
-            };
-
-            const win = window as Window & {
-                requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
-                cancelIdleCallback?: (id: number) => void;
-            };
-
-            if (win.requestIdleCallback && win.cancelIdleCallback) {
-                const idleId = win.requestIdleCallback(runSync, { timeout: 2000 });
-                return () => win.cancelIdleCallback?.(idleId);
+            } finally {
+                if (!cancelled) setIsInitialSyncing(false);
             }
+        };
 
-            const timeoutId = globalThis.setTimeout(runSync, 250);
-            return () => globalThis.clearTimeout(timeoutId);
+        void hasCachedData().then((hasCache) => {
+            if (!cancelled && hasCache) setIsInitialSyncing(false);
+        });
+
+        const win = window as Window & {
+            requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+            cancelIdleCallback?: (id: number) => void;
+        };
+
+        if (win.requestIdleCallback && win.cancelIdleCallback) {
+            const idleId = win.requestIdleCallback(() => void runScopedSync(), { timeout: 1200 });
+            return () => {
+                cancelled = true;
+                win.cancelIdleCallback?.(idleId);
+            };
         }
-    }, [role]);
+
+        const timeoutId = globalThis.setTimeout(() => void runScopedSync(), 100);
+
+        return () => {
+            cancelled = true;
+            globalThis.clearTimeout(timeoutId);
+        };
+    }, [role, costCenterId]);
 
     const data = useLiveQuery(async () => {
         let productsQuery = db.products.filter(p => !p.deleted_at);
@@ -116,7 +148,8 @@ export function useDashboardData({ role, costCenterId, userId, userName, dateRan
     const assets = data?.assets || EMPTY_ARRAY;
     const movements = data?.movements || EMPTY_ARRAY;
     const checkouts = data?.checkouts || EMPTY_ARRAY;
-    const isLoading = !data;
+    const hasAnyData = products.length + assets.length + movements.length + checkouts.length > 0;
+    const isLoading = !data || (isInitialSyncing && !hasAnyData);
 
     // Derived Data
     const lowStockProducts = useMemo(() =>
