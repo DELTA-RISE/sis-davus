@@ -283,10 +283,10 @@ async function getAllFiltered<T>(
   table: string,
   userInfo: { role: string | null; cost_center: string | null },
   orderColumn: keyof T = 'created_at' as keyof T,
-  ascending: boolean = false
+  ascending: boolean = false,
+  forceRefresh = false
 ): Promise<T[]> {
-  // Offline: Filter local data
-  if (!isOnline()) {
+  const getLocalFilteredData = async () => {
     const localData = await db.table(table).toArray();
     let filtered = localData.filter((item) => !item.deleted_at); // Exclude soft deleted
 
@@ -301,6 +301,17 @@ async function getAllFiltered<T>(
       if (valA > valB) return ascending ? 1 : -1;
       return 0;
     }) as T[];
+  };
+
+  const localFilteredData = await getLocalFilteredData();
+
+  // Offline: Filter local data
+  if (!isOnline()) {
+    return localFilteredData;
+  }
+
+  if (!forceRefresh && localFilteredData.length > 0 && isRecentlySynced(table)) {
+    return localFilteredData;
   }
 
   // Online: Supabase query
@@ -319,10 +330,15 @@ async function getAllFiltered<T>(
 
     if (error) throw error;
 
+    if (data && data.length > 0) {
+      await db.table(table).bulkPut(data);
+      markTableSynced(table);
+    }
+
     return data as T[];
   } catch (err) {
     console.error(`Fetch filtered error ${table}:`, err);
-    return [] as T[];
+    return localFilteredData;
   }
 }
 
@@ -489,8 +505,8 @@ async function remove(table: string, id: string): Promise<boolean> {
 
 // Products
 // Products
-export const getProducts = async (_forceRefresh = false, costCenterId?: string | null) => {
-  return getAllFiltered<Product>('products', { role: null, cost_center: costCenterId || null }, 'name', true);
+export const getProducts = async (forceRefresh = false, costCenterId?: string | null) => {
+  return getAllFiltered<Product>('products', { role: null, cost_center: costCenterId || null }, 'name', true, forceRefresh);
 };
 
 export const saveProduct = async (product: Partial<Product>, userInfo?: { name: string, id: string }) => {

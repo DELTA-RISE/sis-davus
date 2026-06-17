@@ -63,7 +63,7 @@ const actionColors: Record<string, string> = {
 
 const detailsTextKeys = ["value", "message", "description", "detail", "name", "reason"];
 const AUDIT_LOGS_FETCH_LIMIT = 120;
-const AUDIT_LOGS_PAGE_SIZE = 30;
+const AUDIT_LOGS_PAGE_SIZE = 10;
 
 function formatLogDetails(details: AuditLog["details"]) {
   if (!details) return "Sem detalhes registrados.";
