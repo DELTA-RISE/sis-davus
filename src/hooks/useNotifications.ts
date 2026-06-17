@@ -142,11 +142,6 @@ export function useNotifications() {
         saveDismissedNotifications(newDismissed);
     };
 
-    const clearAllDisimissed = () => { // Optional: reset mechanism
-        setDismissedIds([]);
-        saveDismissedNotifications([]);
-    }
-
     const clearAllNotifications = () => {
         const allIds = notifications.map(n => n.id);
         const newDismissed = Array.from(new Set([...dismissedIds, ...allIds]));

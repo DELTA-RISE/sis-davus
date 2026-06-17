@@ -21,8 +21,7 @@ import {
     LogOut,
     Settings,
     FileText,
-    Users,
-    Search
+    Users
 } from "lucide-react";
 
 export function CommandMenu() {

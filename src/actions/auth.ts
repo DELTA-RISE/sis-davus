@@ -95,7 +95,6 @@ interface DeleteUserOptions {
 
 export async function deleteUserAction(userId: string, options: DeleteUserOptions | AuditContext) {
     // Compatibility with old signature (just AuditContext)
-    const audit = 'userName' in options ? options as AuditContext : (options as DeleteUserOptions).audit;
     const config = 'cleanupConfig' in options ? (options as DeleteUserOptions).cleanupConfig : undefined;
 
     try {

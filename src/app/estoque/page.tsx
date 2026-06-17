@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import Image from "next/image";
 import { Product, StockMovement } from "@/lib/store";
 import { getProducts, isPendingSync, saveProduct, deleteProduct, saveMovement } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
@@ -785,7 +786,13 @@ export default function EstoquePage() {
                             stockStatus === "high" ? "bg-amber-500/20" : "bg-primary/20"
                             }`}>
                             {product.image_url ? (
-                              <img src={product.image_url} alt={product.name} className="w-full h-full object-cover rounded-xl" />
+                              <Image
+                                src={product.image_url}
+                                alt={product.name}
+                                width={40}
+                                height={40}
+                                className="h-full w-full rounded-xl object-cover"
+                              />
                             ) : (
                             <Package className={`h-5 w-5 ${stockStatus === "low" ? "text-red-500" :
                               stockStatus === "high" ? "text-amber-500" : "text-primary"

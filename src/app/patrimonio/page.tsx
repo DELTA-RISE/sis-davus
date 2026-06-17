@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo, useEffect } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { Asset } from "@/lib/store";
 import {
@@ -1065,7 +1066,13 @@ export default function PatrimonioPage() {
                           </div>
                           <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-primary/10`}>
                             {asset.image_url ? (
-                              <img src={asset.image_url} alt={asset.name} className="w-full h-full object-cover rounded-xl" />
+                              <Image
+                                src={asset.image_url}
+                                alt={asset.name}
+                                width={40}
+                                height={40}
+                                className="h-full w-full rounded-xl object-cover"
+                              />
                             ) : (
                               <Briefcase className="h-5 w-5 text-primary" />
                             )}
