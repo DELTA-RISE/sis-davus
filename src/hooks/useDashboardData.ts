@@ -181,6 +181,17 @@ export function useDashboardData({ role, costCenterId, userId, userName, dateRan
             .sort((a, b) => b.value - a.value); // Sort by value desc
     }, [products]);
 
+    const stockByCostCenter = useMemo(() => {
+        const centers: Record<string, number> = {};
+        products.forEach((p) => {
+            const center = p.cost_center || "Sem centro de custo";
+            centers[center] = (centers[center] || 0) + p.quantity;
+        });
+        return Object.entries(centers)
+            .map(([name, value]) => ({ name, value }))
+            .sort((a, b) => b.value - a.value);
+    }, [products]);
+
     const movementsData = useMemo(() => {
         const days: Record<string, { name: string; entradas: number; saidas: number }> = {};
 
@@ -229,6 +240,7 @@ export function useDashboardData({ role, costCenterId, userId, userName, dateRan
         assetsInMaintenance,
         recentMovements,
         stockByCategory,
+        stockByCostCenter,
         movementsData
     };
 }

@@ -119,6 +119,7 @@ export default function DashboardPage() {
     assetsInMaintenance,
     recentMovements,
     stockByCategory,
+    stockByCostCenter,
     movementsData
   } = useDashboardData({
     role: currentRole || undefined,
@@ -143,6 +144,15 @@ export default function DashboardPage() {
   const totalStock = useMemo(() => {
     return stockByCategory.reduce((acc, curr) => acc + curr.value, 0);
   }, [stockByCategory]);
+
+  const costCenterSummary = useMemo(() => {
+    const costCenterNames = new Map(costCenters.map((center) => [center.id, center.name]));
+
+    return stockByCostCenter.map((center) => ({
+      ...center,
+      name: costCenterNames.get(center.name) || center.name,
+    }));
+  }, [costCenters, stockByCostCenter]);
 
   if (isLoading) {
     return (
@@ -427,7 +437,15 @@ export default function DashboardPage() {
                   </Link>
                 </div>
                 <div className="overflow-hidden rounded-xl border border-border/50 bg-card/40 backdrop-blur-sm">
-                  {recentMovements.map((movement) => (
+                  {recentMovements.length === 0 ? (
+                    <div className="flex min-h-36 flex-col items-center justify-center px-4 py-8 text-center">
+                      <ArrowLeftRight className="h-8 w-8 text-muted-foreground" />
+                      <p className="mt-3 text-sm font-medium">Nenhuma movimentação recente</p>
+                      <p className="mt-1 max-w-64 text-xs text-muted-foreground">
+                        As últimas entradas e saídas aparecerão aqui assim que forem registradas.
+                      </p>
+                    </div>
+                  ) : recentMovements.map((movement) => (
                     <Card key={movement.id} className="rounded-none border-0 border-b border-border/45 bg-transparent shadow-none last:border-b-0 hover:bg-card/60 transition-colors">
                       <CardContent className="px-3 py-2.5 flex items-center gap-3">
                         <div className={`w-8 h-8 shrink-0 rounded-lg flex items-center justify-center ${movement.type === "entrada" ? "bg-emerald-500/15" : "bg-red-500/15"
@@ -468,16 +486,24 @@ export default function DashboardPage() {
                 </h2>
                 <Card className="border-border/50 bg-card/40 backdrop-blur-lg shadow-sm">
                   <CardContent className="p-4 space-y-4">
-                    {stockByCategory.slice(0, 4).map((cat, i) => (
-                      <div key={i} className="space-y-1">
+                    {costCenterSummary.length === 0 ? (
+                      <div className="flex min-h-32 flex-col items-center justify-center text-center">
+                        <Briefcase className="h-8 w-8 text-muted-foreground" />
+                        <p className="mt-3 text-sm font-medium">Sem estoque por centro</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Os centros aparecerão quando houver produtos vinculados.
+                        </p>
+                      </div>
+                    ) : costCenterSummary.slice(0, 4).map((cat) => (
+                      <div key={cat.name} className="space-y-1">
                         <div className="flex justify-between text-xs">
-                          <span>{cat.name}</span>
+                          <span className="truncate pr-3">{cat.name}</span>
                           <span className="text-muted-foreground">{cat.value} un</span>
                         </div>
                         <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
                           <div
                             className="h-full bg-primary transition-all duration-500"
-                            style={{ width: `${Math.min((cat.value / (products.length || 1)) * 100, 100)}%` }}
+                            style={{ width: `${Math.min((cat.value / (totalStock || 1)) * 100, 100)}%` }}
                           />
                         </div>
                       </div>
