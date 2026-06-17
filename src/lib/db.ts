@@ -860,7 +860,36 @@ export const deleteCategory = (id: string) => remove('categories', id);
 
 
 // Audit Logs
-export const getAuditLogs = (forceRefresh = false) => getAll<AuditLog>('admin_audit_logs', 'created_at', false, forceRefresh);
+export const getAuditLogs = async (limit = 120, forceRefresh = false): Promise<AuditLog[]> => {
+  const localData = await db.admin_audit_logs
+    .orderBy('created_at')
+    .reverse()
+    .limit(limit)
+    .toArray();
+
+  if (!isOnline() || (!forceRefresh && isRecentlySynced('admin_audit_logs'))) {
+    return localData;
+  }
+
+  try {
+    const { data, error } = await withTimeout(
+      supabase
+        .from('admin_audit_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(limit)
+    );
+
+    if (error) throw error;
+
+    await db.admin_audit_logs.bulkPut(data || []);
+    markTableSynced('admin_audit_logs');
+    return data || [];
+  } catch (error) {
+    console.error('Fetch error admin_audit_logs, falling back to cache:', error);
+    return localData;
+  }
+};
 
 export const logActivity = async (
   action: string,

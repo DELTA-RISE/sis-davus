@@ -1,7 +1,7 @@
 "use client";
 
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { getAuditLogs, restoreAsset, restoreProduct } from "@/lib/db";
 import { AuditLog } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
@@ -62,6 +62,8 @@ const actionColors: Record<string, string> = {
 };
 
 const detailsTextKeys = ["value", "message", "description", "detail", "name", "reason"];
+const AUDIT_LOGS_FETCH_LIMIT = 120;
+const AUDIT_LOGS_PAGE_SIZE = 30;
 
 function formatLogDetails(details: AuditLog["details"]) {
   if (!details) return "Sem detalhes registrados.";
@@ -93,12 +95,13 @@ export default function AuditLogsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [isLoadingLogs, setIsLoadingLogs] = useState(true);
+  const [visibleCount, setVisibleCount] = useState(AUDIT_LOGS_PAGE_SIZE);
 
   useEffect(() => {
     const fetchLogs = async () => {
       try {
         setIsLoadingLogs(true);
-        const data = await getAuditLogs();
+        const data = await getAuditLogs(AUDIT_LOGS_FETCH_LIMIT);
         setLogs(data);
       } finally {
         setIsLoadingLogs(false);
@@ -107,15 +110,23 @@ export default function AuditLogsPage() {
     fetchLogs();
   }, []);
 
-  const filteredLogs = logs.filter((log) => {
+  useEffect(() => {
+    setVisibleCount(AUDIT_LOGS_PAGE_SIZE);
+  }, [searchTerm, actionFilter]);
+
+  const filteredLogs = useMemo(() => logs.filter((log) => {
     const detailText = formatLogDetails(log.details).toLowerCase();
+    const search = searchTerm.toLowerCase();
     const matchesSearch =
-      detailText.includes(searchTerm.toLowerCase()) ||
-      log.user_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.resource?.toLowerCase().includes(searchTerm.toLowerCase());
+      detailText.includes(search) ||
+      log.user_name?.toLowerCase().includes(search) ||
+      log.resource?.toLowerCase().includes(search);
     const matchesAction = actionFilter === "all" || log.action === actionFilter;
     return matchesSearch && matchesAction;
-  });
+  }), [logs, searchTerm, actionFilter]);
+
+  const visibleLogs = filteredLogs.slice(0, visibleCount);
+  const hasMoreLogs = visibleCount < filteredLogs.length;
 
   const formatDate = (timestamp: string) => {
     const date = new Date(timestamp);
@@ -148,7 +159,7 @@ export default function AuditLogsPage() {
         toast.success("Item restaurado com sucesso!");
         setIsDialogOpen(false);
         // Reload logs to show RESTORE action
-        const data = await getAuditLogs();
+        const data = await getAuditLogs(AUDIT_LOGS_FETCH_LIMIT, true);
         setLogs(data);
       } else {
         toast.error("Erro ao restaurar item. Verifique se ele ainda existe.");
@@ -170,7 +181,7 @@ export default function AuditLogsPage() {
             <div>
               <h1 className="text-lg font-bold">Logs de Auditoria</h1>
               <p className="text-xs text-muted-foreground">
-                {isLoadingLogs ? "Carregando registros..." : `${filteredLogs.length} registros`}
+                {isLoadingLogs ? "Carregando registros..." : `${filteredLogs.length} registros recentes`}
               </p>
             </div>
           </div>
@@ -241,7 +252,7 @@ export default function AuditLogsPage() {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3">
-            {filteredLogs.map((log) => {
+            {visibleLogs.map((log) => {
             const Icon = actionIcons[log.action] || Edit;
             const colorClass = actionColors[log.action] || "bg-gray-500/20 text-gray-500";
 
@@ -286,6 +297,16 @@ export default function AuditLogsPage() {
               </Card>
             );
             })}
+            {hasMoreLogs && (
+              <div className="col-span-full flex justify-center pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setVisibleCount((count) => count + AUDIT_LOGS_PAGE_SIZE)}
+                >
+                  Carregar mais registros
+                </Button>
+              </div>
+            )}
           </div>
         )}
 
