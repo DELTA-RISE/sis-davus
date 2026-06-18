@@ -3,13 +3,12 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Asset, MaintenanceTask, AssetTimeline, Checkout, CostCenter } from "@/lib/store";
+import { Asset, MaintenanceTask, AssetTimeline, CostCenter } from "@/lib/store";
 import {
   getAssetById,
   getAssetByCode,
   getMaintenanceTasks,
   getAssetTimelines,
-  getCheckouts,
   saveAsset,
   saveAssetTimeline,
   saveCheckout,
@@ -123,7 +122,6 @@ export default function AssetHubPage() {
   const [asset, setAsset] = useState<Asset | null>(null);
   const [maintenanceTasks, setMaintenanceTasks] = useState<MaintenanceTask[]>([]);
   const [timeline, setTimeline] = useState<AssetTimeline[]>([]);
-  const [activeCheckout, setActiveCheckout] = useState<Checkout | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Dialog States
@@ -181,10 +179,9 @@ export default function AssetHubPage() {
         return;
       }
 
-      const [tasksData, timelineData, checkoutsData, ccsData] = await Promise.all([
+      const [tasksData, timelineData, ccsData] = await Promise.all([
         getMaintenanceTasks(assetData.id),
         getAssetTimelines(assetData.id),
-        getCheckouts(assetData.id, "asset"),
         getCostCenters()
       ]);
 
@@ -201,8 +198,6 @@ export default function AssetHubPage() {
       setTimeline(timelineData);
       setCostCenters(ccsData);
 
-      const current = checkoutsData.find(c => c.status === "Ativo" || c.status === "Atrasado");
-      setActiveCheckout(current || null);
     } catch (error) {
       console.error("Error loading asset details:", error);
       toast.error("Erro ao carregar dados do patrimônio");
@@ -401,10 +396,6 @@ export default function AssetHubPage() {
       toast.error("Preencha os dados obrigatórios da retirada");
       return;
     }
-    if (activeCheckout || asset.status !== "Disponível") {
-      toast.error("Este patrimônio não está disponível para retirada");
-      return;
-    }
     if (!checkoutData.notes.trim()) {
       toast.error("Informe o motivo da retirada");
       return;
@@ -430,25 +421,10 @@ export default function AssetHubPage() {
         checkout_date: getTodayInputValue(),
         notes: "",
       });
-      toast.success("Checkout realizado!");
+      toast.success("Retirada registrada!");
       loadData();
     } else {
-      toast.error("Erro ao realizar checkout");
-    }
-  };
-
-  const handleCheckin = async () => {
-    if (!activeCheckout) return;
-    const updated = await saveCheckout({
-      ...activeCheckout,
-      return_date: new Date().toISOString(),
-      status: "Devolvido"
-    }, { name: userName, id: user?.id || "" });
-    if (updated) {
-      toast.success("Devolução registrada!");
-      loadData();
-    } else {
-      toast.error("Erro ao registrar devolução");
+      toast.error("Erro ao registrar retirada");
     }
   };
 
@@ -506,24 +482,6 @@ export default function AssetHubPage() {
       </header>
 
       <div className="p-4 md:p-6 lg:p-8 space-y-4 max-w-6xl mx-auto">
-        {activeCheckout && (
-          <Card className="border-amber-500/30 bg-amber-500/5">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center">
-                  <LogOut className="h-5 w-5 text-amber-500" />
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium text-sm">Retirado por {activeCheckout.user_name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Data da retirada: {new Date(activeCheckout.checkout_date).toLocaleDateString("pt-BR")}
-                  </p>
-                </div>
-                <Button variant="secondary" size="sm" onClick={handleCheckin}>Devolver</Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2 space-y-4">
@@ -1054,11 +1012,11 @@ export default function AssetHubPage() {
               <Button
                 variant="outline"
                 className="h-12 gap-2"
-                disabled={!!activeCheckout || asset.status !== "Disponível"}
-                title={asset.status !== "Disponível" ? "Patrimônio indisponível para retirada" : undefined}
+                disabled={asset.status === "Baixado"}
+                title={asset.status === "Baixado" ? "Patrimônio já retirado da empresa" : undefined}
               >
                 <LogOut className="h-4 w-4" />
-                Checkout
+                Retirar patrimônio
               </Button>
             </DialogTrigger>
             <DialogContent>

@@ -97,13 +97,14 @@ export function useDashboardData({ role, costCenterId, userId, userName, dateRan
             assetsQuery = assetsQuery.filter(a => a.cost_center === costCenterId);
         }
 
-        const [products, assets] = await Promise.all([
+        const [products, scopedAssets] = await Promise.all([
             productsQuery.toArray(),
             assetsQuery.toArray(),
         ]);
 
         const visibleProductIds = new Set(products.map(p => p.id));
-        const visibleAssetIds = new Set(assets.map(a => a.id));
+        const visibleAssetIds = new Set(scopedAssets.map(a => a.id));
+        const assets = scopedAssets.filter((asset) => asset.status !== "Baixado");
         const [allMovements, allCheckouts] = await Promise.all([
             costCenterId
                 ? db.stock_movements

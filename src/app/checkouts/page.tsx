@@ -18,23 +18,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   LogOut,
   Search,
   Plus,
-  Filter,
   Calendar,
   User,
   Building2,
-  RotateCcw,
-  Clock,
-  CheckCircle,
   Zap,
   Check,
   ChevronsUpDown,
@@ -60,24 +49,6 @@ import { useAuth } from "@/lib/auth-context";
 import { getScopedCostCenter } from "@/lib/access-scope";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 
-const statusColors = {
-  Ativo: "bg-blue-500/20 text-blue-500 border-blue-500/30",
-  Devolvido: "bg-green-500/20 text-green-500 border-green-500/30",
-  Atrasado: "bg-blue-500/20 text-blue-500 border-blue-500/30",
-};
-
-const statusLabels = {
-  Ativo: "Retirado",
-  Devolvido: "Devolvido",
-  Atrasado: "Retirado",
-};
-
-const statusIcons = {
-  Ativo: Clock,
-  Devolvido: CheckCircle,
-  Atrasado: Clock,
-};
-
 export default function CheckoutsPage() {
   const { userName, user, currentRole, costCenter } = useAuth();
   const scopedCostCenter = getScopedCostCenter(currentRole, costCenter);
@@ -86,7 +57,6 @@ export default function CheckoutsPage() {
   const [users, setUsers] = useState<AppUser[]>([]);
   // const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [checkoutToDelete, setCheckoutToDelete] = useState<Checkout | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -126,22 +96,9 @@ export default function CheckoutsPage() {
       const itemName = c.item_name || "";
       const userName = c.user_name || "";
       const matchesSearch = itemName.toLowerCase().includes(searchTerm.toLowerCase()) || userName.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesStatus = statusFilter === "all" || c.status === statusFilter;
-      return matchesSearch && matchesStatus;
+      return matchesSearch;
     });
-  }, [checkouts, searchTerm, statusFilter]);
-
-  const availableAssets = useMemo(() => {
-    const checkedOutAssetIds = new Set(
-      checkouts
-        .filter((checkout) => checkout.status === "Ativo" || checkout.status === "Atrasado")
-        .map((checkout) => checkout.item_id)
-    );
-
-    return assets.filter((asset) =>
-      asset.status === "Disponível" && !checkedOutAssetIds.has(asset.id)
-    );
-  }, [assets, checkouts]);
+  }, [checkouts, searchTerm]);
 
   const handleSaveCheckout = async () => {
     if (!newCheckout.item_id || !newCheckout.user_id || !newCheckout.checkout_date) {
@@ -161,12 +118,6 @@ export default function CheckoutsPage() {
 
     const item = assets.find((asset) => asset.id === newCheckout.item_id);
     if (!item) return;
-    if (item.status !== "Disponível" || checkouts.some((checkout) =>
-      checkout.item_id === item.id && (checkout.status === "Ativo" || checkout.status === "Atrasado")
-    )) {
-      toast.error("Este patrimônio não está disponível para retirada");
-      return;
-    }
     const payload: Partial<Checkout> = {
       item_id: item.id,
       item_type: "asset",
@@ -186,42 +137,16 @@ export default function CheckoutsPage() {
           description: "A sincronizacao com o Supabase ainda esta pendente.",
         });
       } else {
-        toast.success("Checkout realizado!");
+        toast.success("Retirada registrada!");
       }
       setCheckouts((current) => [saved, ...current.filter((checkout) => checkout.id !== saved.id)]);
       setAssets((current) => current.map((asset) =>
-        asset.id === saved.item_id ? { ...asset, status: "Em Uso" } : asset
+        asset.id === saved.item_id ? { ...asset, status: "Baixado" } : asset
       ));
       setIsDialogOpen(false);
       setNewCheckout({ checkout_date: todayStr });
     } else {
-      toast.error("Erro ao salvar checkout");
-    }
-  };
-
-  const handleReturn = async (id: string) => {
-    const checkout = checkouts.find(c => c.id === id);
-    if (!checkout) return;
-
-    const updated = await saveCheckout({ ...checkout, status: "Devolvido", return_date: new Date().toISOString() }, { name: userName, id: user?.id || "" });
-    if (updated) {
-      if (isPendingSync(updated)) {
-        toast.warning("Devolucao salva localmente.", {
-          description: updated.__persistenceError || "A sincronizacao com o Supabase ainda esta pendente.",
-        });
-      } else {
-        toast.success("Item devolvido!");
-      }
-      setCheckouts((current) =>
-        current.map((item) => (item.id === updated.id ? { ...item, ...updated } : item))
-      );
-      setAssets((current) => current.map((asset) =>
-        asset.id === updated.item_id && asset.status === "Em Uso"
-          ? { ...asset, status: "Disponível" }
-          : asset
-      ));
-    } else {
-      toast.error("Erro ao registrar devolucao");
+      toast.error("Erro ao registrar retirada");
     }
   };
 
@@ -236,9 +161,9 @@ export default function CheckoutsPage() {
 
     if (success) {
       setCheckouts((current) => current.filter((checkout) => checkout.id !== checkoutToDelete.id));
-      if (checkoutToDelete.status === "Ativo" || checkoutToDelete.status === "Atrasado") {
+      if (checkoutToDelete.status === "Ativo") {
         setAssets((current) => current.map((asset) =>
-          asset.id === checkoutToDelete.item_id && asset.status === "Em Uso"
+          asset.id === checkoutToDelete.item_id && asset.status === "Baixado"
             ? { ...asset, status: "Disponível" }
             : asset
         ));
@@ -296,7 +221,7 @@ export default function CheckoutsPage() {
                             <CommandList>
                               <CommandEmpty>Nenhum item encontrado.</CommandEmpty>
                               <CommandGroup>
-                                {availableAssets.map((i) => (
+                                {assets.filter((asset) => asset.status !== "Baixado").map((i) => (
                                   <CommandItem
                                     key={i.id}
                                     value={i.name}
@@ -396,24 +321,13 @@ export default function CheckoutsPage() {
         </header>
 
         <div className="p-4 md:p-6 lg:p-8 space-y-4 max-w-7xl mx-auto">
-          <div className="flex gap-2">
-            <div className="relative flex-1">
+          <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input placeholder="Buscar..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-9 bg-card/50 h-10" />
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[120px] bg-card/50 h-10"><Filter className="h-4 w-4 mr-2" /><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="Ativo">Retirados</SelectItem>
-                <SelectItem value="Devolvido">Devolvido</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
 
           <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {filteredCheckouts.map((c) => {
-              const Icon = statusIcons[c.status];
               return (
                 <StaggerItem key={c.id}>
                   <Card className="border-border/50 bg-card/50">
@@ -435,11 +349,6 @@ export default function CheckoutsPage() {
                               <span className="not-italic font-medium text-foreground/70">Motivo:</span> {c.notes}
                             </p>
                           )}
-                          <div className="flex items-center gap-2 mt-2">
-                            <Badge variant="outline" className={`text-[10px] ${statusColors[c.status]}`}>
-                              <Icon className="h-3 w-3 mr-1" />{statusLabels[c.status]}
-                            </Badge>
-                          </div>
                         </div>
                         <Button
                           type="button"
@@ -453,9 +362,6 @@ export default function CheckoutsPage() {
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
-                      {c.status !== 'Devolvido' && (
-                        <Button variant="outline" size="sm" onClick={() => handleReturn(c.id)} className="w-full mt-3 h-8 gap-1 text-xs"><RotateCcw className="h-3 w-3" /> Devolver</Button>
-                      )}
                     </CardContent>
                   </Card>
                 </StaggerItem>

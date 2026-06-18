@@ -864,27 +864,6 @@ export const getCheckouts = async (itemId?: string, itemType?: 'product' | 'asse
   }
 };
 export const saveCheckout = async (checkout: Partial<Checkout>, userInfo?: { name: string, id: string }) => {
-  const isNewActiveAssetCheckout = !checkout.id
-    && checkout.item_type === 'asset'
-    && checkout.status === 'Ativo'
-    && !!checkout.item_id;
-
-  if (isNewActiveAssetCheckout) {
-    const existingCheckout = await db.checkouts
-      .where('item_id')
-      .equals(checkout.item_id!)
-      .filter((item) => item.item_type === 'asset' && (item.status === 'Ativo' || item.status === 'Atrasado'))
-      .first();
-
-    if (existingCheckout) {
-      notifyClientError(
-        "Patrimônio já retirado",
-        `Este patrimônio está com ${existingCheckout.user_name}. Registre a devolução antes de uma nova retirada.`
-      );
-      return null;
-    }
-  }
-
   const payload: Partial<Checkout> = {
     ...checkout,
     quantity: checkout.quantity ?? 1,
@@ -892,25 +871,19 @@ export const saveCheckout = async (checkout: Partial<Checkout>, userInfo?: { nam
   const result = await upsert<Checkout>('checkouts', payload as Checkout);
   if (result?.item_type === 'asset') {
     const asset = await db.assets.get(result.item_id);
-    if (asset) {
-      const isReturned = result.status === 'Devolvido';
-      const nextStatus = isReturned ? 'Disponível' : 'Em Uso';
-      const shouldUpdate = isReturned ? asset.status === 'Em Uso' : asset.status !== nextStatus;
-
-      if (shouldUpdate) {
-        await upsert<Asset>('assets', {
-          ...asset,
-          status: nextStatus,
-          updated_at: new Date().toISOString(),
-        });
-      }
+    if (asset && asset.status !== 'Baixado') {
+      await upsert<Asset>('assets', {
+        ...asset,
+        status: 'Baixado',
+        updated_at: new Date().toISOString(),
+      });
     }
   }
   if (result && userInfo) {
     await logActivity(
       payload.id ? "UPDATE" : "CHECKOUT",
       "CHECKOUT",
-      `Checkout de "${result.item_name}" ${payload.id ? "atualizado" : "realizado"} para ${result.user_name} por ${userInfo.name}.`,
+      `Retirada de "${result.item_name}" ${payload.id ? "atualizada" : "registrada"} para ${result.user_name} por ${userInfo.name}.`,
       result.id,
       userInfo.name
     );
@@ -921,9 +894,14 @@ export const saveCheckout = async (checkout: Partial<Checkout>, userInfo?: { nam
 export const deleteCheckout = async (id: string, userInfo?: { name: string, id: string }) => {
   const checkout = await db.checkouts.get(id);
   const success = await remove('checkouts', id);
-  if (success && checkout?.item_type === 'asset' && (checkout.status === 'Ativo' || checkout.status === 'Atrasado')) {
+  if (success && checkout?.item_type === 'asset' && checkout.status === 'Ativo') {
     const asset = await db.assets.get(checkout.item_id);
-    if (asset?.status === 'Em Uso') {
+    const hasAnotherWithdrawal = await db.checkouts
+      .where('item_id')
+      .equals(checkout.item_id)
+      .filter((item) => item.item_type === 'asset' && item.status === 'Ativo')
+      .count();
+    if (asset?.status === 'Baixado' && hasAnotherWithdrawal === 0) {
       await upsert<Asset>('assets', {
         ...asset,
         status: 'Disponível',
