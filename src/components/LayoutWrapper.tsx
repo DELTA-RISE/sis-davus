@@ -32,14 +32,19 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
   const { isCollapsed } = useSidebar();
 
   useEffect(() => {
+    if (!isLoading && pathname === "/" && user) {
+      router.replace(mustChangePassword ? "/change-password" : "/dashboard");
+      return;
+    }
+
     if (!isLoading && !isPublicPage && !isLoginPage && !isWikiPage) {
       if (!user) {
-        router.push("/login"); // Redirect to login if not authenticated
+        router.replace("/login"); // Redirect to login if not authenticated
       } else if (mustChangePassword && !isChangePasswordPage) {
-        router.push("/change-password"); // Force password change
+        router.replace("/change-password"); // Force password change
       }
     }
-  }, [user, isLoading, isPublicPage, isLoginPage, isWikiPage, isChangePasswordPage, mustChangePassword, router]);
+  }, [user, isLoading, pathname, isPublicPage, isLoginPage, isWikiPage, isChangePasswordPage, mustChangePassword, router]);
 
   useEffect(() => {
     if (isPublicPage || isLoginPage || isTVMode || isChangePasswordPage || isWikiPage) return;
@@ -49,6 +54,10 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
       document.querySelector("main")?.scrollTo({ top: 0, left: 0, behavior: "auto" });
     });
   }, [pathname, isPublicPage, isLoginPage, isTVMode, isChangePasswordPage, isWikiPage]);
+
+  if (pathname === "/" && (isLoading || user)) {
+    return <DashboardSkeleton />;
+  }
 
   if (isPublicPage || isLoginPage || isTVMode || isChangePasswordPage || isWikiPage) {
     return (
