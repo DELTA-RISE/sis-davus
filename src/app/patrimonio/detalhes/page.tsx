@@ -46,7 +46,6 @@ import {
   Building2,
   ArrowLeft,
   User as UserIcon,
-  Calendar,
   DollarSign,
   Tag,
   Wrench,
@@ -621,19 +620,6 @@ export default function AssetHubPage() {
                       <p className="text-lg font-bold">
                         R$ {(asset.value || 0).toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
                       </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="border-border/50 bg-card/50">
-                <CardContent className="p-4 h-full flex items-center">
-                  <div className="flex items-center gap-3 w-full">
-                    <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center shrink-0">
-                      <Calendar className="h-5 w-5 text-blue-500" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-muted-foreground uppercase">Aquisição</p>
-                      <p className="text-lg font-bold">{yearsSinceAcquisition} anos</p>
                     </div>
                   </div>
                 </CardContent>
