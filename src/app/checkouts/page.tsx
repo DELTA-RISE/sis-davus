@@ -89,9 +89,11 @@ export default function CheckoutsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const todayStr = new Date().toISOString().slice(0, 10);
   const [newCheckout, setNewCheckout] = useState<Partial<Checkout>>({
     item_type: "asset",
     quantity: 1,
+    checkout_date: todayStr,
   });
   const [openItemSelect, setOpenItemSelect] = useState(false);
   const [openUserSelect, setOpenUserSelect] = useState(false);
@@ -138,6 +140,10 @@ export default function CheckoutsPage() {
       toast.error("Preencha todos os campos obrigatórios");
       return;
     }
+    if (!newCheckout.notes?.trim()) {
+      toast.error("O campo Motivo da Retirada é obrigatório");
+      return;
+    }
 
     const selectedUser = users.find((candidate) => candidate.name === newCheckout.user_name);
     if (!selectedUser?.id) {
@@ -153,7 +159,9 @@ export default function CheckoutsPage() {
       item_name: item.name,
       user_id: selectedUser.id,
       quantity: newCheckout.quantity || 1,
-      checkout_date: new Date().toISOString(),
+      checkout_date: newCheckout.checkout_date
+        ? new Date(newCheckout.checkout_date + "T12:00:00").toISOString()
+        : new Date().toISOString(),
       status: "Ativo",
     };
 
@@ -168,7 +176,7 @@ export default function CheckoutsPage() {
       }
       setCheckouts((current) => [saved, ...current.filter((checkout) => checkout.id !== saved.id)]);
       setIsDialogOpen(false);
-      setNewCheckout({ item_type: "asset", quantity: 1 });
+      setNewCheckout({ item_type: "asset", quantity: 1, checkout_date: todayStr });
     } else {
       toast.error("Erro ao salvar checkout");
     }
@@ -324,14 +332,30 @@ export default function CheckoutsPage() {
                       </div>
                     </div>
                     <div className="space-y-2">
+                      <Label>Data de Retirada</Label>
+                      <Input
+                        type="date"
+                        value={newCheckout.checkout_date ?? todayStr}
+                        onChange={e => setNewCheckout({ ...newCheckout, checkout_date: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
                       <Label>Previsão Devolução</Label>
                       <Input type="date" value={newCheckout.expected_return_date ?? ""} onChange={e => setNewCheckout({ ...newCheckout, expected_return_date: e.target.value })} />
                     </div>
                     <div className="space-y-2">
-                      <Label>Observações</Label>
-                      <Textarea value={newCheckout.notes ?? ""} onChange={e => setNewCheckout({ ...newCheckout, notes: e.target.value })} rows={2} />
+                      <Label>
+                        Motivo da Retirada{" "}
+                        <span className="text-destructive">*</span>
+                      </Label>
+                      <Textarea
+                        placeholder="Ex: Uso em obra, manutenção externa, viagem..."
+                        value={newCheckout.notes ?? ""}
+                        onChange={e => setNewCheckout({ ...newCheckout, notes: e.target.value })}
+                        rows={3}
+                      />
                     </div>
-                    <Button onClick={handleSaveCheckout} className="w-full">Registrar</Button>
+                    <Button onClick={handleSaveCheckout} className="w-full">Registrar Retirada</Button>
                   </div>
                 </DialogContent>
               </Dialog>
@@ -374,13 +398,18 @@ export default function CheckoutsPage() {
                           </div>
                           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground mt-1">
                             <span className="flex items-center gap-1"><User className="h-3 w-3" />{c.user_name}</span>
-                            <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{new Date(c.checkout_date).toLocaleDateString()}</span>
+                            <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />Retirada: {new Date(c.checkout_date).toLocaleDateString("pt-BR")}</span>
                           </div>
+                          {c.notes && (
+                            <p className="text-[10px] text-muted-foreground mt-1 italic line-clamp-2">
+                              <span className="not-italic font-medium text-foreground/70">Motivo:</span> {c.notes}
+                            </p>
+                          )}
                           <div className="flex items-center gap-2 mt-2">
                             <Badge variant="outline" className={`text-[10px] ${statusColors[c.status]}`}>
                               <Icon className="h-3 w-3 mr-1" />{statusLabels[c.status]}
                             </Badge>
-                            {c.status !== 'Devolvido' && <span className="text-[10px] text-muted-foreground">Retorno: {new Date(c.expected_return_date || "").toLocaleDateString()}</span>}
+                            {c.status !== 'Devolvido' && <span className="text-[10px] text-muted-foreground">Retorno: {new Date(c.expected_return_date || "").toLocaleDateString("pt-BR")}</span>}
                           </div>
                         </div>
                       </div>
