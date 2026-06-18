@@ -157,6 +157,7 @@ export default function PatrimonioPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const debouncedSearch = useDebounce(searchTerm, 300);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isSavingAsset, setIsSavingAsset] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
   const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -229,13 +230,18 @@ export default function PatrimonioPage() {
     };
 
     const result = assetSchema.safeParse(payload);
+    const fieldErrors: Record<string, string> = {};
 
     if (!result.success) {
-      const fieldErrors: Record<string, string> = {};
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (result.error as any).issues.forEach((err: any) => {
         if (err.path[0]) fieldErrors[err.path[0] as string] = err.message;
       });
+    }
+    if (!scopedCostCenter && !newAsset.cost_center) {
+      fieldErrors.cost_center = "Selecione um centro de custo";
+    }
+    if (Object.keys(fieldErrors).length > 0) {
       setErrors(fieldErrors);
       return false;
     }
@@ -542,11 +548,15 @@ export default function PatrimonioPage() {
   });
 
   const handleSaveAsset = async () => {
+    if (isSavingAsset) return;
     if (!validateForm()) {
       toast.error("Corrija os erros do formulário");
       return;
     }
 
+    const editingSnapshot = editingAsset;
+    const draftSnapshot = { ...newAsset };
+    const wasEditing = !!editingAsset;
     const condition = editingAsset ? normalizeAssetCondition(newAsset.condition) : "Bom";
     const assetToSave: Partial<Asset> = {
       ...newAsset,
@@ -559,6 +569,9 @@ export default function PatrimonioPage() {
       value: newAsset.value ?? 0,
     };
 
+    setIsSavingAsset(true);
+    setIsDialogOpen(false);
+    setEditingAsset(null);
     const saved = await saveAsset(assetToSave, { name: userName, id: user?.id || "" });
 
     if (saved) {
@@ -570,34 +583,39 @@ export default function PatrimonioPage() {
       }
 
       if (isPendingSync(saved)) {
-        toast.warning(editingAsset ? "Patrimonio atualizado localmente." : "Patrimonio cadastrado localmente.", {
+        toast.warning(wasEditing ? "Patrimonio atualizado localmente." : "Patrimonio cadastrado localmente.", {
           description: "A sincronizacao com o Supabase ainda esta pendente.",
         });
       } else {
-        toast.success(editingAsset ? "Patrimonio atualizado com sucesso!" : "Patrimonio cadastrado com sucesso!");
+        toast.success(wasEditing ? "Patrimonio atualizado com sucesso!" : "Patrimonio cadastrado com sucesso!");
       }
 
       addHistoryEntry({
         item_id: saved.id,
         item_type: "asset",
-        action: editingAsset ? "update" : "create",
+        action: wasEditing ? "update" : "create",
         user_name: userName,
         changes: [],
-        description: `Patrimônio "${saved.name}" ${editingAsset ? "atualizado" : "cadastrado"}`,
+        description: `Patrimônio "${saved.name}" ${wasEditing ? "atualizado" : "cadastrado"}`,
       });
-      setIsDialogOpen(false);
-      setEditingAsset(null);
       setNewAsset({ category: "", location: "", condition: "Bom", cost_center: scopedCostCenter || "", assigned_to: "" });
     } else {
       toast.error("Erro ao salvar patrimônio");
+      setEditingAsset(editingSnapshot);
+      setNewAsset(draftSnapshot);
+      setIsDialogOpen(true);
     }
+    setIsSavingAsset(false);
   };
 
   const handleEdit = (e: React.MouseEvent, asset: Asset) => {
     e.preventDefault();
     e.stopPropagation();
+    const normalizedCostCenter = costCenters.find((costCenter) =>
+      costCenter.id === asset.cost_center || costCenter.name === asset.cost_center
+    )?.id || asset.cost_center;
     setEditingAsset(asset);
-    setNewAsset(asset);
+    setNewAsset({ ...asset, cost_center: normalizedCostCenter });
     setErrors({});
     setIsDialogOpen(true);
   };
@@ -790,18 +808,27 @@ export default function PatrimonioPage() {
                           {errors.code && <p className="text-xs text-destructive">{errors.code}</p>}
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Data Aquisição</Label>
-                          <Input
-                            type="date"
-                            value={newAsset.purchase_date || ""}
-                            onChange={(e) => setNewAsset({ ...newAsset, purchase_date: e.target.value })}
-                            className={errors.purchase_date ? "border-destructive" : ""}
-                          />
-                          {errors.purchase_date && <p className="text-xs text-destructive">{errors.purchase_date}</p>}
-                        </div>
-                        <div className="space-y-2">
+                      <div className="space-y-2">
+                        <Label>Centro de Custo</Label>
+                        <Select
+                          value={scopedCostCenter || newAsset.cost_center || ""}
+                          onValueChange={(value) => setNewAsset({ ...newAsset, cost_center: value })}
+                          disabled={!!scopedCostCenter}
+                        >
+                          <SelectTrigger className={errors.cost_center ? "border-destructive" : ""}>
+                            <SelectValue placeholder="Selecione o centro de custo" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {costCenters.map((costCenter) => (
+                              <SelectItem key={costCenter.id} value={costCenter.id}>
+                                {costCenter.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {errors.cost_center && <p className="text-xs text-destructive">{errors.cost_center}</p>}
+                      </div>
+                      <div className="space-y-2">
                           <Label>Valor (R$)</Label>
                           <Input
                             type="number"
@@ -811,7 +838,6 @@ export default function PatrimonioPage() {
                             className={errors.value ? "border-destructive" : ""}
                           />
                           {errors.value && <p className="text-xs text-destructive">{errors.value}</p>}
-                        </div>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
@@ -842,7 +868,9 @@ export default function PatrimonioPage() {
                         <Label>Descrição</Label>
                         <Textarea value={newAsset.description || ""} onChange={(e) => setNewAsset({ ...newAsset, description: e.target.value })} rows={2} />
                       </div>
-                      <Button onClick={handleSaveAsset} className="w-full">{editingAsset ? "Salvar Alterações" : "Cadastrar"}</Button>
+                      <Button onClick={handleSaveAsset} className="w-full" disabled={isSavingAsset}>
+                        {isSavingAsset ? "Salvando..." : editingAsset ? "Salvar Alterações" : "Cadastrar"}
+                      </Button>
                     </div>
                   </DialogContent>
                 </Dialog>

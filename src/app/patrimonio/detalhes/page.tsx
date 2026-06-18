@@ -310,6 +310,7 @@ export default function AssetHubPage() {
       model: generalInfoForm.model?.trim() || "",
       serial_number: generalInfoForm.serial_number?.trim() || "",
       description: generalInfoForm.description?.trim() || "",
+      cost_center: scopedCostCenter || generalInfoForm.cost_center || asset.cost_center,
     }, { name: userName, id: user?.id || "" });
 
     if (updated) {
@@ -319,7 +320,7 @@ export default function AssetHubPage() {
         date: new Date().toISOString(),
         title: "Informações gerais atualizadas",
         user_name: userName,
-        description: "Categoria, marca, modelo, número de série ou descrição do patrimônio foram revisados.",
+        description: "Categoria, marca, modelo, número de série, descrição ou centro de custo do patrimônio foram revisados.",
       });
 
       setAsset(updated);
@@ -450,11 +451,6 @@ export default function AssetHubPage() {
     );
   }
 
-  const daysSinceAcquisition = Math.floor(
-    (new Date().getTime() - new Date(asset.purchase_date || new Date()).getTime()) / (1000 * 60 * 60 * 24)
-  );
-  const yearsSinceAcquisition = (daysSinceAcquisition / 365).toFixed(1);
-
   return (
     <div className="min-h-screen pb-20">
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b border-border">
@@ -501,6 +497,9 @@ export default function AssetHubPage() {
                         model: asset.model || "",
                         serial_number: asset.serial_number || "",
                         description: asset.description || "",
+                        cost_center: costCenters.find((cc) =>
+                          cc.id === asset.cost_center || cc.name === asset.cost_center
+                        )?.id || asset.cost_center || "",
                       });
                     }
                   }}>
@@ -515,6 +514,25 @@ export default function AssetHubPage() {
                         <DialogTitle>Editar Informações Gerais</DialogTitle>
                       </DialogHeader>
                       <div className="grid gap-4 py-4">
+                        <div className="space-y-2">
+                          <Label>Centro de Custo</Label>
+                          <Select
+                            value={generalInfoForm.cost_center || ""}
+                            onValueChange={(value) => setGeneralInfoForm({ ...generalInfoForm, cost_center: value })}
+                            disabled={!!scopedCostCenter}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione o centro de custo" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {costCenters.map((costCenter) => (
+                                <SelectItem key={costCenter.id} value={costCenter.id}>
+                                  {costCenter.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <Label>Categoria</Label>
@@ -852,15 +870,9 @@ export default function AssetHubPage() {
                   <Label>Descrição</Label>
                   <Textarea value={editForm.description || ""} onChange={e => setEditForm({ ...editForm, description: e.target.value })} />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Data Aquisição</Label>
-                    <Input type="date" value={editForm.purchase_date || ""} onChange={(e) => setEditForm({ ...editForm, purchase_date: e.target.value })} />
-                  </div>
-                  <div className="space-y-2">
+                <div className="space-y-2">
                     <Label>Valor (R$)</Label>
                     <Input type="number" step="0.01" value={editForm.value ?? ""} onChange={(e) => setEditForm({ ...editForm, value: parseFloat(e.target.value) || 0 })} />
-                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
