@@ -1280,12 +1280,10 @@ export function exportCheckouts(checkouts: Checkout[], format: "csv" | "json"): 
   if (format === "json") return exportToJSON(checkouts, filename);
   exportToCSV(checkouts, filename, [
     { key: "checkout_date", label: "Data Retirada" },
-    { key: "item_name", label: "Item" },
-    { key: "item_type", label: "Tipo" },
-    { key: "quantity", label: "Quantidade" },
-    { key: "user_name", label: "Usuário" },
+    { key: "item_name", label: "Patrimônio" },
+    { key: "user_name", label: "Responsável" },
+    { key: "notes", label: "Motivo da Retirada" },
     { key: "status", label: "Status" },
-    { key: "expected_return_date", label: "Previsão Devolução" },
     { key: "return_date", label: "Data Devolução" },
   ]);
 }

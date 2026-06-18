@@ -40,12 +40,11 @@ export const assetSchema = z.object({
 });
 
 export const checkoutSchema = z.object({
-  item_type: z.enum(["product", "asset"]),
-  item_id: z.string().min(1, "Selecione um item"),
-  quantity: z.number().min(1, "Quantidade deve ser maior que 0"),
-  user_name: z.string().min(2, "Informe o usuário"),
-  expected_return: z.string().min(1, "Informe a data de devolução"),
-  notes: z.string().optional(),
+  item_type: z.literal("asset"),
+  item_id: z.string().min(1, "Selecione um patrimônio"),
+  user_id: z.string().min(1, "Selecione um responsável"),
+  checkout_date: z.string().min(1, "Informe a data da retirada"),
+  notes: z.string().trim().min(1, "Informe o motivo da retirada"),
 });
 
 export const maintenanceSchema = z.object({

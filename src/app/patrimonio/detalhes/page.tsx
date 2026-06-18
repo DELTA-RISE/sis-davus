@@ -99,6 +99,11 @@ const timelineColors: Record<string, string> = {
   atualizacao: "bg-slate-500/20 text-slate-400",
 };
 
+const getTodayInputValue = () => {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+};
+
 const openMaintenanceStatuses = new Set([
   "Pendente",
   "Em Andamento",
@@ -140,7 +145,12 @@ export default function AssetHubPage() {
     notes: "",
     image_url: "",
   });
-  const [checkoutData, setCheckoutData] = useState({ user_id: "", user_name: "", expected_return: "", notes: "" });
+  const [checkoutData, setCheckoutData] = useState({
+    user_id: "",
+    user_name: "",
+    checkout_date: getTodayInputValue(),
+    notes: "",
+  });
   const [labelLayout, setLabelLayout] = useState<AssetLabelLayout>('standard');
   const [fillPage, setFillPage] = useState(false);
 
@@ -387,8 +397,12 @@ export default function AssetHubPage() {
   };
 
   const handleCheckout = async () => {
-    if (!asset || !checkoutData.user_id || !checkoutData.user_name) {
-      toast.error("Selecione um responsável válido para o checkout");
+    if (!asset || !checkoutData.user_id || !checkoutData.user_name || !checkoutData.checkout_date) {
+      toast.error("Preencha os dados obrigatórios da retirada");
+      return;
+    }
+    if (!checkoutData.notes.trim()) {
+      toast.error("Informe o motivo da retirada");
       return;
     }
 
@@ -399,15 +413,19 @@ export default function AssetHubPage() {
       user_id: checkoutData.user_id,
       user_name: checkoutData.user_name,
       quantity: 1,
-      checkout_date: new Date().toISOString(),
-      expected_return_date: checkoutData.expected_return || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // Default 7 days
+      checkout_date: new Date(`${checkoutData.checkout_date}T12:00:00`).toISOString(),
       status: "Ativo",
-      notes: checkoutData.notes
+      notes: checkoutData.notes.trim(),
     }, { name: userName, id: user?.id || "" });
 
     if (checkout) {
       setCheckoutDialogOpen(false);
-      setCheckoutData({ user_id: "", user_name: "", expected_return: "", notes: "" });
+      setCheckoutData({
+        user_id: "",
+        user_name: "",
+        checkout_date: getTodayInputValue(),
+        notes: "",
+      });
       toast.success("Checkout realizado!");
       loadData();
     } else {
@@ -492,17 +510,11 @@ export default function AssetHubPage() {
                   <LogOut className="h-5 w-5 text-amber-500" />
                 </div>
                 <div className="flex-1">
-                  <p className="font-medium text-sm">Em uso por {activeCheckout.user_name}</p>
+                  <p className="font-medium text-sm">Retirado por {activeCheckout.user_name}</p>
                   <p className="text-xs text-muted-foreground">
-                    Devolução prevista: {new Date(activeCheckout.expected_return_date || '').toLocaleDateString("pt-BR")}
+                    Data da retirada: {new Date(activeCheckout.checkout_date).toLocaleDateString("pt-BR")}
                   </p>
                 </div>
-                {activeCheckout.status === "Atrasado" && (
-                  <Badge className="bg-red-500/20 text-red-500">
-                    <AlertTriangle className="h-3 w-3 mr-1" />
-                    Atrasado
-                  </Badge>
-                )}
                 <Button variant="secondary" size="sm" onClick={handleCheckin}>Devolver</Button>
               </div>
             </CardContent>
@@ -1041,10 +1053,10 @@ export default function AssetHubPage() {
               </Button>
             </DialogTrigger>
             <DialogContent>
-              <DialogHeader><DialogTitle>Realizar Checkout</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>Registrar retirada</DialogTitle></DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label>Usuário</Label>
+                  <Label>Responsável <span className="text-destructive">*</span></Label>
                   <UserSelect
                     value={checkoutData.user_name}
                     onChange={(v) => setCheckoutData({ ...checkoutData, user_name: v, user_id: v ? checkoutData.user_id : "" })}
@@ -1058,14 +1070,24 @@ export default function AssetHubPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Data Prevista Devolução</Label>
-                  <Input type="date" value={checkoutData.expected_return} onChange={e => setCheckoutData({ ...checkoutData, expected_return: e.target.value })} />
+                  <Label>Data de Retirada <span className="text-destructive">*</span></Label>
+                  <Input
+                    type="date"
+                    max={getTodayInputValue()}
+                    value={checkoutData.checkout_date}
+                    onChange={e => setCheckoutData({ ...checkoutData, checkout_date: e.target.value })}
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label>Observações</Label>
-                  <Textarea value={checkoutData.notes} onChange={e => setCheckoutData({ ...checkoutData, notes: e.target.value })} />
+                  <Label>Motivo da Retirada <span className="text-destructive">*</span></Label>
+                  <Textarea
+                    placeholder="Ex: Uso em obra, manutenção externa, viagem..."
+                    value={checkoutData.notes}
+                    onChange={e => setCheckoutData({ ...checkoutData, notes: e.target.value })}
+                    rows={3}
+                  />
                 </div>
-                <Button onClick={handleCheckout}>Confirmar Checkout</Button>
+                <Button onClick={handleCheckout} className="w-full">Registrar Retirada</Button>
               </div>
             </DialogContent>
           </Dialog>
