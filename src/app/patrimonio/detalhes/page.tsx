@@ -46,6 +46,7 @@ import {
   Building2,
   ArrowLeft,
   User as UserIcon,
+  Calendar,
   DollarSign,
   Tag,
   Wrench,
@@ -276,10 +277,18 @@ export default function AssetHubPage() {
   const handleSaveEdit = async () => {
     if (!asset || !editForm.name) return;
     const condition = editForm.condition || asset.condition;
+    const warrantyMonths = editForm.warranty_months === undefined
+      ? undefined
+      : Math.trunc(Number(editForm.warranty_months));
+    if (warrantyMonths !== undefined && (!Number.isFinite(warrantyMonths) || warrantyMonths < 0)) {
+      toast.error("Informe a garantia em meses inteiros");
+      return;
+    }
     const updated = await saveAsset({
       ...asset,
       ...editForm,
       id: asset.id,
+      warranty_months: warrantyMonths,
       status: condition === "Manutenção"
         ? "Em Manutenção"
         : asset.status === "Em Manutenção"
@@ -309,7 +318,7 @@ export default function AssetHubPage() {
       model: generalInfoForm.model?.trim() || "",
       serial_number: generalInfoForm.serial_number?.trim() || "",
       description: generalInfoForm.description?.trim() || "",
-      cost_center: scopedCostCenter || generalInfoForm.cost_center || asset.cost_center,
+      cost_center: asset.cost_center,
     }, { name: userName, id: user?.id || "" });
 
     if (updated) {
@@ -319,7 +328,7 @@ export default function AssetHubPage() {
         date: new Date().toISOString(),
         title: "Informações gerais atualizadas",
         user_name: userName,
-        description: "Categoria, marca, modelo, número de série, descrição ou centro de custo do patrimônio foram revisados.",
+        description: "Categoria, marca, modelo, número de série ou descrição do patrimônio foram revisados.",
       });
 
       setAsset(updated);
@@ -513,25 +522,6 @@ export default function AssetHubPage() {
                         <DialogTitle>Editar Informações Gerais</DialogTitle>
                       </DialogHeader>
                       <div className="grid gap-4 py-4">
-                        <div className="space-y-2">
-                          <Label>Centro de Custo</Label>
-                          <Select
-                            value={generalInfoForm.cost_center || ""}
-                            onValueChange={(value) => setGeneralInfoForm({ ...generalInfoForm, cost_center: value })}
-                            disabled={!!scopedCostCenter}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione o centro de custo" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {costCenters.map((costCenter) => (
-                                <SelectItem key={costCenter.id} value={costCenter.id}>
-                                  {costCenter.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <Label>Categoria</Label>
@@ -619,6 +609,23 @@ export default function AssetHubPage() {
                       <p className="text-[10px] text-muted-foreground uppercase">Valor</p>
                       <p className="text-lg font-bold">
                         R$ {(asset.value || 0).toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border-border/50 bg-card/50">
+                <CardContent className="p-4 h-full flex items-center">
+                  <div className="flex items-center gap-3 w-full">
+                    <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center shrink-0">
+                      <Calendar className="h-5 w-5 text-blue-500" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground uppercase">Data de compra</p>
+                      <p className="text-sm font-medium">
+                        {asset.purchase_date
+                          ? new Date(`${asset.purchase_date}T12:00:00`).toLocaleDateString("pt-BR")
+                          : "N/A"}
                       </p>
                     </div>
                   </div>
@@ -856,9 +863,19 @@ export default function AssetHubPage() {
                   <Label>Descrição</Label>
                   <Textarea value={editForm.description || ""} onChange={e => setEditForm({ ...editForm, description: e.target.value })} />
                 </div>
-                <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
                     <Label>Valor (R$)</Label>
                     <Input type="number" step="0.01" value={editForm.value ?? ""} onChange={(e) => setEditForm({ ...editForm, value: parseFloat(e.target.value) || 0 })} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Data de compra</Label>
+                    <Input
+                      type="date"
+                      value={editForm.purchase_date || ""}
+                      onChange={(e) => setEditForm({ ...editForm, purchase_date: e.target.value || undefined })}
+                    />
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -871,8 +888,14 @@ export default function AssetHubPage() {
                       type="number"
                       min="0"
                       step="1"
+                      inputMode="numeric"
                       value={editForm.warranty_months ?? ""}
-                      onChange={(e) => setEditForm({ ...editForm, warranty_months: e.target.value ? parseInt(e.target.value, 10) : undefined })}
+                      onChange={(e) => setEditForm({
+                        ...editForm,
+                        warranty_months: e.target.value === "" || !Number.isFinite(e.target.valueAsNumber)
+                          ? undefined
+                          : Math.max(0, Math.trunc(e.target.valueAsNumber)),
+                      })}
                     />
                   </div>
                 </div>

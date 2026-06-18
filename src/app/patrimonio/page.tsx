@@ -212,7 +212,7 @@ export default function PatrimonioPage() {
       category: "",
       location: "",
       condition: "Bom",
-      cost_center: scopedCostCenter || "",
+      cost_center: "",
       code: generateAssetId()
     });
     setIsDialogOpen(true);
@@ -226,6 +226,7 @@ export default function PatrimonioPage() {
       condition,
       status: deriveAssetStatus(newAsset, condition),
       value: newAsset.value ?? 0,
+      warranty_months: newAsset.warranty_months === undefined ? undefined : Number(newAsset.warranty_months),
       // Ensure strings that might be empty are treated correctly if optional in schema but required in form
     };
 
@@ -238,11 +239,20 @@ export default function PatrimonioPage() {
         if (err.path[0]) fieldErrors[err.path[0] as string] = err.message;
       });
     }
-    if (!scopedCostCenter && !newAsset.cost_center) {
-      fieldErrors.cost_center = "Selecione um centro de custo";
-    }
     if (Object.keys(fieldErrors).length > 0) {
       setErrors(fieldErrors);
+      const [firstField, firstMessage] = Object.entries(fieldErrors)[0];
+      const fieldLabels: Record<string, string> = {
+        name: "Equipamento",
+        code: "Código",
+        value: "Valor",
+        purchase_date: "Data de compra",
+        invoice_number: "Nota fiscal",
+        warranty_months: "Garantia",
+      };
+      toast.error("Corrija os erros do formulário", {
+        description: `${fieldLabels[firstField] || firstField}: ${firstMessage}`,
+      });
       return false;
     }
     setErrors({});
@@ -550,7 +560,6 @@ export default function PatrimonioPage() {
   const handleSaveAsset = async () => {
     if (isSavingAsset) return;
     if (!validateForm()) {
-      toast.error("Corrija os erros do formulário");
       return;
     }
 
@@ -562,11 +571,13 @@ export default function PatrimonioPage() {
       ...newAsset,
       category: newAsset.category || "",
       location: newAsset.location || "",
-      cost_center: scopedCostCenter || newAsset.cost_center || "",
+      cost_center: editingAsset?.cost_center || "",
       assigned_to: newAsset.assigned_to || "",
       condition,
       status: deriveAssetStatus(newAsset, condition),
       value: newAsset.value ?? 0,
+      invoice_number: newAsset.invoice_number?.trim() || undefined,
+      warranty_months: newAsset.warranty_months === undefined ? undefined : Math.trunc(Number(newAsset.warranty_months)),
     };
 
     setIsSavingAsset(true);
@@ -598,7 +609,7 @@ export default function PatrimonioPage() {
         changes: [],
         description: `Patrimônio "${saved.name}" ${wasEditing ? "atualizado" : "cadastrado"}`,
       });
-      setNewAsset({ category: "", location: "", condition: "Bom", cost_center: scopedCostCenter || "", assigned_to: "" });
+      setNewAsset({ category: "", location: "", condition: "Bom", cost_center: "", assigned_to: "" });
     } else {
       toast.error("Erro ao salvar patrimônio");
       setEditingAsset(editingSnapshot);
@@ -611,11 +622,8 @@ export default function PatrimonioPage() {
   const handleEdit = (e: React.MouseEvent, asset: Asset) => {
     e.preventDefault();
     e.stopPropagation();
-    const normalizedCostCenter = costCenters.find((costCenter) =>
-      costCenter.id === asset.cost_center || costCenter.name === asset.cost_center
-    )?.id || asset.cost_center;
     setEditingAsset(asset);
-    setNewAsset({ ...asset, cost_center: normalizedCostCenter });
+    setNewAsset({ ...asset });
     setErrors({});
     setIsDialogOpen(true);
   };
@@ -759,7 +767,7 @@ export default function PatrimonioPage() {
                   setIsDialogOpen(open);
                   if (!open) {
                     setEditingAsset(null);
-                    setNewAsset({ category: "", location: "", condition: "Bom", cost_center: scopedCostCenter || "", assigned_to: "" });
+                    setNewAsset({ category: "", location: "", condition: "Bom", cost_center: "", assigned_to: "" });
                   }
                 }}>
                   <Button id="assets-new-btn" size="sm" className="h-9 gap-1" onClick={handleOpenNew}>
@@ -767,12 +775,12 @@ export default function PatrimonioPage() {
                     <span className="hidden sm:inline">Novo</span>
                   </Button>
 
-                  <DialogContent className="max-h-[90vh] overflow-y-auto border-border sm:max-w-2xl">
+                  <DialogContent className="max-h-[90vh] overflow-y-auto border-border sm:max-w-md">
                     <DialogHeader>
                       <DialogTitle>{editingAsset ? "Editar Patrimônio" : "Novo Patrimônio"}</DialogTitle>
                     </DialogHeader>
-                    <div className="grid gap-5 py-2 sm:grid-cols-[10rem_minmax(0,1fr)] sm:items-start">
-                      <div className="flex justify-center sm:pt-1">
+                    <div className="space-y-4 py-2">
+                      <div className="flex justify-center">
                         <ImageUpload
                           bucket="public-assets"
                           folder="assets"
@@ -782,90 +790,85 @@ export default function PatrimonioPage() {
                       </div>
 
                       <div className="min-w-0 space-y-4">
-                        <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)]">
+                        <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_10.5rem]">
                           <div className="min-w-0 space-y-2">
-                          <Label>Equipamento</Label>
-                          <Input
-                            value={newAsset.name || ""}
-                            onChange={(e) => setNewAsset({ ...newAsset, name: e.target.value })}
-                            className={errors.name ? "border-destructive" : ""}
-                          />
-                          {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
-                        </div>
-                          <div className="min-w-0 space-y-2">
-                          <Label>Código</Label>
-                          <div className="flex gap-2">
+                            <Label>Equipamento</Label>
                             <Input
-                              value={newAsset.code || ""}
-                              onChange={(e) => setNewAsset({ ...newAsset, code: e.target.value })}
-                              placeholder="Ex: DAV-X1Y2Z3"
-                              className={errors.code ? "border-destructive" : ""}
+                              value={newAsset.name || ""}
+                              onChange={(e) => setNewAsset({ ...newAsset, name: e.target.value })}
+                              className={errors.name ? "border-destructive" : ""}
                             />
-                            <Button variant="outline" size="icon" onClick={() => setNewAsset({ ...newAsset, code: generateAssetId() })} title="Gerar Código">
-                              <RefreshCcw className="h-4 w-4" />
-                            </Button>
+                            {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
                           </div>
-                          {errors.code && <p className="text-xs text-destructive">{errors.code}</p>}
-                          </div>
-                        </div>
-
-                        <div className="grid gap-4 sm:grid-cols-[minmax(0,1.35fr)_minmax(0,0.65fr)]">
                           <div className="min-w-0 space-y-2">
-                            <Label>Centro de Custo</Label>
-                            <Select
-                              value={scopedCostCenter || newAsset.cost_center || ""}
-                              onValueChange={(value) => setNewAsset({ ...newAsset, cost_center: value })}
-                              disabled={!!scopedCostCenter}
-                            >
-                              <SelectTrigger className={errors.cost_center ? "border-destructive" : ""}>
-                                <SelectValue placeholder="Selecione o centro de custo" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {costCenters.map((costCenter) => (
-                                  <SelectItem key={costCenter.id} value={costCenter.id}>
-                                    {costCenter.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            {errors.cost_center && <p className="text-xs text-destructive">{errors.cost_center}</p>}
-                          </div>
-                          <div className="space-y-2">
-                          <Label>Valor (R$)</Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={newAsset.value || ""}
-                            onChange={(e) => setNewAsset({ ...newAsset, value: parseFloat(e.target.value) || 0 })}
-                            className={errors.value ? "border-destructive" : ""}
-                          />
-                          {errors.value && <p className="text-xs text-destructive">{errors.value}</p>}
+                            <Label>Código</Label>
+                            <div className="flex gap-2">
+                              <Input
+                                value={newAsset.code || ""}
+                                onChange={(e) => setNewAsset({ ...newAsset, code: e.target.value })}
+                                placeholder="Ex: DAV-X1Y2Z3"
+                                className={errors.code ? "border-destructive" : ""}
+                              />
+                              <Button type="button" variant="outline" size="icon" onClick={() => setNewAsset({ ...newAsset, code: generateAssetId() })} title="Gerar código">
+                                <RefreshCcw className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            {errors.code && <p className="text-xs text-destructive">{errors.code}</p>}
                           </div>
                         </div>
 
                         <div className="grid gap-4 sm:grid-cols-2">
+                          <div className="space-y-2">
+                            <Label>Valor (R$)</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={newAsset.value ?? ""}
+                              onChange={(e) => setNewAsset({
+                                ...newAsset,
+                                value: e.target.value === "" || !Number.isFinite(e.target.valueAsNumber) ? 0 : e.target.valueAsNumber,
+                              })}
+                              className={errors.value ? "border-destructive" : ""}
+                            />
+                            {errors.value && <p className="text-xs text-destructive">{errors.value}</p>}
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Data de compra</Label>
+                            <Input
+                              type="date"
+                              value={newAsset.purchase_date || ""}
+                              onChange={(e) => setNewAsset({ ...newAsset, purchase_date: e.target.value || undefined })}
+                            />
+                          </div>
                           <div className="min-w-0 space-y-2">
-                          <Label>Nota Fiscal</Label>
-                          <Input
-                            value={newAsset.invoice_number || ""}
-                            onChange={(e) => setNewAsset({ ...newAsset, invoice_number: e.target.value })}
-                            placeholder="Opcional"
-                            className={errors.invoice_number ? "border-destructive" : ""}
-                          />
-                          {errors.invoice_number && <p className="text-xs text-destructive">{errors.invoice_number}</p>}
-                        </div>
+                            <Label>Nota Fiscal</Label>
+                            <Input
+                              value={newAsset.invoice_number || ""}
+                              onChange={(e) => setNewAsset({ ...newAsset, invoice_number: e.target.value })}
+                              placeholder="Opcional"
+                              className={errors.invoice_number ? "border-destructive" : ""}
+                            />
+                            {errors.invoice_number && <p className="text-xs text-destructive">{errors.invoice_number}</p>}
+                          </div>
                           <div className="min-w-0 space-y-2">
-                          <Label>Garantia (meses)</Label>
-                          <Input
-                            type="number"
-                            min="0"
-                            step="1"
-                            value={newAsset.warranty_months ?? ""}
-                            onChange={(e) => setNewAsset({ ...newAsset, warranty_months: e.target.value ? parseInt(e.target.value, 10) : undefined })}
-                            placeholder="Opcional"
-                            className={errors.warranty_months ? "border-destructive" : ""}
-                          />
-                          {errors.warranty_months && <p className="text-xs text-destructive">{errors.warranty_months}</p>}
+                            <Label>Garantia (meses)</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="1"
+                              inputMode="numeric"
+                              value={newAsset.warranty_months ?? ""}
+                              onChange={(e) => setNewAsset({
+                                ...newAsset,
+                                warranty_months: e.target.value === "" || !Number.isFinite(e.target.valueAsNumber)
+                                  ? undefined
+                                  : Math.max(0, Math.trunc(e.target.valueAsNumber)),
+                              })}
+                              placeholder="Opcional"
+                              className={errors.warranty_months ? "border-destructive" : ""}
+                            />
+                            {errors.warranty_months && <p className="text-xs text-destructive">{errors.warranty_months}</p>}
                           </div>
                         </div>
                         <div className="space-y-2">
@@ -1097,33 +1100,37 @@ export default function PatrimonioPage() {
                           <div className="mt-1" onClick={(e) => e.stopPropagation()}>
                             <Checkbox checked={isSelected} onCheckedChange={() => toggleSelect(asset.id)} />
                           </div>
-                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-primary/10`}>
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-md bg-primary/10">
                             {asset.image_url ? (
                               <Image
                                 src={asset.image_url}
                                 alt={asset.name}
-                                width={40}
-                                height={40}
-                                className="h-full w-full rounded-xl object-cover"
+                                width={44}
+                                height={44}
+                                className="h-full w-full object-cover"
                               />
                             ) : (
                               <Briefcase className="h-5 w-5 text-primary" />
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <Link href={`/patrimonio/detalhes?id=${asset.id}`} className="block group" onClick={(e) => e.stopPropagation()}>
-                              <div className="flex items-center gap-2 mb-1">
-                                <p className="font-medium text-sm truncate group-hover:text-primary transition-colors">{asset.name}</p>
-                                <Badge variant="outline" className="font-mono text-[10px] flex-shrink-0">{asset.code}</Badge>
-                              </div>
+                            <Link href={`/patrimonio/detalhes?id=${asset.id}`} className="group block" onClick={(e) => e.stopPropagation()}>
+                              <p className="line-clamp-2 text-base font-semibold leading-snug transition-colors group-hover:text-primary">
+                                {asset.name}
+                              </p>
                             </Link>
-                            <p className="text-xs text-muted-foreground truncate">{asset.description}</p>
+                            <p className="mt-1 line-clamp-2 text-xs leading-4 text-muted-foreground">{asset.description || "Sem descrição cadastrada"}</p>
                             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-[10px] text-muted-foreground">
                               <span className="flex items-center gap-1"><Briefcase className="h-3 w-3" />{assetCostCenter}</span>
                               <span className="flex items-center gap-1"><User className="h-3 w-3" />{asset.assigned_to}</span>
                             </div>
-                            <div className="flex items-center gap-2 mt-2">
-                              <Badge variant="outline" className={`text-[10px] ${conditionColors[asset.condition]}`}>{asset.condition}</Badge>
+                            <div className="mt-2 flex items-center gap-2">
+                              <Badge variant="outline" className="max-w-[8.5rem] truncate font-mono text-[10px] font-normal text-muted-foreground">
+                                {asset.code}
+                              </Badge>
+                              <Badge variant="outline" className={`min-w-[4.5rem] justify-center text-[10px] ${conditionColors[asset.condition]}`}>
+                                {asset.condition}
+                              </Badge>
                             </div>
                           </div>
                           <div className="text-right flex flex-col items-end gap-1" onClick={(e) => e.stopPropagation()}>
