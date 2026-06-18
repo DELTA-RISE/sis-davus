@@ -828,7 +828,15 @@ export const getCheckouts = async (itemId?: string, itemType?: 'product' | 'asse
     return checkout.item_id === itemId && checkout.item_type === itemType;
   };
 
-  const localData = (await db.checkouts.toArray()).filter(filterCheckout);
+  const pendingDeletes = await db.sync_queue
+    .where('table')
+    .equals('checkouts')
+    .filter((item) => item.action === 'delete')
+    .toArray();
+  const pendingDeleteIds = new Set(pendingDeletes.map((item) => item.payload?.id).filter(Boolean));
+  const localData = (await db.checkouts.toArray())
+    .filter((checkout) => !pendingDeleteIds.has(checkout.id))
+    .filter(filterCheckout);
 
   if (!isOnline()) {
     return sortByCheckoutDate(localData);
@@ -841,7 +849,8 @@ export const getCheckouts = async (itemId?: string, itemType?: 'product' | 'asse
     const { data, error } = await withTimeout(query);
     if (error) throw error;
 
-    const remoteData = (data || []) as Checkout[];
+    const remoteData = ((data || []) as Checkout[])
+      .filter((checkout) => !pendingDeleteIds.has(checkout.id));
     const remoteIds = new Set(remoteData.map((checkout) => checkout.id));
     const localOnly = localData.filter((checkout) => !remoteIds.has(checkout.id));
 
@@ -870,6 +879,20 @@ export const saveCheckout = async (checkout: Partial<Checkout>, userInfo?: { nam
     );
   }
   return result;
+};
+
+export const deleteCheckout = async (id: string, userInfo?: { name: string, id: string }) => {
+  const success = await remove('checkouts', id);
+  if (success && userInfo) {
+    await logActivity(
+      "DELETE",
+      "CHECKOUT",
+      `Retirada de patrimônio (ID: ${id}) excluída por ${userInfo.name}.`,
+      id,
+      userInfo.name
+    );
+  }
+  return success;
 };
 
 // Cost Centers

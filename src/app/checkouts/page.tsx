@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Checkout, Asset, User as AppUser } from "@/lib/store";
-import { getCheckouts, isPendingSync, saveCheckout, getAssets, getUsers } from "@/lib/db";
+import { deleteCheckout, getCheckouts, isPendingSync, saveCheckout, getAssets, getUsers } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +38,7 @@ import {
   Zap,
   Check,
   ChevronsUpDown,
+  Trash2,
 } from "lucide-react";
 import {
   Command,
@@ -57,6 +58,7 @@ import { toast } from "sonner";
 import { PageTransition, StaggerContainer, StaggerItem } from "@/components/PageTransition";
 import { useAuth } from "@/lib/auth-context";
 import { getScopedCostCenter } from "@/lib/access-scope";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 const statusColors = {
   Ativo: "bg-blue-500/20 text-blue-500 border-blue-500/30",
@@ -86,6 +88,8 @@ export default function CheckoutsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [checkoutToDelete, setCheckoutToDelete] = useState<Checkout | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
   const [newCheckout, setNewCheckout] = useState<Partial<Checkout>>({
@@ -193,6 +197,25 @@ export default function CheckoutsPage() {
     } else {
       toast.error("Erro ao registrar devolucao");
     }
+  };
+
+  const handleDelete = async () => {
+    if (!checkoutToDelete || isDeleting) return;
+
+    setIsDeleting(true);
+    const success = await deleteCheckout(checkoutToDelete.id, {
+      name: userName,
+      id: user?.id || "",
+    });
+
+    if (success) {
+      setCheckouts((current) => current.filter((checkout) => checkout.id !== checkoutToDelete.id));
+      setCheckoutToDelete(null);
+      toast.success("Retirada excluída");
+    } else {
+      toast.error("Não foi possível excluir a retirada");
+    }
+    setIsDeleting(false);
   };
 
   return (
@@ -385,6 +408,17 @@ export default function CheckoutsPage() {
                             </Badge>
                           </div>
                         </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                          onClick={() => setCheckoutToDelete(c)}
+                          aria-label={`Excluir retirada de ${c.item_name}`}
+                          title="Excluir retirada"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                       {c.status !== 'Devolvido' && (
                         <Button variant="outline" size="sm" onClick={() => handleReturn(c.id)} className="w-full mt-3 h-8 gap-1 text-xs"><RotateCcw className="h-3 w-3" /> Devolver</Button>
@@ -397,6 +431,17 @@ export default function CheckoutsPage() {
           </StaggerContainer>
 
         </div>
+        <ConfirmDialog
+          open={!!checkoutToDelete}
+          onOpenChange={(open) => {
+            if (!open && !isDeleting) setCheckoutToDelete(null);
+          }}
+          title="Excluir retirada"
+          description={`A retirada de ${checkoutToDelete?.item_name || "este patrimônio"} será excluída permanentemente. Esta ação não pode ser desfeita.`}
+          confirmText={isDeleting ? "Excluindo..." : "Excluir"}
+          variant="destructive"
+          onConfirm={handleDelete}
+        />
       </div>
     </PageTransition>
   );
