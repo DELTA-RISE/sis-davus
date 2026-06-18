@@ -767,13 +767,12 @@ export default function PatrimonioPage() {
                     <span className="hidden sm:inline">Novo</span>
                   </Button>
 
-                  <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto border-border">
+                  <DialogContent className="max-h-[90vh] overflow-y-auto border-border sm:max-w-2xl">
                     <DialogHeader>
                       <DialogTitle>{editingAsset ? "Editar Patrimônio" : "Novo Patrimônio"}</DialogTitle>
                     </DialogHeader>
-                    <div className="space-y-4 py-4">
-                      {/* Image Upload Section */}
-                      <div className="flex justify-center">
+                    <div className="grid gap-5 py-2 sm:grid-cols-[10rem_minmax(0,1fr)] sm:items-start">
+                      <div className="flex justify-center sm:pt-1">
                         <ImageUpload
                           bucket="public-assets"
                           folder="assets"
@@ -782,8 +781,9 @@ export default function PatrimonioPage() {
                         />
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
+                      <div className="min-w-0 space-y-4">
+                        <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)]">
+                          <div className="min-w-0 space-y-2">
                           <Label>Equipamento</Label>
                           <Input
                             value={newAsset.name || ""}
@@ -792,7 +792,7 @@ export default function PatrimonioPage() {
                           />
                           {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
                         </div>
-                        <div className="space-y-2">
+                          <div className="min-w-0 space-y-2">
                           <Label>Código</Label>
                           <div className="flex gap-2">
                             <Input
@@ -806,29 +806,31 @@ export default function PatrimonioPage() {
                             </Button>
                           </div>
                           {errors.code && <p className="text-xs text-destructive">{errors.code}</p>}
+                          </div>
                         </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Centro de Custo</Label>
-                        <Select
-                          value={scopedCostCenter || newAsset.cost_center || ""}
-                          onValueChange={(value) => setNewAsset({ ...newAsset, cost_center: value })}
-                          disabled={!!scopedCostCenter}
-                        >
-                          <SelectTrigger className={errors.cost_center ? "border-destructive" : ""}>
-                            <SelectValue placeholder="Selecione o centro de custo" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {costCenters.map((costCenter) => (
-                              <SelectItem key={costCenter.id} value={costCenter.id}>
-                                {costCenter.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {errors.cost_center && <p className="text-xs text-destructive">{errors.cost_center}</p>}
-                      </div>
-                      <div className="space-y-2">
+
+                        <div className="grid gap-4 sm:grid-cols-[minmax(0,1.35fr)_minmax(0,0.65fr)]">
+                          <div className="min-w-0 space-y-2">
+                            <Label>Centro de Custo</Label>
+                            <Select
+                              value={scopedCostCenter || newAsset.cost_center || ""}
+                              onValueChange={(value) => setNewAsset({ ...newAsset, cost_center: value })}
+                              disabled={!!scopedCostCenter}
+                            >
+                              <SelectTrigger className={errors.cost_center ? "border-destructive" : ""}>
+                                <SelectValue placeholder="Selecione o centro de custo" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {costCenters.map((costCenter) => (
+                                  <SelectItem key={costCenter.id} value={costCenter.id}>
+                                    {costCenter.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            {errors.cost_center && <p className="text-xs text-destructive">{errors.cost_center}</p>}
+                          </div>
+                          <div className="space-y-2">
                           <Label>Valor (R$)</Label>
                           <Input
                             type="number"
@@ -838,9 +840,11 @@ export default function PatrimonioPage() {
                             className={errors.value ? "border-destructive" : ""}
                           />
                           {errors.value && <p className="text-xs text-destructive">{errors.value}</p>}
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
+                          </div>
+                        </div>
+
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <div className="min-w-0 space-y-2">
                           <Label>Nota Fiscal</Label>
                           <Input
                             value={newAsset.invoice_number || ""}
@@ -850,7 +854,7 @@ export default function PatrimonioPage() {
                           />
                           {errors.invoice_number && <p className="text-xs text-destructive">{errors.invoice_number}</p>}
                         </div>
-                        <div className="space-y-2">
+                          <div className="min-w-0 space-y-2">
                           <Label>Garantia (meses)</Label>
                           <Input
                             type="number"
@@ -862,15 +866,16 @@ export default function PatrimonioPage() {
                             className={errors.warranty_months ? "border-destructive" : ""}
                           />
                           {errors.warranty_months && <p className="text-xs text-destructive">{errors.warranty_months}</p>}
+                          </div>
                         </div>
+                        <div className="space-y-2">
+                          <Label>Descrição</Label>
+                          <Textarea value={newAsset.description || ""} onChange={(e) => setNewAsset({ ...newAsset, description: e.target.value })} rows={3} />
+                        </div>
+                        <Button onClick={handleSaveAsset} className="w-full" disabled={isSavingAsset}>
+                          {isSavingAsset ? "Salvando..." : editingAsset ? "Salvar Alterações" : "Cadastrar"}
+                        </Button>
                       </div>
-                      <div className="space-y-2">
-                        <Label>Descrição</Label>
-                        <Textarea value={newAsset.description || ""} onChange={(e) => setNewAsset({ ...newAsset, description: e.target.value })} rows={2} />
-                      </div>
-                      <Button onClick={handleSaveAsset} className="w-full" disabled={isSavingAsset}>
-                        {isSavingAsset ? "Salvando..." : editingAsset ? "Salvar Alterações" : "Cadastrar"}
-                      </Button>
                     </div>
                   </DialogContent>
                 </Dialog>
