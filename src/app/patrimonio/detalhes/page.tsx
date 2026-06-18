@@ -401,6 +401,10 @@ export default function AssetHubPage() {
       toast.error("Preencha os dados obrigatórios da retirada");
       return;
     }
+    if (activeCheckout || asset.status !== "Disponível") {
+      toast.error("Este patrimônio não está disponível para retirada");
+      return;
+    }
     if (!checkoutData.notes.trim()) {
       toast.error("Informe o motivo da retirada");
       return;
@@ -1047,7 +1051,12 @@ export default function AssetHubPage() {
 
           <Dialog open={checkoutDialogOpen} onOpenChange={setCheckoutDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" className="h-12 gap-2" disabled={!!activeCheckout}>
+              <Button
+                variant="outline"
+                className="h-12 gap-2"
+                disabled={!!activeCheckout || asset.status !== "Disponível"}
+                title={asset.status !== "Disponível" ? "Patrimônio indisponível para retirada" : undefined}
+              >
                 <LogOut className="h-4 w-4" />
                 Checkout
               </Button>

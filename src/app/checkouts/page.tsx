@@ -131,6 +131,18 @@ export default function CheckoutsPage() {
     });
   }, [checkouts, searchTerm, statusFilter]);
 
+  const availableAssets = useMemo(() => {
+    const checkedOutAssetIds = new Set(
+      checkouts
+        .filter((checkout) => checkout.status === "Ativo" || checkout.status === "Atrasado")
+        .map((checkout) => checkout.item_id)
+    );
+
+    return assets.filter((asset) =>
+      asset.status === "Disponível" && !checkedOutAssetIds.has(asset.id)
+    );
+  }, [assets, checkouts]);
+
   const handleSaveCheckout = async () => {
     if (!newCheckout.item_id || !newCheckout.user_id || !newCheckout.checkout_date) {
       toast.error("Preencha todos os campos obrigatórios");
@@ -149,6 +161,12 @@ export default function CheckoutsPage() {
 
     const item = assets.find((asset) => asset.id === newCheckout.item_id);
     if (!item) return;
+    if (item.status !== "Disponível" || checkouts.some((checkout) =>
+      checkout.item_id === item.id && (checkout.status === "Ativo" || checkout.status === "Atrasado")
+    )) {
+      toast.error("Este patrimônio não está disponível para retirada");
+      return;
+    }
     const payload: Partial<Checkout> = {
       item_id: item.id,
       item_type: "asset",
@@ -171,6 +189,9 @@ export default function CheckoutsPage() {
         toast.success("Checkout realizado!");
       }
       setCheckouts((current) => [saved, ...current.filter((checkout) => checkout.id !== saved.id)]);
+      setAssets((current) => current.map((asset) =>
+        asset.id === saved.item_id ? { ...asset, status: "Em Uso" } : asset
+      ));
       setIsDialogOpen(false);
       setNewCheckout({ checkout_date: todayStr });
     } else {
@@ -194,6 +215,11 @@ export default function CheckoutsPage() {
       setCheckouts((current) =>
         current.map((item) => (item.id === updated.id ? { ...item, ...updated } : item))
       );
+      setAssets((current) => current.map((asset) =>
+        asset.id === updated.item_id && asset.status === "Em Uso"
+          ? { ...asset, status: "Disponível" }
+          : asset
+      ));
     } else {
       toast.error("Erro ao registrar devolucao");
     }
@@ -210,6 +236,13 @@ export default function CheckoutsPage() {
 
     if (success) {
       setCheckouts((current) => current.filter((checkout) => checkout.id !== checkoutToDelete.id));
+      if (checkoutToDelete.status === "Ativo" || checkoutToDelete.status === "Atrasado") {
+        setAssets((current) => current.map((asset) =>
+          asset.id === checkoutToDelete.item_id && asset.status === "Em Uso"
+            ? { ...asset, status: "Disponível" }
+            : asset
+        ));
+      }
       setCheckoutToDelete(null);
       toast.success("Retirada excluída");
     } else {
@@ -263,7 +296,7 @@ export default function CheckoutsPage() {
                             <CommandList>
                               <CommandEmpty>Nenhum item encontrado.</CommandEmpty>
                               <CommandGroup>
-                                {assets.map((i) => (
+                                {availableAssets.map((i) => (
                                   <CommandItem
                                     key={i.id}
                                     value={i.name}
