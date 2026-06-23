@@ -584,8 +584,14 @@ export default function RelatoriosPage() {
                   <CardTitle>Top 5 Produtos Mais Valiosos</CardTitle>
                   <CardDescription>Produtos com maior valor total em estoque</CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <Table>
+                <CardContent className="overflow-hidden">
+                  <Table className="table-fixed">
+                    <colgroup>
+                      <col className="w-[46%]" />
+                      <col className="w-[14%]" />
+                      <col className="w-[20%]" />
+                      <col className="w-[20%]" />
+                    </colgroup>
                     <TableHeader>
                       <TableRow>
                         <TableHead>Produto</TableHead>
@@ -597,10 +603,12 @@ export default function RelatoriosPage() {
                     <TableBody>
                       {metrics.topProducts.map((p) => (
                         <TableRow key={p.id}>
-                          <TableCell className="font-medium">{p.name}</TableCell>
+                          <TableCell className="font-medium whitespace-normal">
+                            <span className="line-clamp-2 break-words">{p.name}</span>
+                          </TableCell>
                           <TableCell className="text-center">{p.quantity}</TableCell>
-                          <TableCell className="text-right">R$ {(p.unit_price || 0).toLocaleString()}</TableCell>
-                          <TableCell className="text-right font-bold text-green-600">R$ {p.totalValue.toLocaleString()}</TableCell>
+                          <TableCell className="text-right tabular-nums">R$ {(p.unit_price || 0).toLocaleString()}</TableCell>
+                          <TableCell className="text-right font-bold text-green-600 tabular-nums">R$ {p.totalValue.toLocaleString()}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -612,8 +620,13 @@ export default function RelatoriosPage() {
                   <CardTitle>Top 5 Ativos Mais Valiosos</CardTitle>
                   <CardDescription>Ativos com maior valor individual</CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <Table>
+                <CardContent className="overflow-hidden">
+                  <Table className="table-fixed">
+                    <colgroup>
+                      <col className="w-[26%]" />
+                      <col className="w-[42%]" />
+                      <col className="w-[32%]" />
+                    </colgroup>
                     <TableHeader>
                       <TableRow>
                         <TableHead>Código</TableHead>
@@ -624,9 +637,15 @@ export default function RelatoriosPage() {
                     <TableBody>
                       {metrics.topAssets.map((a) => (
                         <TableRow key={a.id}>
-                          <TableCell className="font-medium">{a.code}</TableCell>
-                          <TableCell>{a.name}</TableCell>
-                          <TableCell className="text-right font-bold text-green-600">R$ {(a.value || 0).toLocaleString()}</TableCell>
+                          <TableCell className="font-medium">
+                            <span className="block truncate">{a.code}</span>
+                          </TableCell>
+                          <TableCell className="whitespace-normal">
+                            <span className="line-clamp-2 break-words">{a.name}</span>
+                          </TableCell>
+                          <TableCell className="text-right font-bold text-green-600 tabular-nums whitespace-nowrap">
+                            R$ {(a.value || 0).toLocaleString()}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
