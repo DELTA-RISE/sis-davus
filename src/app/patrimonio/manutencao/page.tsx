@@ -2,8 +2,16 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
-import { MaintenanceTask, User as UserType } from "@/lib/store";
-import { deleteMaintenanceTask, getMaintenanceTasks, getUsers, saveMaintenanceTask } from "@/lib/db";
+import { Asset, MaintenanceTask, User as UserType } from "@/lib/store";
+import {
+  deleteMaintenanceTask,
+  getAssets,
+  getMaintenanceTasks,
+  getUsers,
+  saveAsset,
+  saveAssetTimeline,
+  saveMaintenanceTask,
+} from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -57,6 +65,17 @@ const priorityConfig = {
   urgente: { label: "Urgente", color: "bg-red-500/20 text-red-500" },
 };
 
+const assetConditionConfig: Record<Asset["condition"], { label: string; color: string }> = {
+  Novo: { label: "Novo", color: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" },
+  Excelente: { label: "Excelente", color: "bg-green-500/20 text-green-400 border-green-500/30" },
+  Bom: { label: "Bom", color: "bg-blue-500/20 text-blue-400 border-blue-500/30" },
+  Regular: { label: "Regular", color: "bg-amber-500/20 text-amber-400 border-amber-500/30" },
+  Ruim: { label: "Ruim", color: "bg-red-500/20 text-red-400 border-red-500/30" },
+  Manutenção: { label: "Em manutenção", color: "bg-purple-500/20 text-purple-400 border-purple-500/30" },
+};
+
+const finalAssetConditions: Asset["condition"][] = ["Excelente", "Bom", "Regular", "Ruim"];
+
 type MaintenanceQuote = {
   company: string;
   value?: number;
@@ -102,6 +121,7 @@ const getApprovalStatusFromStatus = (
 export default function ManutencaoKanbanPage() {
   const { userName, user } = useAuth();
   const [tasks, setTasks] = useState<MaintenanceTask[]>([]);
+  const [assets, setAssets] = useState<Asset[]>([]);
   const [users, setUsers] = useState<UserType[]>([]);
   const [viewMode, setViewMode] = useState<"kanban" | "list">("list");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -110,12 +130,14 @@ export default function ManutencaoKanbanPage() {
   const [isDeletingTask, setIsDeletingTask] = useState(false);
 
   const loadData = useCallback(async () => {
-    const [maintenanceTasks, userList] = await Promise.all([
+    const [maintenanceTasks, userList, assetList] = await Promise.all([
       getMaintenanceTasks(),
       getUsers(false),
+      getAssets(false),
     ]);
     setTasks(maintenanceTasks);
     setUsers(userList);
+    setAssets(assetList);
   }, []);
 
   useEffect(() => {
@@ -149,6 +171,10 @@ export default function ManutencaoKanbanPage() {
   const canOperateMaintenance = Boolean(currentProfile && isMaintenanceResponsible(currentProfile));
 
   const visibleTasks = tasks;
+  const assetsById = useMemo(
+    () => new Map(assets.map((asset) => [asset.id, asset])),
+    [assets]
+  );
   const canManageVisibleTask = useCallback(
     (_task: MaintenanceTask) => canOperateMaintenance,
     [canOperateMaintenance]
@@ -170,6 +196,12 @@ export default function ManutencaoKanbanPage() {
     }
 
     if (task.status === newStatus || savingStatusIds.has(task.id)) return;
+
+    const linkedAsset = assetsById.get(task.asset_id);
+    if (newStatus === "Concluída" && linkedAsset?.condition === "Manutenção") {
+      toast.error("Defina o estado final do patrimônio antes de concluir a manutenção.");
+      return;
+    }
 
     const previousStatus = task.status;
     const updatedAt = new Date().toISOString();
@@ -211,6 +243,69 @@ export default function ManutencaoKanbanPage() {
         )
       );
       toast.error("Erro ao atualizar status. A alteração foi desfeita.");
+    } finally {
+      setSavingStatusIds((current) => {
+        const next = new Set(current);
+        next.delete(task.id);
+        return next;
+      });
+    }
+  };
+
+  const handleUpdateAssetCondition = async (task: MaintenanceTask, newCondition: Asset["condition"]) => {
+    if (!canManageVisibleTask(task)) {
+      toast.error("Somente o responsável pela manutenção/matriz pode alterar o estado do patrimônio.");
+      return;
+    }
+
+    const asset = assetsById.get(task.asset_id);
+    if (!asset) {
+      toast.error("Patrimônio vinculado não encontrado.");
+      return;
+    }
+
+    if (asset.condition === newCondition || savingStatusIds.has(task.id)) return;
+
+    const previousAsset = asset;
+    const updatedAt = new Date().toISOString();
+    const nextAsset: Asset = {
+      ...asset,
+      condition: newCondition,
+      status: newCondition === "Manutenção"
+        ? "Em Manutenção"
+        : asset.status === "Em Manutenção"
+          ? "Disponível"
+          : asset.status,
+      updated_at: updatedAt,
+    };
+
+    setSavingStatusIds((current) => new Set(current).add(task.id));
+    setAssets((current) =>
+      current.map((item) => (item.id === asset.id ? nextAsset : item))
+    );
+
+    try {
+      const updated = await saveAsset(nextAsset, { name: userName, id: user?.id || "" });
+      if (!updated) throw new Error("Erro ao atualizar patrimônio");
+
+      await saveAssetTimeline({
+        asset_id: asset.id,
+        type: "manutencao",
+        date: updatedAt,
+        title: "Estado atualizado pela manutenção",
+        user_name: userName,
+        description: `Após a manutenção "${task.title}", o estado do patrimônio foi alterado de ${asset.condition} para ${newCondition}.`,
+      });
+
+      setAssets((current) =>
+        current.map((item) => (item.id === asset.id ? { ...item, ...updated } : item))
+      );
+      toast.success(`Estado do patrimônio alterado para ${assetConditionConfig[newCondition].label}.`);
+    } catch (_error) {
+      setAssets((current) =>
+        current.map((item) => (item.id === asset.id ? previousAsset : item))
+      );
+      toast.error("Erro ao atualizar estado do patrimônio. A alteração foi desfeita.");
     } finally {
       setSavingStatusIds((current) => {
         const next = new Set(current);
@@ -266,6 +361,11 @@ export default function ManutencaoKanbanPage() {
     const isSavingStatus = savingStatusIds.has(task.id);
     const progress = statusProgress[task.status] || 0;
     const isFinished = completedStatuses.has(task.status);
+    const linkedAsset = assetsById.get(task.asset_id);
+    const assetCondition = linkedAsset?.condition;
+    const assetConditionCfg = assetCondition
+      ? assetConditionConfig[assetCondition]
+      : null;
 
     return (
       <Card className="overflow-hidden border-border/60 bg-card/70 shadow-sm transition-colors hover:border-primary/30">
@@ -318,7 +418,7 @@ export default function ManutencaoKanbanPage() {
               <span className="truncate text-right">{isFinished ? "Finalizada" : "Conclusão"}</span>
             </div>
             {canManageTask && (
-              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+              <div className="mt-3 space-y-2">
                 <Select
                   value={task.status}
                   onValueChange={(value) => handleUpdateStatus(task, value as MaintenanceTask["status"])}
@@ -335,11 +435,43 @@ export default function ManutencaoKanbanPage() {
                     ))}
                   </SelectContent>
                 </Select>
+                <div className="rounded-lg border border-border/50 bg-background/40 p-2">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                      Estado do patrimônio
+                    </span>
+                    {assetConditionCfg && (
+                      <Badge className={`h-5 px-2 text-[10px] ${assetConditionCfg.color}`}>
+                        {assetConditionCfg.label}
+                      </Badge>
+                    )}
+                  </div>
+                  <Select
+                    value={assetCondition || ""}
+                    onValueChange={(value) => handleUpdateAssetCondition(task, value as Asset["condition"])}
+                    disabled={isSavingStatus || !linkedAsset}
+                  >
+                    <SelectTrigger className="h-9 rounded-lg border-border/60 bg-background/70 text-xs font-semibold text-foreground">
+                      <SelectValue placeholder={linkedAsset ? "Definir estado final" : "Patrimônio não encontrado"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {finalAssetConditions.map((condition) => (
+                        <SelectItem key={condition} value={condition}>
+                          {assetConditionConfig[condition].label}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="Manutenção">Manter em manutenção</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
+                    Use este campo para registrar se o patrimônio saiu melhor, igual ou pior após a manutenção.
+                  </p>
+                </div>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-9 gap-2 border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  className="h-9 w-full gap-2 border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
                   onClick={() => setTaskToDelete(task)}
                 >
                   <Trash2 className="h-3.5 w-3.5" />

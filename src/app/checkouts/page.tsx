@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Checkout, Product, Asset, User as AppUser } from "@/lib/store";
-import { getCheckouts, isPendingSync, saveCheckout, getProducts, getAssets, getUsers } from "@/lib/db";
+import { Checkout, Asset, User as AppUser } from "@/lib/store";
+import { deleteCheckout, getCheckouts, isPendingSync, saveCheckout, getAssets, getUsers } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,28 +18,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   LogOut,
   Search,
   Plus,
-  Filter,
   Calendar,
   User,
-  Package,
   Building2,
-  RotateCcw,
-  Clock,
-  CheckCircle,
-  AlertTriangle,
   Zap,
   Check,
   ChevronsUpDown,
+  Trash2,
 } from "lucide-react";
 import {
   Command,
@@ -59,37 +47,21 @@ import { toast } from "sonner";
 import { PageTransition, StaggerContainer, StaggerItem } from "@/components/PageTransition";
 import { useAuth } from "@/lib/auth-context";
 import { getScopedCostCenter } from "@/lib/access-scope";
-
-const statusColors = {
-  Ativo: "bg-blue-500/20 text-blue-500 border-blue-500/30",
-  Devolvido: "bg-green-500/20 text-green-500 border-green-500/30",
-  Atrasado: "bg-red-500/20 text-red-500 border-red-500/30",
-};
-
-const statusLabels = {
-  Ativo: "Em Uso",
-  Devolvido: "Devolvido",
-  Atrasado: "Atrasado",
-};
-
-const statusIcons = {
-  Ativo: Clock,
-  Devolvido: CheckCircle,
-  Atrasado: AlertTriangle,
-};
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 export default function CheckoutsPage() {
   const { userName, user, currentRole, costCenter } = useAuth();
   const scopedCostCenter = getScopedCostCenter(currentRole, costCenter);
   const [checkouts, setCheckouts] = useState<Checkout[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [users, setUsers] = useState<AppUser[]>([]);
   // const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const [checkoutToDelete, setCheckoutToDelete] = useState<Checkout | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
   const [newCheckout, setNewCheckout] = useState<Partial<Checkout>>({
     item_type: "asset",
     quantity: 1,
@@ -100,19 +72,15 @@ export default function CheckoutsPage() {
 
   const loadData = useCallback(async (_silent = false) => {
     // if (!silent) setIsLoading(true);
-    const [c, p, a, u] = await Promise.all([
+    const [c, a, u] = await Promise.all([
       getCheckouts(),
-      getProducts(false, scopedCostCenter),
       getAssets(false, scopedCostCenter),
       getUsers()
     ]);
-    const visibleProductIds = new Set(p.map((product) => product.id));
     const visibleAssetIds = new Set(a.map((asset) => asset.id));
-    setCheckouts(c.filter((checkout) => {
-      if (checkout.item_type === "asset") return visibleAssetIds.has(checkout.item_id);
-      return visibleProductIds.has(checkout.item_id);
-    }));
-    setProducts(p);
+    setCheckouts(c.filter((checkout) =>
+      checkout.item_type === "asset" && visibleAssetIds.has(checkout.item_id)
+    ));
     setAssets(a);
     setUsers(u);
     // if (!silent) setIsLoading(false);
@@ -130,13 +98,12 @@ export default function CheckoutsPage() {
       const itemName = c.item_name || "";
       const userName = c.user_name || "";
       const matchesSearch = itemName.toLowerCase().includes(searchTerm.toLowerCase()) || userName.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesStatus = statusFilter === "all" || c.status === statusFilter;
-      return matchesSearch && matchesStatus;
+      return matchesSearch;
     });
-  }, [checkouts, searchTerm, statusFilter]);
+  }, [checkouts, searchTerm]);
 
   const handleSaveCheckout = async () => {
-    if (!newCheckout.item_id || !newCheckout.user_name || !newCheckout.expected_return_date) {
+    if (!newCheckout.item_id || !newCheckout.user_id || !newCheckout.checkout_date) {
       toast.error("Preencha todos os campos obrigatórios");
       return;
     }
@@ -145,24 +112,24 @@ export default function CheckoutsPage() {
       return;
     }
 
-    const selectedUser = users.find((candidate) => candidate.name === newCheckout.user_name);
+    const selectedUser = users.find((candidate) => candidate.id === newCheckout.user_id);
     if (!selectedUser?.id) {
       toast.error("Selecione um responsável válido");
       return;
     }
 
-    const items = newCheckout.item_type === "asset" ? assets : products;
-    const item = items.find((i) => i.id === newCheckout.item_id);
+    const item = assets.find((asset) => asset.id === newCheckout.item_id);
     if (!item) return;
     const payload: Partial<Checkout> = {
-      ...newCheckout,
+      item_id: item.id,
+      item_type: "asset",
       item_name: item.name,
       user_id: selectedUser.id,
-      quantity: newCheckout.quantity || 1,
-      checkout_date: newCheckout.checkout_date
-        ? new Date(newCheckout.checkout_date + "T12:00:00").toISOString()
-        : new Date().toISOString(),
+      user_name: selectedUser.name,
+      quantity: 1,
+      checkout_date: new Date(`${newCheckout.checkout_date}T12:00:00`).toISOString(),
       status: "Ativo",
+      notes: newCheckout.notes.trim(),
     };
 
     const saved = await saveCheckout(payload, { name: userName, id: user?.id || "" });
@@ -172,38 +139,44 @@ export default function CheckoutsPage() {
           description: "A sincronizacao com o Supabase ainda esta pendente.",
         });
       } else {
-        toast.success("Checkout realizado!");
+        toast.success("Retirada registrada!");
       }
       setCheckouts((current) => [saved, ...current.filter((checkout) => checkout.id !== saved.id)]);
+      setAssets((current) => current.map((asset) =>
+        asset.id === saved.item_id ? { ...asset, status: "Baixado" } : asset
+      ));
       setIsDialogOpen(false);
       setNewCheckout({ item_type: "asset", quantity: 1, checkout_date: todayStr });
     } else {
-      toast.error("Erro ao salvar checkout");
+      toast.error("Erro ao registrar retirada");
     }
   };
 
-  const handleReturn = async (id: string) => {
-    const checkout = checkouts.find(c => c.id === id);
-    if (!checkout) return;
+  const handleDelete = async () => {
+    if (!checkoutToDelete || isDeleting) return;
 
-    const updated = await saveCheckout({ ...checkout, status: "Devolvido", return_date: new Date().toISOString() }, { name: userName, id: user?.id || "" });
-    if (updated) {
-      if (isPendingSync(updated)) {
-        toast.warning("Devolucao salva localmente.", {
-          description: updated.__persistenceError || "A sincronizacao com o Supabase ainda esta pendente.",
-        });
-      } else {
-        toast.success("Item devolvido!");
+    setIsDeleting(true);
+    const success = await deleteCheckout(checkoutToDelete.id, {
+      name: userName,
+      id: user?.id || "",
+    });
+
+    if (success) {
+      setCheckouts((current) => current.filter((checkout) => checkout.id !== checkoutToDelete.id));
+      if (checkoutToDelete.status === "Ativo") {
+        setAssets((current) => current.map((asset) =>
+          asset.id === checkoutToDelete.item_id && asset.status === "Baixado"
+            ? { ...asset, status: "Disponível" }
+            : asset
+        ));
       }
-      setCheckouts((current) =>
-        current.map((item) => (item.id === updated.id ? { ...item, ...updated } : item))
-      );
+      setCheckoutToDelete(null);
+      toast.success("Retirada excluída");
     } else {
-      toast.error("Erro ao registrar devolucao");
+      toast.error("Não foi possível excluir a retirada");
     }
+    setIsDeleting(false);
   };
-
-  const currentItems = newCheckout.item_type === "asset" ? assets : products;
 
   return (
     <PageTransition>
@@ -217,26 +190,19 @@ export default function CheckoutsPage() {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h1 className="text-lg font-bold">Checkouts</h1>
+                    <h1 className="text-lg font-bold">Retiradas de Patrimônio</h1>
                     <Badge variant="outline" className="h-5 px-1.5 gap-1 bg-primary/5"><Zap className="h-2 w-2 text-primary animate-pulse" /> Realtime</Badge>
                   </div>
                   <p className="text-xs text-muted-foreground">{checkouts.length} registros</p>
                 </div>
               </div>
               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogTrigger asChild><Button size="sm" className="h-9 gap-1"><Plus className="h-4 w-4" />Nova</Button></DialogTrigger>
+                <DialogTrigger asChild><Button size="sm" className="h-9 gap-1"><Plus className="h-4 w-4" />Nova retirada</Button></DialogTrigger>
                 <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto border-border">
-                  <DialogHeader><DialogTitle>Novo Checkout</DialogTitle></DialogHeader>
+                  <DialogHeader><DialogTitle>Nova retirada de patrimônio</DialogTitle></DialogHeader>
                   <div className="space-y-4 py-4">
                     <div className="space-y-2">
-                      <Label>Tipo de Item</Label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <Button variant={newCheckout.item_type === "asset" ? "default" : "outline"} onClick={() => setNewCheckout({ ...newCheckout, item_type: "asset", item_id: "" })}>Patrimônio</Button>
-                        <Button variant={newCheckout.item_type === "product" ? "default" : "outline"} onClick={() => setNewCheckout({ ...newCheckout, item_type: "product", item_id: "" })}>Produto</Button>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Item</Label>
+                      <Label>Patrimônio <span className="text-destructive">*</span></Label>
                       <Popover open={openItemSelect} onOpenChange={setOpenItemSelect}>
                         <PopoverTrigger asChild>
                           <Button
@@ -246,18 +212,18 @@ export default function CheckoutsPage() {
                             className="w-full justify-between"
                           >
                             {newCheckout.item_id
-                              ? currentItems.find((i) => i.id === newCheckout.item_id)?.name
-                              : "Selecione..."}
+                              ? assets.find((asset) => asset.id === newCheckout.item_id)?.name
+                              : "Selecione o patrimônio"}
                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
                           <Command>
-                            <CommandInput placeholder="Buscar item..." />
+                            <CommandInput placeholder="Buscar patrimônio..." />
                             <CommandList>
                               <CommandEmpty>Nenhum item encontrado.</CommandEmpty>
                               <CommandGroup>
-                                {currentItems.map((i) => (
+                                {assets.filter((asset) => asset.status !== "Baixado").map((i) => (
                                   <CommandItem
                                     key={i.id}
                                     value={i.name}
@@ -281,13 +247,8 @@ export default function CheckoutsPage() {
                         </PopoverContent>
                       </Popover>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Quantidade</Label>
-                        <Input type="number" min="1" value={newCheckout.quantity ?? 1} onChange={e => setNewCheckout({ ...newCheckout, quantity: parseInt(e.target.value) })} />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Responsável</Label>
+                    <div className="space-y-2">
+                        <Label>Responsável <span className="text-destructive">*</span></Label>
                         <Popover open={openUserSelect} onOpenChange={setOpenUserSelect}>
                           <PopoverTrigger asChild>
                             <Button
@@ -296,7 +257,9 @@ export default function CheckoutsPage() {
                               aria-expanded={openUserSelect}
                               className="w-full justify-between"
                             >
-                              {newCheckout.user_name || "Selecione..."}
+                              {newCheckout.user_id
+                                ? users.find((candidate) => candidate.id === newCheckout.user_id)?.name
+                                : "Selecione o responsável"}
                               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                             </Button>
                           </PopoverTrigger>
@@ -318,7 +281,7 @@ export default function CheckoutsPage() {
                                       <Check
                                         className={cn(
                                           "mr-2 h-4 w-4",
-                                          newCheckout.user_name === u.name ? "opacity-100" : "opacity-0"
+                                        newCheckout.user_id === u.id ? "opacity-100" : "opacity-0"
                                         )}
                                       />
                                       {u.name}
@@ -329,19 +292,15 @@ export default function CheckoutsPage() {
                             </Command>
                           </PopoverContent>
                         </Popover>
-                      </div>
                     </div>
                     <div className="space-y-2">
-                      <Label>Data de Retirada</Label>
+                      <Label>Data de Retirada <span className="text-destructive">*</span></Label>
                       <Input
                         type="date"
+                        max={todayStr}
                         value={newCheckout.checkout_date ?? todayStr}
                         onChange={e => setNewCheckout({ ...newCheckout, checkout_date: e.target.value })}
                       />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Previsão Devolução</Label>
-                      <Input type="date" value={newCheckout.expected_return_date ?? ""} onChange={e => setNewCheckout({ ...newCheckout, expected_return_date: e.target.value })} />
                     </div>
                     <div className="space-y-2">
                       <Label>
@@ -364,37 +323,24 @@ export default function CheckoutsPage() {
         </header>
 
         <div className="p-4 md:p-6 lg:p-8 space-y-4 max-w-7xl mx-auto">
-          <div className="flex gap-2">
-            <div className="relative flex-1">
+          <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input placeholder="Buscar..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-9 bg-card/50 h-10" />
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[120px] bg-card/50 h-10"><Filter className="h-4 w-4 mr-2" /><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="Ativo">Em Uso</SelectItem>
-                <SelectItem value="Devolvido">Devolvido</SelectItem>
-                <SelectItem value="Atrasado">Atrasado</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
 
           <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {filteredCheckouts.map((c) => {
-              const Icon = statusIcons[c.status];
               return (
                 <StaggerItem key={c.id}>
                   <Card className="border-border/50 bg-card/50">
                     <CardContent className="p-4">
                       <div className="flex items-start gap-3">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${c.item_type === 'asset' ? 'bg-chart-5/20' : 'bg-primary/20'}`}>
-                          {c.item_type === 'asset' ? <Building2 className="h-5 w-5 text-chart-5" /> : <Package className="h-5 w-5 text-primary" />}
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-chart-5/20">
+                          <Building2 className="h-5 w-5 text-chart-5" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
                             <p className="font-medium text-sm truncate">{c.item_name}</p>
-                            {(c.quantity || 1) > 1 && <Badge variant="secondary" className="text-[10px]">x{c.quantity}</Badge>}
                           </div>
                           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground mt-1">
                             <span className="flex items-center gap-1"><User className="h-3 w-3" />{c.user_name}</span>
@@ -405,17 +351,19 @@ export default function CheckoutsPage() {
                               <span className="not-italic font-medium text-foreground/70">Motivo:</span> {c.notes}
                             </p>
                           )}
-                          <div className="flex items-center gap-2 mt-2">
-                            <Badge variant="outline" className={`text-[10px] ${statusColors[c.status]}`}>
-                              <Icon className="h-3 w-3 mr-1" />{statusLabels[c.status]}
-                            </Badge>
-                            {c.status !== 'Devolvido' && <span className="text-[10px] text-muted-foreground">Retorno: {new Date(c.expected_return_date || "").toLocaleDateString("pt-BR")}</span>}
-                          </div>
                         </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                          onClick={() => setCheckoutToDelete(c)}
+                          aria-label={`Excluir retirada de ${c.item_name}`}
+                          title="Excluir retirada"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
-                      {c.status !== 'Devolvido' && (
-                        <Button variant="outline" size="sm" onClick={() => handleReturn(c.id)} className="w-full mt-3 h-8 gap-1 text-xs"><RotateCcw className="h-3 w-3" /> Devolver</Button>
-                      )}
                     </CardContent>
                   </Card>
                 </StaggerItem>
@@ -424,6 +372,17 @@ export default function CheckoutsPage() {
           </StaggerContainer>
 
         </div>
+        <ConfirmDialog
+          open={!!checkoutToDelete}
+          onOpenChange={(open) => {
+            if (!open && !isDeleting) setCheckoutToDelete(null);
+          }}
+          title="Excluir retirada"
+          description={`A retirada de ${checkoutToDelete?.item_name || "este patrimônio"} será excluída permanentemente. Esta ação não pode ser desfeita.`}
+          confirmText={isDeleting ? "Excluindo..." : "Excluir"}
+          variant="destructive"
+          onConfirm={handleDelete}
+        />
       </div>
     </PageTransition>
   );

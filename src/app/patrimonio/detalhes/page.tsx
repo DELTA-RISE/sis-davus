@@ -3,13 +3,12 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Asset, MaintenanceTask, AssetTimeline, Checkout, CostCenter } from "@/lib/store";
+import { Asset, MaintenanceTask, AssetTimeline, CostCenter } from "@/lib/store";
 import {
   getAssetById,
   getAssetByCode,
   getMaintenanceTasks,
   getAssetTimelines,
-  getCheckouts,
   saveAsset,
   saveAssetTimeline,
   saveCheckout,
@@ -99,6 +98,11 @@ const timelineColors: Record<string, string> = {
   atualizacao: "bg-slate-500/20 text-slate-400",
 };
 
+const getTodayInputValue = () => {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+};
+
 const openMaintenanceStatuses = new Set([
   "Pendente",
   "Em Andamento",
@@ -118,7 +122,6 @@ export default function AssetHubPage() {
   const [asset, setAsset] = useState<Asset | null>(null);
   const [maintenanceTasks, setMaintenanceTasks] = useState<MaintenanceTask[]>([]);
   const [timeline, setTimeline] = useState<AssetTimeline[]>([]);
-  const [activeCheckout, setActiveCheckout] = useState<Checkout | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Dialog States
@@ -140,7 +143,12 @@ export default function AssetHubPage() {
     notes: "",
     image_url: "",
   });
-  const [checkoutData, setCheckoutData] = useState({ user_id: "", user_name: "", expected_return: "", notes: "" });
+  const [checkoutData, setCheckoutData] = useState({
+    user_id: "",
+    user_name: "",
+    checkout_date: getTodayInputValue(),
+    notes: "",
+  });
   const [labelLayout, setLabelLayout] = useState<AssetLabelLayout>('standard');
   const [fillPage, setFillPage] = useState(false);
 
@@ -171,10 +179,9 @@ export default function AssetHubPage() {
         return;
       }
 
-      const [tasksData, timelineData, checkoutsData, ccsData] = await Promise.all([
+      const [tasksData, timelineData, ccsData] = await Promise.all([
         getMaintenanceTasks(assetData.id),
         getAssetTimelines(assetData.id),
-        getCheckouts(assetData.id, "asset"),
         getCostCenters()
       ]);
 
@@ -191,8 +198,6 @@ export default function AssetHubPage() {
       setTimeline(timelineData);
       setCostCenters(ccsData);
 
-      const current = checkoutsData.find(c => c.status === "Ativo" || c.status === "Atrasado");
-      setActiveCheckout(current || null);
     } catch (error) {
       console.error("Error loading asset details:", error);
       toast.error("Erro ao carregar dados do patrimônio");
@@ -272,10 +277,18 @@ export default function AssetHubPage() {
   const handleSaveEdit = async () => {
     if (!asset || !editForm.name) return;
     const condition = editForm.condition || asset.condition;
+    const warrantyMonths = editForm.warranty_months === undefined
+      ? undefined
+      : Math.trunc(Number(editForm.warranty_months));
+    if (warrantyMonths !== undefined && (!Number.isFinite(warrantyMonths) || warrantyMonths < 0)) {
+      toast.error("Informe a garantia em meses inteiros");
+      return;
+    }
     const updated = await saveAsset({
       ...asset,
       ...editForm,
       id: asset.id,
+      warranty_months: warrantyMonths,
       status: condition === "Manutenção"
         ? "Em Manutenção"
         : asset.status === "Em Manutenção"
@@ -305,6 +318,7 @@ export default function AssetHubPage() {
       model: generalInfoForm.model?.trim() || "",
       serial_number: generalInfoForm.serial_number?.trim() || "",
       description: generalInfoForm.description?.trim() || "",
+      cost_center: asset.cost_center,
     }, { name: userName, id: user?.id || "" });
 
     if (updated) {
@@ -387,8 +401,12 @@ export default function AssetHubPage() {
   };
 
   const handleCheckout = async () => {
-    if (!asset || !checkoutData.user_id || !checkoutData.user_name) {
-      toast.error("Selecione um responsável válido para o checkout");
+    if (!asset || !checkoutData.user_id || !checkoutData.user_name || !checkoutData.checkout_date) {
+      toast.error("Preencha os dados obrigatórios da retirada");
+      return;
+    }
+    if (!checkoutData.notes.trim()) {
+      toast.error("Informe o motivo da retirada");
       return;
     }
 
@@ -399,34 +417,23 @@ export default function AssetHubPage() {
       user_id: checkoutData.user_id,
       user_name: checkoutData.user_name,
       quantity: 1,
-      checkout_date: new Date().toISOString(),
-      expected_return_date: checkoutData.expected_return || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // Default 7 days
+      checkout_date: new Date(`${checkoutData.checkout_date}T12:00:00`).toISOString(),
       status: "Ativo",
-      notes: checkoutData.notes
+      notes: checkoutData.notes.trim(),
     }, { name: userName, id: user?.id || "" });
 
     if (checkout) {
       setCheckoutDialogOpen(false);
-      setCheckoutData({ user_id: "", user_name: "", expected_return: "", notes: "" });
-      toast.success("Checkout realizado!");
+      setCheckoutData({
+        user_id: "",
+        user_name: "",
+        checkout_date: getTodayInputValue(),
+        notes: "",
+      });
+      toast.success("Retirada registrada!");
       loadData();
     } else {
-      toast.error("Erro ao realizar checkout");
-    }
-  };
-
-  const handleCheckin = async () => {
-    if (!activeCheckout) return;
-    const updated = await saveCheckout({
-      ...activeCheckout,
-      return_date: new Date().toISOString(),
-      status: "Devolvido"
-    }, { name: userName, id: user?.id || "" });
-    if (updated) {
-      toast.success("Devolução registrada!");
-      loadData();
-    } else {
-      toast.error("Erro ao registrar devolução");
+      toast.error("Erro ao registrar retirada");
     }
   };
 
@@ -451,11 +458,6 @@ export default function AssetHubPage() {
       </div>
     );
   }
-
-  const daysSinceAcquisition = Math.floor(
-    (new Date().getTime() - new Date(asset.purchase_date || new Date()).getTime()) / (1000 * 60 * 60 * 24)
-  );
-  const yearsSinceAcquisition = (daysSinceAcquisition / 365).toFixed(1);
 
   return (
     <div className="min-h-screen pb-20">
@@ -484,30 +486,6 @@ export default function AssetHubPage() {
       </header>
 
       <div className="p-4 md:p-6 lg:p-8 space-y-4 max-w-6xl mx-auto">
-        {activeCheckout && (
-          <Card className="border-amber-500/30 bg-amber-500/5">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center">
-                  <LogOut className="h-5 w-5 text-amber-500" />
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium text-sm">Em uso por {activeCheckout.user_name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Devolução prevista: {new Date(activeCheckout.expected_return_date || '').toLocaleDateString("pt-BR")}
-                  </p>
-                </div>
-                {activeCheckout.status === "Atrasado" && (
-                  <Badge className="bg-red-500/20 text-red-500">
-                    <AlertTriangle className="h-3 w-3 mr-1" />
-                    Atrasado
-                  </Badge>
-                )}
-                <Button variant="secondary" size="sm" onClick={handleCheckin}>Devolver</Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2 space-y-4">
@@ -527,6 +505,9 @@ export default function AssetHubPage() {
                         model: asset.model || "",
                         serial_number: asset.serial_number || "",
                         description: asset.description || "",
+                        cost_center: costCenters.find((cc) =>
+                          cc.id === asset.cost_center || cc.name === asset.cost_center
+                        )?.id || asset.cost_center || "",
                       });
                     }
                   }}>
@@ -640,8 +621,12 @@ export default function AssetHubPage() {
                       <Calendar className="h-5 w-5 text-blue-500" />
                     </div>
                     <div>
-                      <p className="text-[10px] text-muted-foreground uppercase">Aquisição</p>
-                      <p className="text-lg font-bold">{yearsSinceAcquisition} anos</p>
+                      <p className="text-[10px] text-muted-foreground uppercase">Data de compra</p>
+                      <p className="text-sm font-medium">
+                        {asset.purchase_date
+                          ? new Date(`${asset.purchase_date}T12:00:00`).toLocaleDateString("pt-BR")
+                          : "N/A"}
+                      </p>
                     </div>
                   </div>
                 </CardContent>
@@ -880,12 +865,16 @@ export default function AssetHubPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Data Aquisição</Label>
-                    <Input type="date" value={editForm.purchase_date || ""} onChange={(e) => setEditForm({ ...editForm, purchase_date: e.target.value })} />
-                  </div>
-                  <div className="space-y-2">
                     <Label>Valor (R$)</Label>
                     <Input type="number" step="0.01" value={editForm.value ?? ""} onChange={(e) => setEditForm({ ...editForm, value: parseFloat(e.target.value) || 0 })} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Data de compra</Label>
+                    <Input
+                      type="date"
+                      value={editForm.purchase_date || ""}
+                      onChange={(e) => setEditForm({ ...editForm, purchase_date: e.target.value || undefined })}
+                    />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -899,8 +888,14 @@ export default function AssetHubPage() {
                       type="number"
                       min="0"
                       step="1"
+                      inputMode="numeric"
                       value={editForm.warranty_months ?? ""}
-                      onChange={(e) => setEditForm({ ...editForm, warranty_months: e.target.value ? parseInt(e.target.value, 10) : undefined })}
+                      onChange={(e) => setEditForm({
+                        ...editForm,
+                        warranty_months: e.target.value === "" || !Number.isFinite(e.target.valueAsNumber)
+                          ? undefined
+                          : Math.max(0, Math.trunc(e.target.valueAsNumber)),
+                      })}
                     />
                   </div>
                 </div>
@@ -1035,16 +1030,21 @@ export default function AssetHubPage() {
 
           <Dialog open={checkoutDialogOpen} onOpenChange={setCheckoutDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" className="h-12 gap-2" disabled={!!activeCheckout}>
+              <Button
+                variant="outline"
+                className="h-12 gap-2"
+                disabled={asset.status === "Baixado"}
+                title={asset.status === "Baixado" ? "Patrimônio já retirado da empresa" : undefined}
+              >
                 <LogOut className="h-4 w-4" />
-                Checkout
+                Retirar patrimônio
               </Button>
             </DialogTrigger>
             <DialogContent>
-              <DialogHeader><DialogTitle>Realizar Checkout</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>Registrar retirada</DialogTitle></DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label>Usuário</Label>
+                  <Label>Responsável <span className="text-destructive">*</span></Label>
                   <UserSelect
                     value={checkoutData.user_name}
                     onChange={(v) => setCheckoutData({ ...checkoutData, user_name: v, user_id: v ? checkoutData.user_id : "" })}
@@ -1058,14 +1058,24 @@ export default function AssetHubPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Data Prevista Devolução</Label>
-                  <Input type="date" value={checkoutData.expected_return} onChange={e => setCheckoutData({ ...checkoutData, expected_return: e.target.value })} />
+                  <Label>Data de Retirada <span className="text-destructive">*</span></Label>
+                  <Input
+                    type="date"
+                    max={getTodayInputValue()}
+                    value={checkoutData.checkout_date}
+                    onChange={e => setCheckoutData({ ...checkoutData, checkout_date: e.target.value })}
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label>Observações</Label>
-                  <Textarea value={checkoutData.notes} onChange={e => setCheckoutData({ ...checkoutData, notes: e.target.value })} />
+                  <Label>Motivo da Retirada <span className="text-destructive">*</span></Label>
+                  <Textarea
+                    placeholder="Ex: Uso em obra, manutenção externa, viagem..."
+                    value={checkoutData.notes}
+                    onChange={e => setCheckoutData({ ...checkoutData, notes: e.target.value })}
+                    rows={3}
+                  />
                 </div>
-                <Button onClick={handleCheckout}>Confirmar Checkout</Button>
+                <Button onClick={handleCheckout} className="w-full">Registrar Retirada</Button>
               </div>
             </DialogContent>
           </Dialog>

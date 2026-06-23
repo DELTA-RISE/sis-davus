@@ -42,7 +42,11 @@ export function useUsers(searchTerm = "") {
 export function useAssets(searchTerm = "", costCenterId?: string | null) {
     const assets = useLiveQuery(async () => {
         const all = await db.assets.orderBy('name').toArray();
-        const active = all.filter((a) => !a.deleted_at && (!costCenterId || a.cost_center === costCenterId));
+        const active = all.filter((a) =>
+            !a.deleted_at
+            && a.status !== "Baixado"
+            && (!costCenterId || a.cost_center === costCenterId)
+        );
 
         if (!searchTerm) return active;
 
@@ -69,7 +73,7 @@ export function useDashboardData() {
         ]);
 
         const activeProducts = products.filter((p) => !p.deleted_at);
-        const activeAssets = assets.filter((a) => !a.deleted_at);
+        const activeAssets = assets.filter((a) => !a.deleted_at && a.status !== "Baixado");
 
         return {
             products: activeProducts,

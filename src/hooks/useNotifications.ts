@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { getProducts, getAssets, getCheckouts, getWriteOffRequests, getMaintenanceTasks } from "@/lib/db";
+import { getProducts, getAssets, getWriteOffRequests, getMaintenanceTasks } from "@/lib/db";
 import {
     getReadNotifications,
     saveReadNotifications,
@@ -37,19 +37,13 @@ export function useNotifications() {
     const loadNotifications = useCallback(async () => {
         setIsLoading(true);
         try {
-            const [products, assets, checkouts, writeOffRequests, maintenanceTasks] = await Promise.all([
+            const [products, assets, writeOffRequests, maintenanceTasks] = await Promise.all([
                 getProducts(false, scopedCostCenter),
                 getAssets(false, scopedCostCenter),
-                getCheckouts(),
                 getWriteOffRequests(),
                 getMaintenanceTasks(),
             ]);
-            const visibleProductIds = new Set(products.map((product) => product.id));
             const visibleAssetIds = new Set(assets.map((asset) => asset.id));
-            const visibleCheckouts = checkouts.filter((checkout) => {
-                if (checkout.item_type === "asset") return visibleAssetIds.has(checkout.item_id);
-                return visibleProductIds.has(checkout.item_id);
-            });
 
             const lowStockNotifs: Notification[] = products
                 .filter(p => p.quantity < (p.min_stock || 0))
@@ -71,17 +65,6 @@ export function useNotifications() {
                     time: "Agora",
                     unread: !readIds.includes(`asset-${a.id}`),
                     type: "maintenance"
-                }));
-
-            const overdueNotifs: Notification[] = visibleCheckouts
-                .filter(c => c.status === "Atrasado" || (c.status === "Ativo" && c.expected_return_date && new Date(c.expected_return_date) < new Date()))
-                .map(c => ({
-                    id: `checkout-${c.id}`,
-                    title: "Checkout Atrasado",
-                    message: `${c.item_name} deveria ter sido devolvido em ${new Date(c.expected_return_date || "").toLocaleDateString()}`,
-                    time: "Atrasado",
-                    unread: !readIds.includes(`checkout-${c.id}`),
-                    type: "overdue"
                 }));
 
             const writeOffNotifs: Notification[] = writeOffRequests
@@ -108,7 +91,7 @@ export function useNotifications() {
                     metadata: t
                 }));
 
-            const allNotifs = [...writeOffNotifs, ...maintenanceRequestNotifs, ...lowStockNotifs, ...maintenanceNotifs, ...overdueNotifs]
+            const allNotifs = [...writeOffNotifs, ...maintenanceRequestNotifs, ...lowStockNotifs, ...maintenanceNotifs]
                 .filter(n => !dismissedIds.includes(n.id));
 
             setNotifications(allNotifs);
@@ -141,11 +124,6 @@ export function useNotifications() {
         setDismissedIds(newDismissed);
         saveDismissedNotifications(newDismissed);
     };
-
-    const clearAllDisimissed = () => { // Optional: reset mechanism
-        setDismissedIds([]);
-        saveDismissedNotifications([]);
-    }
 
     const clearAllNotifications = () => {
         const allIds = notifications.map(n => n.id);

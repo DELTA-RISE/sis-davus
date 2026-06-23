@@ -1,5 +1,15 @@
 import { z } from "zod";
 
+const optionalText = z.preprocess(
+  (value) => value === undefined || value === null || value === "" ? undefined : String(value),
+  z.string().optional()
+);
+
+const textWithEmptyDefault = z.preprocess(
+  (value) => value === undefined || value === null ? "" : String(value),
+  z.string().default("")
+);
+
 export const productSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
   sku: z.string().min(3, "SKU deve ter pelo menos 3 caracteres"),
@@ -24,28 +34,33 @@ export const movementSchema = z.object({
 export const assetSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
   code: z.string().min(3, "Código deve ter pelo menos 3 caracteres"),
-  category: z.string().optional().default(""),
-  location: z.string().optional().default(""),
-  cost_center: z.string().optional().default(""),
+  category: textWithEmptyDefault,
+  location: textWithEmptyDefault,
+  cost_center: textWithEmptyDefault,
   condition: z.enum(["Excelente", "Bom", "Regular", "Ruim", "Manutenção"]),
-  purchase_date: z.string().optional(),
+  purchase_date: optionalText,
   value: z.number().min(0, "Valor não pode ser negativo"),
-  invoice_number: z.string().optional(),
-  warranty_months: z.number().min(0, "Garantia não pode ser negativa").optional(),
-  assigned_to: z.string().optional(),
-  description: z.string().optional(),
-  brand: z.string().optional(),
-  model: z.string().optional(),
-  serial_number: z.string().optional(),
+  invoice_number: z.preprocess(
+    (value) => value === undefined || value === null || value === "" ? undefined : String(value).trim(),
+    z.string().optional()
+  ),
+  warranty_months: z.preprocess(
+    (value) => value === "" || value === null ? undefined : typeof value === "string" ? Number(value) : value,
+    z.number().int("Garantia deve ser informada em meses inteiros").min(0, "Garantia não pode ser negativa").optional()
+  ),
+  assigned_to: optionalText,
+  description: optionalText,
+  brand: optionalText,
+  model: optionalText,
+  serial_number: optionalText,
 });
 
 export const checkoutSchema = z.object({
-  item_type: z.enum(["product", "asset"]),
-  item_id: z.string().min(1, "Selecione um item"),
-  quantity: z.number().min(1, "Quantidade deve ser maior que 0"),
-  user_name: z.string().min(2, "Informe o usuário"),
-  expected_return: z.string().min(1, "Informe a data de devolução"),
-  notes: z.string().optional(),
+  item_type: z.literal("asset"),
+  item_id: z.string().min(1, "Selecione um patrimônio"),
+  user_id: z.string().min(1, "Selecione um responsável"),
+  checkout_date: z.string().min(1, "Informe a data da retirada"),
+  notes: z.string().trim().min(1, "Informe o motivo da retirada"),
 });
 
 export const maintenanceSchema = z.object({

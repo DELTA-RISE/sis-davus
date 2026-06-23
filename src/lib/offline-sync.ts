@@ -5,6 +5,22 @@ import { db } from "./dexie-db";
 import { supabase } from "./supabase";
 
 const pluralizeChanges = (count: number) => `${count} ${count === 1 ? "alteração" : "alterações"}`;
+const SYNC_TIMEOUT_MS = 15000;
+
+async function withTimeout<T>(promise: PromiseLike<T>, timeoutMs: number = SYNC_TIMEOUT_MS): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout>;
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error("Tempo limite ao sincronizar com o Supabase.")), timeoutMs);
+  });
+
+  return Promise.race([
+    Promise.resolve(promise).then((result) => {
+      clearTimeout(timeoutId);
+      return result;
+    }),
+    timeoutPromise,
+  ]);
+}
 
 const cleanPayload = (payload: Record<string, unknown>) =>
   Object.fromEntries(Object.entries(payload).filter(([key]) => !key.startsWith("__")));
@@ -70,10 +86,30 @@ export async function addToSyncQueue(action: {
   payload: Record<string, unknown>;
 }): Promise<boolean> {
   try {
+    const payload = normalizePayloadForSync(action.table, action.payload);
+    const payloadId = payload.id;
+
+    if (payloadId) {
+      const existing = await db.sync_queue
+        .where("table")
+        .equals(action.table)
+        .filter((item) => item.action === action.action && item.payload?.id === payloadId)
+        .first();
+
+      if (existing?.id) {
+        await db.sync_queue.update(existing.id, {
+          payload,
+          timestamp: Date.now(),
+          status: "pending",
+        });
+        return true;
+      }
+    }
+
     await db.sync_queue.add({
       table: action.table,
       action: action.action,
-      payload: normalizePayloadForSync(action.table, action.payload),
+      payload,
       timestamp: Date.now(),
       status: "pending",
     });
@@ -90,9 +126,14 @@ export async function addToSyncQueue(action: {
   }
 }
 
-export async function processSyncQueue() {
+export async function processSyncQueue(options: { showToast?: boolean } = {}) {
   if (typeof window === "undefined") return;
   if (!window.navigator.onLine) return;
+
+  await db.sync_queue
+    .where("status")
+    .equals("syncing")
+    .modify({ status: "pending" });
 
   const pendingActions = await db.sync_queue
     .where("status")
@@ -101,9 +142,12 @@ export async function processSyncQueue() {
 
   if (pendingActions.length === 0) return;
 
-  const toastId = toast.loading("SIS DAVUS sincronizando dados", {
-    description: `${pluralizeChanges(pendingActions.length)} pendentes na fila de sincronização.`,
-  });
+  const showToast = options.showToast ?? true;
+  const toastId = showToast
+    ? toast.loading("SIS DAVUS sincronizando dados", {
+      description: `${pluralizeChanges(pendingActions.length)} pendentes na fila de sincronização.`,
+    })
+    : undefined;
   let successCount = 0;
 
   for (const item of pendingActions) {
@@ -121,9 +165,13 @@ export async function processSyncQueue() {
           }
         }
 
-        result = await supabase.from(item.table).upsert(normalizePayloadForSync(item.table, payloadForSync));
+        result = await withTimeout(
+          supabase.from(item.table).upsert(normalizePayloadForSync(item.table, payloadForSync))
+        );
       } else if (item.action === "delete") {
-        result = await supabase.from(item.table).delete().match(item.payload);
+        result = await withTimeout(
+          supabase.from(item.table).delete().match(item.payload)
+        );
       }
 
       if (result?.error) throw result.error;
@@ -145,21 +193,23 @@ export async function processSyncQueue() {
       if (isPermanentError) {
         console.warn(`Cleaned up failing sync item ${item.id} due to permanent error:`, item.payload);
         await db.sync_queue.delete(item.id!);
-        toast.error("Falha permanente na sincronização", {
-          description: getErrorMessage(error),
-        });
+        if (showToast) {
+          toast.error("Falha permanente na sincronização", {
+            description: getErrorMessage(error),
+          });
+        }
       } else {
         await db.sync_queue.update(item.id!, { status: "pending" });
       }
     }
   }
 
-  if (successCount > 0) {
+  if (showToast && successCount > 0) {
     toast.success("Sincronização concluída", {
       id: toastId,
       description: `${pluralizeChanges(successCount)} enviadas com sucesso para o Supabase.`,
     });
-  } else {
+  } else if (toastId) {
     toast.dismiss(toastId);
   }
 }

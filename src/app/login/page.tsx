@@ -23,9 +23,12 @@ import {
   InputOTPGroup,
   InputOTPSlot,
 } from "@/components/ui/input-otp";
+import { useAuth } from "@/lib/auth-context";
+import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { user: authenticatedUser, isLoading: isAuthLoading, mustChangePassword } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -39,14 +42,10 @@ export default function LoginPage() {
   const isSubmittingRef = useRef(false);
 
   useEffect(() => {
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        router.push("/dashboard");
-      }
-    };
-    checkSession();
-  }, [router]);
+    if (!isAuthLoading && authenticatedUser) {
+      router.replace(mustChangePassword ? "/change-password" : "/dashboard");
+    }
+  }, [authenticatedUser, isAuthLoading, mustChangePassword, router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -146,8 +145,12 @@ export default function LoginPage() {
         last_login: new Date().toISOString()
       });
     }
-    router.push("/dashboard");
+    router.replace("/dashboard");
   };
+
+  if (isAuthLoading || authenticatedUser) {
+    return <DashboardSkeleton />;
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4 text-slate-950 dark:bg-black dark:text-foreground">

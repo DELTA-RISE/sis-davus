@@ -65,6 +65,8 @@ export const getPublicIp = async (): Promise<string> => {
 const isOnline = () => typeof window !== 'undefined' && window.navigator.onLine;
 
 const TIMEOUT_MS = 15000;
+const SYNC_FRESHNESS_MS = 60_000;
+const syncInFlight = new Map<string, Promise<void>>();
 // memoryCache removed in favor of Dexie
 
 export type PersistenceStatus = 'synced' | 'queued';
@@ -81,6 +83,24 @@ const getErrorMessage = (error: unknown) => {
   }
   if (typeof error === 'string') return error;
   return undefined;
+};
+
+const getSyncTimestampKey = (table: string) => `sis-davus:last-sync:${table}`;
+
+const getLastSyncTime = (table: string) => {
+  if (typeof window === 'undefined') return 0;
+  const value = window.localStorage.getItem(getSyncTimestampKey(table));
+  return value ? Number(value) || 0 : 0;
+};
+
+const markTableSynced = (table: string) => {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(getSyncTimestampKey(table), String(Date.now()));
+};
+
+const isRecentlySynced = (table: string) => {
+  const lastSync = getLastSyncTime(table);
+  return lastSync > 0 && Date.now() - lastSync < SYNC_FRESHNESS_MS;
 };
 
 export function isPendingSync<T>(item: Persisted<T> | null | undefined): boolean {
@@ -182,7 +202,7 @@ async function getAll<T>(table: string, orderColumn: keyof T = 'created_at' as k
 
   // Network First (if online)
   try {
-    await syncTable(table, orderColumn as string, ascending);
+    await syncTable(table, orderColumn as string, ascending, _forceRefresh);
     const refreshed = await db.table(table).toArray();
     return refreshed.sort((a, b) => {
       const valA = a[orderColumn] as unknown as string | number;
@@ -198,51 +218,64 @@ async function getAll<T>(table: string, orderColumn: keyof T = 'created_at' as k
 }
 
 // Explicit Sync Function (Fire and Forget)
-export async function syncTable(table: string, orderColumn: string = 'created_at', ascending: boolean = false) {
+export async function syncTable(table: string, orderColumn: string = 'created_at', ascending: boolean = false, force = false) {
   if (!isOnline()) return;
+  if (!force && isRecentlySynced(table)) return;
 
-  try {
-    const queuedUpserts = await db.sync_queue
-      .where('table')
-      .equals(table)
-      .filter((item) => item.action === 'upsert' && item.status !== 'failed')
-      .toArray();
-    const queuedDeleteIds = new Set(
-      (await db.sync_queue
+  const inFlightKey = `${table}:${orderColumn}:${ascending}`;
+  const currentSync = syncInFlight.get(inFlightKey);
+  if (currentSync) return currentSync;
+
+  const syncPromise = (async () => {
+    try {
+      const queuedUpserts = await db.sync_queue
         .where('table')
         .equals(table)
-        .filter((item) => item.action === 'delete' && item.status !== 'failed' && Boolean(item.payload?.id))
-        .toArray())
-        .map((item) => String(item.payload.id))
-    );
-    const queuedPayloads = queuedUpserts
-      .map((item) => item.payload)
-      .filter(
-        (payload): payload is Record<string, unknown> =>
-          Boolean(payload && payload.id && !queuedDeleteIds.has(String(payload.id)))
+        .filter((item) => item.action === 'upsert' && item.status !== 'failed')
+        .toArray();
+      const queuedDeleteIds = new Set(
+        (await db.sync_queue
+          .where('table')
+          .equals(table)
+          .filter((item) => item.action === 'delete' && item.status !== 'failed' && Boolean(item.payload?.id))
+          .toArray())
+          .map((item) => String(item.payload.id))
+      );
+      const queuedPayloads = queuedUpserts
+        .map((item) => item.payload)
+        .filter(
+          (payload): payload is Record<string, unknown> =>
+            Boolean(payload && payload.id && !queuedDeleteIds.has(String(payload.id)))
+        );
+
+      const { data, error } = await withTimeout(
+        supabase
+          .from(table)
+          .select('*')
+          .order(orderColumn, { ascending })
       );
 
-    const { data, error } = await withTimeout(
-      supabase
-        .from(table)
-        .select('*')
-        .order(orderColumn, { ascending })
-    );
+      if (error) throw error;
 
-    if (error) throw error;
+      await db.transaction('rw', db.table(table), async () => {
+        await db.table(table).clear();
+        await db.table(table).bulkAdd(
+          (data || []).filter((item: { id?: string }) => !queuedDeleteIds.has(String(item.id)))
+        );
+        if (queuedPayloads.length > 0) {
+          await db.table(table).bulkPut(queuedPayloads);
+        }
+      });
+      markTableSynced(table);
+    } catch (error) {
+      console.error(`Sync failed for ${table}:`, error);
+    } finally {
+      syncInFlight.delete(inFlightKey);
+    }
+  })();
 
-    await db.transaction('rw', db.table(table), async () => {
-      await db.table(table).clear();
-      await db.table(table).bulkAdd(
-        (data || []).filter((item: { id?: string }) => !queuedDeleteIds.has(String(item.id)))
-      );
-      if (queuedPayloads.length > 0) {
-        await db.table(table).bulkPut(queuedPayloads);
-      }
-    });
-  } catch (error) {
-    console.error(`Sync failed for ${table}:`, error);
-  }
+  syncInFlight.set(inFlightKey, syncPromise);
+  return syncPromise;
 }
 
 // Specialized getter with filtering
@@ -250,10 +283,10 @@ async function getAllFiltered<T>(
   table: string,
   userInfo: { role: string | null; cost_center: string | null },
   orderColumn: keyof T = 'created_at' as keyof T,
-  ascending: boolean = false
+  ascending: boolean = false,
+  forceRefresh = false
 ): Promise<T[]> {
-  // Offline: Filter local data
-  if (!isOnline()) {
+  const getLocalFilteredData = async () => {
     const localData = await db.table(table).toArray();
     let filtered = localData.filter((item) => !item.deleted_at); // Exclude soft deleted
 
@@ -268,6 +301,17 @@ async function getAllFiltered<T>(
       if (valA > valB) return ascending ? 1 : -1;
       return 0;
     }) as T[];
+  };
+
+  const localFilteredData = await getLocalFilteredData();
+
+  // Offline: Filter local data
+  if (!isOnline()) {
+    return localFilteredData;
+  }
+
+  if (!forceRefresh && localFilteredData.length > 0 && isRecentlySynced(table)) {
+    return localFilteredData;
   }
 
   // Online: Supabase query
@@ -286,10 +330,15 @@ async function getAllFiltered<T>(
 
     if (error) throw error;
 
+    if (data && data.length > 0) {
+      await db.table(table).bulkPut(data);
+      markTableSynced(table);
+    }
+
     return data as T[];
   } catch (err) {
     console.error(`Fetch filtered error ${table}:`, err);
-    return [] as T[];
+    return localFilteredData;
   }
 }
 
@@ -456,8 +505,8 @@ async function remove(table: string, id: string): Promise<boolean> {
 
 // Products
 // Products
-export const getProducts = async (_forceRefresh = false, costCenterId?: string | null) => {
-  return getAllFiltered<Product>('products', { role: null, cost_center: costCenterId || null }, 'name', true);
+export const getProducts = async (forceRefresh = false, costCenterId?: string | null) => {
+  return getAllFiltered<Product>('products', { role: null, cost_center: costCenterId || null }, 'name', true, forceRefresh);
 };
 
 export const saveProduct = async (product: Partial<Product>, userInfo?: { name: string, id: string }) => {
@@ -638,7 +687,45 @@ export const restoreAsset = async (id: string, userInfo?: { name: string, id: st
 };
 
 // Movements
-export const getMovements = (forceRefresh = false) => getAll<StockMovement>('stock_movements', 'date', false, forceRefresh);
+export const getMovements = async (limitOrForceRefresh?: number | boolean, forceRefresh = false): Promise<StockMovement[]> => {
+  if (typeof limitOrForceRefresh === 'boolean') {
+    return getAll<StockMovement>('stock_movements', 'date', false, limitOrForceRefresh);
+  }
+
+  if (typeof limitOrForceRefresh !== 'number') {
+    return getAll<StockMovement>('stock_movements', 'date', false, forceRefresh);
+  }
+
+  const limit = limitOrForceRefresh;
+  const localData = await db.stock_movements
+    .orderBy('date')
+    .reverse()
+    .limit(limit)
+    .toArray();
+
+  if (!isOnline() || (!forceRefresh && isRecentlySynced('stock_movements'))) {
+    return localData;
+  }
+
+  try {
+    const { data, error } = await withTimeout(
+      supabase
+        .from('stock_movements')
+        .select('*')
+        .order('date', { ascending: false })
+        .limit(limit)
+    );
+
+    if (error) throw error;
+
+    await db.stock_movements.bulkPut(data || []);
+    markTableSynced('stock_movements');
+    return data || [];
+  } catch (error) {
+    console.error('Fetch error stock_movements, falling back to cache:', error);
+    return localData;
+  }
+};
 export const saveMovement = async (movement: Partial<StockMovement>, userInfo?: { name: string, id: string }) => {
   const quantity = Number(movement.quantity || 0);
   const productId = movement.product_id;
@@ -741,7 +828,15 @@ export const getCheckouts = async (itemId?: string, itemType?: 'product' | 'asse
     return checkout.item_id === itemId && checkout.item_type === itemType;
   };
 
-  const localData = (await db.checkouts.toArray()).filter(filterCheckout);
+  const pendingDeletes = await db.sync_queue
+    .where('table')
+    .equals('checkouts')
+    .filter((item) => item.action === 'delete')
+    .toArray();
+  const pendingDeleteIds = new Set(pendingDeletes.map((item) => item.payload?.id).filter(Boolean));
+  const localData = (await db.checkouts.toArray())
+    .filter((checkout) => !pendingDeleteIds.has(checkout.id))
+    .filter(filterCheckout);
 
   if (!isOnline()) {
     return sortByCheckoutDate(localData);
@@ -754,7 +849,8 @@ export const getCheckouts = async (itemId?: string, itemType?: 'product' | 'asse
     const { data, error } = await withTimeout(query);
     if (error) throw error;
 
-    const remoteData = (data || []) as Checkout[];
+    const remoteData = ((data || []) as Checkout[])
+      .filter((checkout) => !pendingDeleteIds.has(checkout.id));
     const remoteIds = new Set(remoteData.map((checkout) => checkout.id));
     const localOnly = localData.filter((checkout) => !remoteIds.has(checkout.id));
 
@@ -773,16 +869,56 @@ export const saveCheckout = async (checkout: Partial<Checkout>, userInfo?: { nam
     quantity: checkout.quantity ?? 1,
   };
   const result = await upsert<Checkout>('checkouts', payload as Checkout);
+  if (result?.item_type === 'asset') {
+    const asset = await db.assets.get(result.item_id);
+    if (asset && asset.status !== 'Baixado') {
+      await upsert<Asset>('assets', {
+        ...asset,
+        status: 'Baixado',
+        updated_at: new Date().toISOString(),
+      });
+    }
+  }
   if (result && userInfo) {
     await logActivity(
       payload.id ? "UPDATE" : "CHECKOUT",
       "CHECKOUT",
-      `Checkout de "${result.item_name}" ${payload.id ? "atualizado" : "realizado"} para ${result.user_name} por ${userInfo.name}.`,
+      `Retirada de "${result.item_name}" ${payload.id ? "atualizada" : "registrada"} para ${result.user_name} por ${userInfo.name}.`,
       result.id,
       userInfo.name
     );
   }
   return result;
+};
+
+export const deleteCheckout = async (id: string, userInfo?: { name: string, id: string }) => {
+  const checkout = await db.checkouts.get(id);
+  const success = await remove('checkouts', id);
+  if (success && checkout?.item_type === 'asset' && checkout.status === 'Ativo') {
+    const asset = await db.assets.get(checkout.item_id);
+    const hasAnotherWithdrawal = await db.checkouts
+      .where('item_id')
+      .equals(checkout.item_id)
+      .filter((item) => item.item_type === 'asset' && item.status === 'Ativo')
+      .count();
+    if (asset?.status === 'Baixado' && hasAnotherWithdrawal === 0) {
+      await upsert<Asset>('assets', {
+        ...asset,
+        status: 'Disponível',
+        updated_at: new Date().toISOString(),
+      });
+    }
+  }
+  if (success && userInfo) {
+    await logActivity(
+      "DELETE",
+      "CHECKOUT",
+      `Retirada de patrimônio (ID: ${id}) excluída por ${userInfo.name}.`,
+      id,
+      userInfo.name
+    );
+  }
+  return success;
 };
 
 // Cost Centers
@@ -827,7 +963,36 @@ export const deleteCategory = (id: string) => remove('categories', id);
 
 
 // Audit Logs
-export const getAuditLogs = (forceRefresh = false) => getAll<AuditLog>('admin_audit_logs', 'created_at', false, forceRefresh);
+export const getAuditLogs = async (limit = 120, forceRefresh = false): Promise<AuditLog[]> => {
+  const localData = await db.admin_audit_logs
+    .orderBy('created_at')
+    .reverse()
+    .limit(limit)
+    .toArray();
+
+  if (!isOnline() || (!forceRefresh && isRecentlySynced('admin_audit_logs'))) {
+    return localData;
+  }
+
+  try {
+    const { data, error } = await withTimeout(
+      supabase
+        .from('admin_audit_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(limit)
+    );
+
+    if (error) throw error;
+
+    await db.admin_audit_logs.bulkPut(data || []);
+    markTableSynced('admin_audit_logs');
+    return data || [];
+  } catch (error) {
+    console.error('Fetch error admin_audit_logs, falling back to cache:', error);
+    return localData;
+  }
+};
 
 export const logActivity = async (
   action: string,

@@ -1,4 +1,4 @@
-import { useMemo, useEffect } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { syncTable } from "@/lib/db";
 import { useLiveQuery } from "dexie-react-hooks";
@@ -20,32 +20,64 @@ interface DashboardDataParams {
 const EMPTY_ARRAY: never[] = [];
 
 export function useDashboardData({ role, costCenterId, userId, userName, dateRange }: DashboardDataParams = {}) {
-    // Trigger Syncs
+    const [isInitialSyncing, setIsInitialSyncing] = useState(true);
+
     useEffect(() => {
-        if (role && typeof window !== "undefined") {
-            const runSync = () => {
-                void Promise.all([
+        if (!role || typeof window === "undefined") {
+            setIsInitialSyncing(false);
+            return;
+        }
+
+        let cancelled = false;
+        let timeoutId: ReturnType<typeof setTimeout> | undefined;
+        let idleId: number | undefined;
+
+        const hasCachedData = async () => {
+            const [productsCount, assetsCount, movementsCount, checkoutsCount] = await Promise.all([
+                db.products.count(),
+                db.assets.count(),
+                db.stock_movements.count(),
+                db.checkouts.count(),
+            ]);
+            return productsCount + assetsCount + movementsCount + checkoutsCount > 0;
+        };
+
+        const runScopedSync = async () => {
+            try {
+                await Promise.all([
                     syncTable('products', 'name', true),
                     syncTable('assets', 'name', true),
                     syncTable('stock_movements', 'date', false),
                     syncTable('checkouts', 'checkout_date', false)
                 ]);
-            };
+            } finally {
+                if (!cancelled) setIsInitialSyncing(false);
+            }
+        };
 
-            const win = window as Window & {
-                requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
-                cancelIdleCallback?: (id: number) => void;
-            };
+        const win = window as Window & {
+            requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+            cancelIdleCallback?: (id: number) => void;
+        };
 
-            if (win.requestIdleCallback && win.cancelIdleCallback) {
-                const idleId = win.requestIdleCallback(runSync, { timeout: 2000 });
-                return () => win.cancelIdleCallback?.(idleId);
+        void hasCachedData().then((hasCache) => {
+            if (cancelled) return;
+            setIsInitialSyncing(!hasCache);
+
+            if (hasCache && win.requestIdleCallback) {
+                idleId = win.requestIdleCallback(() => void runScopedSync(), { timeout: 2000 });
+                return;
             }
 
-            const timeoutId = globalThis.setTimeout(runSync, 250);
-            return () => globalThis.clearTimeout(timeoutId);
-        }
-    }, [role]);
+            timeoutId = globalThis.setTimeout(() => void runScopedSync(), hasCache ? 800 : 50);
+        });
+
+        return () => {
+            cancelled = true;
+            if (timeoutId) globalThis.clearTimeout(timeoutId);
+            if (idleId) win.cancelIdleCallback?.(idleId);
+        };
+    }, [role, costCenterId]);
 
     const data = useLiveQuery(async () => {
         let productsQuery = db.products.filter(p => !p.deleted_at);
@@ -65,13 +97,14 @@ export function useDashboardData({ role, costCenterId, userId, userName, dateRan
             assetsQuery = assetsQuery.filter(a => a.cost_center === costCenterId);
         }
 
-        const [products, assets] = await Promise.all([
+        const [products, scopedAssets] = await Promise.all([
             productsQuery.toArray(),
             assetsQuery.toArray(),
         ]);
 
         const visibleProductIds = new Set(products.map(p => p.id));
-        const visibleAssetIds = new Set(assets.map(a => a.id));
+        const visibleAssetIds = new Set(scopedAssets.map(a => a.id));
+        const assets = scopedAssets.filter((asset) => asset.status !== "Baixado");
         const [allMovements, allCheckouts] = await Promise.all([
             costCenterId
                 ? db.stock_movements
@@ -104,10 +137,10 @@ export function useDashboardData({ role, costCenterId, userId, userName, dateRan
 
     const refreshData = async () => {
         await Promise.all([
-            syncTable('products', 'name', true),
-            syncTable('assets', 'name', true),
-            syncTable('stock_movements', 'date', false),
-            syncTable('checkouts', 'checkout_date', false)
+            syncTable('products', 'name', true, true),
+            syncTable('assets', 'name', true, true),
+            syncTable('stock_movements', 'date', false, true),
+            syncTable('checkouts', 'checkout_date', false, true)
         ]);
         toast.success("Dados atualizados!");
     };
@@ -116,7 +149,8 @@ export function useDashboardData({ role, costCenterId, userId, userName, dateRan
     const assets = data?.assets || EMPTY_ARRAY;
     const movements = data?.movements || EMPTY_ARRAY;
     const checkouts = data?.checkouts || EMPTY_ARRAY;
-    const isLoading = !data;
+    const hasAnyData = products.length + assets.length + movements.length + checkouts.length > 0;
+    const isLoading = !data || (isInitialSyncing && !hasAnyData);
 
     // Derived Data
     const lowStockProducts = useMemo(() =>
@@ -146,6 +180,17 @@ export function useDashboardData({ role, costCenterId, userId, userName, dateRan
         return Object.entries(categories)
             .map(([name, value]) => ({ name, value }))
             .sort((a, b) => b.value - a.value); // Sort by value desc
+    }, [products]);
+
+    const stockByCostCenter = useMemo(() => {
+        const centers: Record<string, number> = {};
+        products.forEach((p) => {
+            const center = p.cost_center || "Sem centro de custo";
+            centers[center] = (centers[center] || 0) + p.quantity;
+        });
+        return Object.entries(centers)
+            .map(([name, value]) => ({ name, value }))
+            .sort((a, b) => b.value - a.value);
     }, [products]);
 
     const movementsData = useMemo(() => {
@@ -196,6 +241,7 @@ export function useDashboardData({ role, costCenterId, userId, userName, dateRan
         assetsInMaintenance,
         recentMovements,
         stockByCategory,
+        stockByCostCenter,
         movementsData
     };
 }
