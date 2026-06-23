@@ -63,6 +63,8 @@ export default function CheckoutsPage() {
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
   const [newCheckout, setNewCheckout] = useState<Partial<Checkout>>({
+    item_type: "asset",
+    quantity: 1,
     checkout_date: todayStr,
   });
   const [openItemSelect, setOpenItemSelect] = useState(false);
@@ -144,7 +146,7 @@ export default function CheckoutsPage() {
         asset.id === saved.item_id ? { ...asset, status: "Baixado" } : asset
       ));
       setIsDialogOpen(false);
-      setNewCheckout({ checkout_date: todayStr });
+      setNewCheckout({ item_type: "asset", quantity: 1, checkout_date: todayStr });
     } else {
       toast.error("Erro ao registrar retirada");
     }
